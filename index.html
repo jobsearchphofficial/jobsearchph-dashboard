@@ -326,49 +326,113 @@
   .btn-ghost:hover { border-color: var(--border3); color: var(--text); background: var(--card2); }
 
   /* ─── PLACEMENTS TABLE ─── */
-  .placements-section { padding: 0 18px 14px; }
+  .placements-section { padding: 0 18px 16px; }
 
   .placements-title {
-    font-size: 11px; font-weight: 600; color: var(--text3);
-    text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 12px 0 8px;
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 14px 0 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .placements-title::before {
+    content: ''; display: block; width: 3px; height: 12px;
+    background: var(--gold); border-radius: 2px; opacity: 0.5;
   }
 
-  .placement-row {
-    display: grid;
-    grid-template-columns: 1fr 130px 140px 100px auto;
-    gap: 8px; align-items: center;
-    padding: 10px 12px;
+  /* Collapsed row — compact header only */
+  .prow {
     border-radius: 10px;
     background: var(--card2);
     margin-bottom: 6px;
-    font-size: 12px;
     border: 1px solid var(--border);
-    transition: border-color .2s;
+    transition: border-color .2s, box-shadow .2s;
+    overflow: hidden;
   }
-  .placement-row:hover { border-color: var(--border2); }
+  .prow:hover { border-color: var(--border2); }
+  .prow.prow-inactive { opacity: 0.55; }
+  .prow.prow-inactive:hover { opacity: 0.8; }
 
-  .placement-name { font-weight: 500; }
-  .placement-id { font-family: var(--mono); font-size: 10px; color: var(--text3); }
-
-  .placement-row select {
-    background: var(--card3); border: 1px solid var(--border2);
-    color: var(--text); padding: 5px 8px; border-radius: 7px;
-    font-family: var(--sans); font-size: 11px; font-weight: 500; outline: none;
-    width: 100%; transition: border-color .2s;
+  .prow-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; cursor: pointer; user-select: none;
   }
-  .placement-row select:focus { border-color: var(--gold); }
+
+  .prow-header:hover { background: rgba(255,255,255,0.02); }
+
+  .prow-status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dot-messaged    { background: var(--blue); box-shadow: 0 0 6px rgba(79,156,249,0.5); }
+  .dot-interview   { background: var(--purple); box-shadow: 0 0 6px rgba(167,139,250,0.5); }
+  .dot-interviewed { background: var(--orange); box-shadow: 0 0 6px rgba(251,146,60,0.5); }
+  .dot-hired       { background: var(--green); box-shadow: 0 0 6px rgba(15,214,138,0.5); }
+  .dot-dropped     { background: var(--text3); }
+  .dot-notint      { background: var(--red); opacity: 0.5; }
+  .dot-default     { background: var(--text3); }
+
+  .prow-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .prow-id   { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+  .prow-badges { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+
+  .prow-status-pill {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .pill-messaged    { background: var(--blue-dim);   border-color: rgba(79,156,249,0.3);  color: var(--blue); }
+  .pill-interview   { background: var(--purple-dim); border-color: rgba(167,139,250,0.3); color: var(--purple); }
+  .pill-interviewed { background: var(--orange-dim); border-color: rgba(251,146,60,0.3);  color: var(--orange); }
+  .pill-hired       { background: var(--green-dim);  border-color: rgba(15,214,138,0.3);  color: var(--green); }
+  .pill-dropped     { background: var(--card3);      border-color: var(--border2);        color: var(--text3); }
+  .pill-notint      { background: var(--red-dim);    border-color: rgba(242,85,85,0.25);  color: var(--red); opacity:0.7; }
+  .pill-default     { background: var(--card3);      border-color: var(--border2);        color: var(--text3); }
+
+  .prow-chevron { color: var(--text3); font-size: 10px; transition: transform .2s; }
+  .prow.open .prow-chevron { transform: rotate(180deg); }
 
   .followup-flag {
     font-size: 10px; background: rgba(251,146,60,0.15); color: var(--orange);
-    padding: 3px 8px; border-radius: 5px; border: 1px solid rgba(251,146,60,0.3);
-    white-space: nowrap; font-weight: 600; letter-spacing: 0.1px;
+    padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(251,146,60,0.3);
+    white-space: nowrap; font-weight: 600;
     animation: pulse-warn 2s infinite;
   }
   @keyframes pulse-warn { 0%,100%{opacity:1} 50%{opacity:0.7} }
 
+  /* Expanded body */
+  .prow-body {
+    display: none;
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .prow.open .prow-body { display: block; animation: fadeUp .18s ease; }
+  .prow.open { border-color: var(--border2); box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+
+  .prow-fields {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-top: 10px;
+  }
+  .prow-field { display: flex; flex-direction: column; gap: 4px; }
+  .prow-field-label {
+    font-size: 9px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .prow-field select, .prow-field input[type=date], .prow-field input[type=text] {
+    background: var(--card3); border: 1px solid var(--border2);
+    color: var(--text); padding: 6px 10px; border-radius: 7px;
+    font-family: var(--sans); font-size: 11px; font-weight: 500;
+    outline: none; width: 100%; transition: border-color .2s;
+  }
+  .prow-field select:focus, .prow-field input:focus { border-color: var(--gold); }
+  .prow-field.full { grid-column: 1 / -1; }
+  .prow-field input[type=text]::placeholder { color: var(--text3); }
+
+  .prow-dates {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    margin-top: 8px;
+  }
+
   .empty-placements {
-    text-align: center; padding: 16px;
+    text-align: center; padding: 20px;
     color: var(--text3); font-size: 12px;
     font-family: var(--mono);
   }
@@ -1160,7 +1224,19 @@ function createJOCard(jo, joPlacements) {
   if (joPlacements.length === 0) {
     placeSec.innerHTML += `<div class="empty-placements">No candidates assigned yet.</div>`;
   } else {
-    joPlacements.forEach((p, idx) => {
+    // Sort: active statuses first, inactive (Dropped/Not Interested) at bottom
+    const statusOrder = { 'For Interview':0, 'Interviewed':1, 'Messaged':2, 'Hired':3, 'Dropped':4 };
+    const responseOrder = { 'Interested':0, 'No Response':1, 'Not Interested':2 };
+    const sorted = [...joPlacements].sort((a,b) => {
+      const aInactive = a.status === 'Dropped' || a.response === 'Not Interested';
+      const bInactive = b.status === 'Dropped' || b.response === 'Not Interested';
+      if (aInactive !== bInactive) return aInactive ? 1 : -1;
+      const sa = statusOrder[a.status] ?? 5;
+      const sb = statusOrder[b.status] ?? 5;
+      if (sa !== sb) return sa - sb;
+      return (responseOrder[a.response]??3) - (responseOrder[b.response]??3);
+    });
+    sorted.forEach((p, idx) => {
       const row = createPlacementRow(p, idx, jo.id);
       placeSec.appendChild(row);
     });
@@ -1173,35 +1249,138 @@ function createJOCard(jo, joPlacements) {
   return card;
 }
 
-function createPlacementRow(p, idx, joId) {
-  const row = document.createElement('div');
-  row.className = 'placement-row';
+function getStatusDotClass(status, response) {
+  if (response === 'Not Interested') return 'dot-notint';
+  const m = { 'Messaged':'dot-messaged','For Interview':'dot-interview','Interviewed':'dot-interviewed','Hired':'dot-hired','Dropped':'dot-dropped' };
+  return m[status] || 'dot-default';
+}
 
-  const needsFollowup = (p.status === 'Messaged') && p.date && daysDiff(p.date) >= 2;
+function getStatusPillClass(status, response) {
+  if (response === 'Not Interested') return 'pill-notint';
+  const m = { 'Messaged':'pill-messaged','For Interview':'pill-interview','Interviewed':'pill-interviewed','Hired':'pill-hired','Dropped':'pill-dropped' };
+  return m[status] || 'pill-default';
+}
+
+function createPlacementRow(p, idx, joId) {
+  const pid = p.placementId || `${joId}_${p.candidateId}_${idx}`;
   const noteKey = `${joId}_${p.candidateId}`;
-  const savedNote = candidateNotes[noteKey] || p.notes || '';
+  const extraKey = `prow_extra_${pid}`;
+
+  // Load extra saved data (followup date, last contacted, interview date, notes)
+  let extra = {};
+  try { extra = JSON.parse(localStorage.getItem(extraKey) || '{}'); } catch(e){}
+
+  const savedNote = extra.notes || candidateNotes[noteKey] || p.notes || '';
+  const followupDate = extra.followupDate || '';
+  const lastContacted = extra.lastContacted || p.date || '';
+  const interviewDate = extra.interviewDate || '';
+
+  const isInactive = p.status === 'Dropped' || p.response === 'Not Interested';
+  const dotClass = getStatusDotClass(p.status, p.response);
+  const pillClass = getStatusPillClass(p.status, p.response);
+  const pillLabel = p.response === 'Not Interested' ? 'Not Interested' : (p.status || 'No Status');
+
+  // Follow-up check: if followup date is today or past
+  const needsFollowup = followupDate && new Date(followupDate) <= new Date();
+  // Also flag if Messaged and no followup date set and last contacted 2+ days ago
+  const autoFollowup = !followupDate && p.status === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 2;
+  const showFollowup = needsFollowup || autoFollowup;
+
+  const row = document.createElement('div');
+  row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
+  row.id = `prow-${pid}`;
 
   row.innerHTML = `
-    <div>
-      <div class="placement-name">${escHtml(p.candidateName)}</div>
-      <div class="placement-id">${escHtml(p.candidateId)}</div>
-      ${needsFollowup ? '<div class="followup-flag">⚠️ Follow up today</div>' : ''}
-      <div class="notes-row">
-        <input class="notes-input" type="text" value="${escAttr(savedNote)}" 
-          placeholder="Notes…"
-          onchange="saveNote('${escAttr(noteKey)}', this.value)">
+    <div class="prow-header" onclick="toggleProw('${escAttr(pid)}')">
+      <div class="prow-status-dot ${dotClass}"></div>
+      <div>
+        <div class="prow-name">${escHtml(p.candidateName)}</div>
+        <div class="prow-id">${escHtml(p.candidateId)}</div>
+      </div>
+      <div class="prow-badges">
+        ${showFollowup ? '<span class="followup-flag">⚠️ Follow up</span>' : ''}
+        <span class="prow-status-pill ${pillClass}">${escHtml(pillLabel)}</span>
+        <span class="prow-chevron">▾</span>
       </div>
     </div>
-    <select onchange="updatePlacementLocal('${escAttr(p.placementId || `${joId}_${p.candidateId}_${idx}`)}','response',this.value)">
-      ${['No Response','Interested','Not Interested'].map(v=>`<option${v===p.response?' selected':''}>${v}</option>`).join('')}
-    </select>
-    <select onchange="updatePlacementLocal('${escAttr(p.placementId || `${joId}_${p.candidateId}_${idx}`)}','status',this.value)">
-      ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===p.status?' selected':''}>${v}</option>`).join('')}
-    </select>
-    <div class="text-mono" style="font-size:10px;color:var(--text3)">${p.date||''}</div>
+    <div class="prow-body">
+      <div class="prow-fields">
+        <div class="prow-field">
+          <div class="prow-field-label">Response</div>
+          <select onchange="saveProwField('${escAttr(pid)}','response',this.value,this)" data-pid="${escAttr(pid)}">
+            ${['No Response','Interested','Not Interested'].map(v=>`<option${v===p.response?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="prow-field">
+          <div class="prow-field-label">Status</div>
+          <select onchange="saveProwField('${escAttr(pid)}','status',this.value,this)" data-pid="${escAttr(pid)}">
+            ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===p.status?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="prow-dates">
+        <div class="prow-field">
+          <div class="prow-field-label">📅 Last Contacted</div>
+          <input type="date" value="${escAttr(lastContacted)}" onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value)">
+        </div>
+        <div class="prow-field">
+          <div class="prow-field-label">🔔 Follow-up Date</div>
+          <input type="date" value="${escAttr(followupDate)}" onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value)">
+        </div>
+        <div class="prow-field">
+          <div class="prow-field-label">🗓 Interview Date</div>
+          <input type="date" value="${escAttr(interviewDate)}" onchange="saveProwExtra('${escAttr(pid)}','interviewDate',this.value)">
+        </div>
+      </div>
+      <div class="prow-fields" style="margin-top:8px">
+        <div class="prow-field full">
+          <div class="prow-field-label">📝 Notes</div>
+          <input type="text" value="${escAttr(savedNote)}" placeholder="Add notes…"
+            onchange="saveProwExtra('${escAttr(pid)}','notes',this.value); saveNote('${escAttr(noteKey)}',this.value)">
+        </div>
+      </div>
+    </div>
   `;
 
   return row;
+}
+
+function toggleProw(pid) {
+  const el = document.getElementById(`prow-${pid}`);
+  if (el) el.classList.toggle('open');
+}
+
+function saveProwExtra(pid, field, value) {
+  const key = `prow_extra_${pid}`;
+  let extra = {};
+  try { extra = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e){}
+  extra[field] = value;
+  localStorage.setItem(key, JSON.stringify(extra));
+}
+
+function saveProwField(pid, field, value, el) {
+  // Update in manualPlacements if exists
+  const mp = manualPlacements.find(p => p.placementId === pid);
+  if (mp) { mp[field] = value; saveManualPlacements(); }
+  // Also save to extra so UI reflects on next load
+  saveProwExtra(pid, field, value);
+  // Refresh the dot and pill in header without re-rendering
+  const row = document.getElementById(`prow-${pid}`);
+  if (!row) return;
+  // Get current response & status from selects
+  const selects = row.querySelectorAll('.prow-body select');
+  const response = selects[0]?.value || '';
+  const status = selects[1]?.value || '';
+  const dot = row.querySelector('.prow-status-dot');
+  const pill = row.querySelector('.prow-status-pill');
+  if (dot) { dot.className = 'prow-status-dot ' + getStatusDotClass(status, response); }
+  if (pill) {
+    pill.className = 'prow-status-pill ' + getStatusPillClass(status, response);
+    pill.textContent = response === 'Not Interested' ? 'Not Interested' : (status || 'No Status');
+  }
+  // Toggle inactive class
+  const isInactive = status === 'Dropped' || response === 'Not Interested';
+  row.classList.toggle('prow-inactive', isInactive);
 }
 
 function daysDiff(dateStr) {
@@ -1216,7 +1395,6 @@ function toggleJOCard(card) {
 }
 
 function updatePlacementLocal(id, field, value) {
-  // Update in manualPlacements if exists, else just track
   const mp = manualPlacements.find(p => p.placementId === id);
   if (mp) { mp[field] = value; saveManualPlacements(); }
 }
