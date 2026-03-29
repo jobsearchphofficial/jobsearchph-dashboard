@@ -4,29 +4,43 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Job Search PH — Operations Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0f1e;
-    --bg2: #0d1424;
-    --card: #111827;
-    --card2: #141d2e;
-    --border: #1f2937;
-    --border2: #2a3a52;
-    --gold: #f0c040;
-    --gold2: #d4a820;
-    --gold-dim: rgba(240,192,64,0.12);
-    --green: #10b981;
-    --green-dim: rgba(16,185,129,0.12);
-    --red: #ef4444;
-    --red-dim: rgba(239,68,68,0.12);
-    --blue: #3b82f6;
-    --blue-dim: rgba(59,130,246,0.12);
-    --text: #e2e8f0;
-    --text2: #94a3b8;
-    --text3: #64748b;
-    --mono: 'DM Mono', monospace;
-    --sans: 'Sora', sans-serif;
+    --bg: #060b18;
+    --bg2: #0a1120;
+    --card: #0f1929;
+    --card2: #131f30;
+    --card3: #172236;
+    --border: #1a2840;
+    --border2: #243550;
+    --border3: #2d4265;
+    --gold: #f5c842;
+    --gold2: #e6b020;
+    --gold3: #ffd96a;
+    --gold-dim: rgba(245,200,66,0.10);
+    --gold-dim2: rgba(245,200,66,0.18);
+    --green: #0fd68a;
+    --green2: #0ab574;
+    --green-dim: rgba(15,214,138,0.10);
+    --red: #f25555;
+    --red2: #d93f3f;
+    --red-dim: rgba(242,85,85,0.10);
+    --blue: #4f9cf9;
+    --blue-dim: rgba(79,156,249,0.10);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.10);
+    --orange: #fb923c;
+    --orange-dim: rgba(251,146,60,0.10);
+    --text: #dde6f5;
+    --text2: #8da3be;
+    --text3: #4d6480;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Plus Jakarta Sans', sans-serif;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow-sm: 0 2px 12px rgba(0,0,0,0.3);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,18 +58,21 @@
   body::before {
     content: '';
     position: fixed; inset: 0;
-    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(240,192,64,0.06) 0%, transparent 70%),
-                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(59,130,246,0.04) 0%, transparent 60%);
+    background: 
+      radial-gradient(ellipse 70% 50% at 20% -5%, rgba(245,200,66,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 90%, rgba(79,156,249,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 30% at 60% 50%, rgba(15,214,138,0.03) 0%, transparent 50%);
     pointer-events: none; z-index: 0;
   }
 
   /* ─── HEADER ─── */
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(10,15,30,0.92);
-    backdrop-filter: blur(16px);
+    background: rgba(6,11,24,0.95);
+    backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     padding: 0 24px;
+    box-shadow: 0 1px 0 rgba(245,200,66,0.06), var(--shadow-sm);
   }
 
   .header-top {
@@ -68,17 +85,18 @@
   }
 
   .logo-mark {
-    width: 34px; height: 34px;
-    background: var(--gold);
-    border-radius: 8px;
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
+    border-radius: 10px;
     display: grid; place-items: center;
     font-size: 18px; flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(245,200,66,0.3), 0 2px 8px rgba(0,0,0,0.4);
   }
 
   .logo-text {
-    font-size: 15px; font-weight: 700;
+    font-size: 15px; font-weight: 800;
     color: var(--text);
-    letter-spacing: -0.3px;
+    letter-spacing: -0.5px;
   }
 
   .logo-sub {
@@ -96,12 +114,12 @@
 
   .btn-refresh {
     display: flex; align-items: center; gap: 6px;
-    background: var(--card); border: 1px solid var(--border);
-    color: var(--text2); padding: 6px 12px; border-radius: 7px;
-    font-family: var(--sans); font-size: 12px; cursor: pointer;
+    background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text2); padding: 7px 14px; border-radius: 8px;
+    font-family: var(--sans); font-size: 12px; font-weight: 600; cursor: pointer;
     transition: all .2s;
   }
-  .btn-refresh:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-refresh:hover { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 12px rgba(245,200,66,0.1); }
 
   .last-updated {
     font-family: var(--mono); font-size: 10px; color: var(--text3);
@@ -120,44 +138,53 @@
   }
 
   .stat {
-    background: var(--bg);
-    padding: 8px 16px;
-    display: flex; align-items: center; gap: 10px;
+    background: var(--bg2);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 12px;
+    position: relative; overflow: hidden;
+    transition: background .2s;
+  }
+  .stat:hover { background: var(--card); }
+
+  .stat-icon {
+    font-size: 20px; opacity: 0.7;
   }
 
   .stat-val {
-    font-family: var(--mono); font-size: 18px; font-weight: 500;
+    font-family: var(--mono); font-size: 20px; font-weight: 500;
     color: var(--gold);
+    line-height: 1;
   }
 
   .stat-label {
-    font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px;
+    margin-top: 2px;
   }
 
   /* ─── TABS ─── */
   .tabs {
-    display: flex; gap: 2px;
-    padding: 12px 24px;
+    display: flex; gap: 4px;
+    padding: 10px 24px;
     border-bottom: 1px solid var(--border);
     background: var(--bg2);
   }
 
   .tab {
-    padding: 8px 18px; border-radius: 8px;
+    padding: 8px 20px; border-radius: 9px;
     border: 1px solid transparent;
     background: none; color: var(--text3);
-    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all .18s;
-    white-space: nowrap;
+    white-space: nowrap; letter-spacing: -0.2px;
   }
-  .tab:hover { color: var(--text); background: var(--card); }
+  .tab:hover { color: var(--text2); background: var(--card); border-color: var(--border); }
   .tab.active {
-    background: var(--gold-dim); border-color: rgba(240,192,64,0.3);
-    color: var(--gold);
+    background: var(--gold-dim2); border-color: rgba(245,200,66,0.35);
+    color: var(--gold); box-shadow: 0 0 12px rgba(245,200,66,0.08);
   }
 
   /* ─── MAIN ─── */
-  main { padding: 24px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+  main { padding: 28px 24px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
 
   .tab-content { display: none; }
   .tab-content.active { display: block; animation: fadeUp .25s ease; }
@@ -165,13 +192,13 @@
 
   /* ─── SECTION HEADER ─── */
   .section-header {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
   }
-  .section-title { font-size: 17px; font-weight: 600; }
+  .section-title { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
   .badge {
     font-family: var(--mono); font-size: 10px; font-weight: 500;
-    padding: 2px 8px; border-radius: 99px;
-    background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(240,192,64,0.25);
+    padding: 3px 10px; border-radius: 99px;
+    background: var(--gold-dim2); color: var(--gold3); border: 1px solid rgba(245,200,66,0.3);
   }
 
   /* ─── FILTER BAR ─── */
@@ -180,13 +207,15 @@
   }
 
   .filter-bar input, .filter-bar select {
-    background: var(--card); border: 1px solid var(--border);
-    color: var(--text); padding: 7px 12px; border-radius: 7px;
-    font-family: var(--sans); font-size: 12px;
-    outline: none; transition: border-color .2s;
+    background: var(--card); border: 1px solid var(--border2);
+    color: var(--text); padding: 8px 14px; border-radius: 9px;
+    font-family: var(--sans); font-size: 12px; font-weight: 500;
+    outline: none; transition: border-color .2s, box-shadow .2s;
     min-width: 140px;
   }
-  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--gold); }
+  .filter-bar input:focus, .filter-bar select:focus { 
+    border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,200,66,0.08);
+  }
   .filter-bar input { flex: 1; min-width: 200px; }
 
   .filter-bar select option { background: var(--card2); }
@@ -195,18 +224,20 @@
   .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 16px;
+    gap: 18px;
   }
 
   /* ─── JOB ORDER CARD ─── */
   .jo-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
-    transition: border-color .2s;
+    transition: border-color .25s, box-shadow .25s, transform .2s;
+    box-shadow: var(--shadow-sm);
   }
-  .jo-card:hover { border-color: var(--border2); }
+  .jo-card:hover { border-color: var(--border2); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .jo-card.open { border-color: rgba(245,200,66,0.25); }
 
   .jo-card-header {
     padding: 16px 18px 14px;
@@ -219,13 +250,14 @@
   }
 
   .jo-id {
-    font-family: var(--mono); font-size: 10px; color: var(--gold);
-    background: var(--gold-dim); padding: 2px 7px; border-radius: 5px;
-    border: 1px solid rgba(240,192,64,0.2); white-space: nowrap; margin-top: 2px;
+    font-family: var(--mono); font-size: 10px; color: var(--gold3);
+    background: var(--gold-dim2); padding: 3px 9px; border-radius: 6px;
+    border: 1px solid rgba(245,200,66,0.28); white-space: nowrap; margin-top: 2px;
+    letter-spacing: 0.3px;
   }
 
-  .jo-title { font-size: 15px; font-weight: 600; flex: 1; line-height: 1.3; }
-  .jo-company { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .jo-title { font-size: 16px; font-weight: 700; flex: 1; line-height: 1.3; letter-spacing: -0.3px; }
+  .jo-company { font-size: 12px; color: var(--text2); margin-top: 3px; font-weight: 500; }
 
   .jo-meta {
     display: flex; gap: 8px; flex-wrap: wrap;
@@ -256,41 +288,42 @@
   /* ─── BUTTONS ─── */
   .btn {
     display: inline-flex; align-items: center; gap: 5px;
-    padding: 6px 12px; border-radius: 7px;
-    font-family: var(--sans); font-size: 11px; font-weight: 500;
+    padding: 7px 14px; border-radius: 8px;
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
     border: 1px solid; cursor: pointer; transition: all .18s;
-    white-space: nowrap;
+    white-space: nowrap; letter-spacing: -0.1px;
   }
+  .btn:active { transform: scale(0.97); }
 
   .btn-gold {
-    background: var(--gold-dim); border-color: rgba(240,192,64,0.35);
-    color: var(--gold);
+    background: var(--gold-dim2); border-color: rgba(245,200,66,0.4);
+    color: var(--gold3);
   }
-  .btn-gold:hover { background: rgba(240,192,64,0.2); }
+  .btn-gold:hover { background: rgba(245,200,66,0.25); box-shadow: 0 0 12px rgba(245,200,66,0.15); }
 
   .btn-green {
-    background: var(--green-dim); border-color: rgba(16,185,129,0.35);
+    background: var(--green-dim); border-color: rgba(15,214,138,0.35);
     color: var(--green);
   }
-  .btn-green:hover { background: rgba(16,185,129,0.2); }
+  .btn-green:hover { background: rgba(15,214,138,0.2); box-shadow: 0 0 10px rgba(15,214,138,0.12); }
 
   .btn-blue {
-    background: var(--blue-dim); border-color: rgba(59,130,246,0.35);
+    background: var(--blue-dim); border-color: rgba(79,156,249,0.35);
     color: var(--blue);
   }
-  .btn-blue:hover { background: rgba(59,130,246,0.2); }
+  .btn-blue:hover { background: rgba(79,156,249,0.2); }
 
   .btn-red {
-    background: var(--red-dim); border-color: rgba(239,68,68,0.35);
+    background: var(--red-dim); border-color: rgba(242,85,85,0.35);
     color: var(--red);
   }
-  .btn-red:hover { background: rgba(239,68,68,0.2); }
+  .btn-red:hover { background: rgba(242,85,85,0.2); }
 
   .btn-ghost {
-    background: none; border-color: var(--border);
+    background: none; border-color: var(--border2);
     color: var(--text2);
   }
-  .btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--border3); color: var(--text); background: var(--card2); }
 
   /* ─── PLACEMENTS TABLE ─── */
   .placements-section { padding: 0 18px 14px; }
@@ -305,28 +338,34 @@
     display: grid;
     grid-template-columns: 1fr 130px 140px 100px auto;
     gap: 8px; align-items: center;
-    padding: 8px 10px;
-    border-radius: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
     background: var(--card2);
     margin-bottom: 6px;
     font-size: 12px;
+    border: 1px solid var(--border);
+    transition: border-color .2s;
   }
+  .placement-row:hover { border-color: var(--border2); }
 
   .placement-name { font-weight: 500; }
   .placement-id { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 
   .placement-row select {
-    background: var(--card); border: 1px solid var(--border);
-    color: var(--text); padding: 4px 6px; border-radius: 5px;
-    font-family: var(--sans); font-size: 11px; outline: none;
-    width: 100%;
+    background: var(--card3); border: 1px solid var(--border2);
+    color: var(--text); padding: 5px 8px; border-radius: 7px;
+    font-family: var(--sans); font-size: 11px; font-weight: 500; outline: none;
+    width: 100%; transition: border-color .2s;
   }
+  .placement-row select:focus { border-color: var(--gold); }
 
   .followup-flag {
-    font-size: 10px; background: rgba(240,192,64,0.15); color: var(--gold);
-    padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(240,192,64,0.25);
-    white-space: nowrap;
+    font-size: 10px; background: rgba(251,146,60,0.15); color: var(--orange);
+    padding: 3px 8px; border-radius: 5px; border: 1px solid rgba(251,146,60,0.3);
+    white-space: nowrap; font-weight: 600; letter-spacing: 0.1px;
+    animation: pulse-warn 2s infinite;
   }
+  @keyframes pulse-warn { 0%,100%{opacity:1} 50%{opacity:0.7} }
 
   .empty-placements {
     text-align: center; padding: 16px;
@@ -349,35 +388,41 @@
   }
 
   .cand-avatar {
-    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-    background: linear-gradient(135deg, var(--border2) 0%, var(--card2) 100%);
-    display: grid; place-items: center; font-size: 16px;
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--card3) 0%, var(--border2) 100%);
+    display: grid; place-items: center; font-size: 20px;
+    border: 1px solid var(--border2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   }
 
-  .cand-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
-  .cand-id { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .cand-name { font-size: 15px; font-weight: 700; line-height: 1.2; letter-spacing: -0.3px; }
+  .cand-id { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 3px; letter-spacing: 0.3px; }
 
   .cand-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 
   .cand-badge {
-    font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 500;
-    border: 1px solid;
+    font-size: 10px; padding: 3px 9px; border-radius: 99px; font-weight: 600;
+    border: 1px solid; letter-spacing: 0.2px;
   }
-  .badge-verified { background: var(--green-dim); border-color: rgba(16,185,129,.3); color: var(--green); }
-  .badge-unverified { background: var(--card2); border-color: var(--border); color: var(--text3); }
-  .badge-blacklisted { background: var(--red-dim); border-color: rgba(239,68,68,.3); color: var(--red); }
+  .badge-verified { background: var(--green-dim); border-color: rgba(15,214,138,.3); color: var(--green); }
+  .badge-unverified { background: var(--card2); border-color: var(--border2); color: var(--text3); }
+  .badge-blacklisted { background: var(--red-dim); border-color: rgba(242,85,85,.3); color: var(--red); }
 
   .cand-details {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px;
-    margin: 10px 0; font-size: 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+    margin: 12px 0; font-size: 12px;
+    background: var(--card2); border-radius: 10px; padding: 12px 14px;
+    border: 1px solid var(--border);
   }
 
-  .cand-detail { display: flex; gap: 5px; }
-  .cand-detail-label { color: var(--text3); white-space: nowrap; }
-  .cand-detail-val { color: var(--text2); }
+  .cand-detail { display: flex; gap: 6px; align-items: baseline; }
+  .cand-detail-label { color: var(--text3); white-space: nowrap; font-size: 11px; }
+  .cand-detail-val { color: var(--text2); font-weight: 500; }
 
   .cand-skills {
-    font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.5;
+    font-size: 11px; color: var(--text3); margin-bottom: 12px; line-height: 1.6;
+    background: var(--card2); border-radius: 8px; padding: 8px 12px;
+    border: 1px solid var(--border); border-left: 2px solid var(--border3);
   }
 
   .cand-card-actions {
@@ -387,8 +432,9 @@
 
   /* ─── AI MATCHER ─── */
   .matcher-panel {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 14px; padding: 24px; margin-bottom: 24px;
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 18px; padding: 28px; margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
   }
 
   .matcher-panel h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
@@ -407,9 +453,11 @@
 
   .ai-result-card {
     background: var(--card2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 16px;
-    display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: start;
+    border-radius: 12px; padding: 16px 18px;
+    display: grid; grid-template-columns: 36px 1fr auto; gap: 14px; align-items: start;
+    transition: border-color .2s, transform .2s;
   }
+  .ai-result-card:hover { border-color: var(--border2); transform: translateX(2px); }
 
   .ai-rank {
     font-family: var(--mono); font-size: 16px; font-weight: 500;
@@ -440,10 +488,10 @@
   }
 
   .spinner {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 3px solid var(--border);
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--border2);
     border-top-color: var(--gold);
-    animation: spin .8s linear infinite;
+    animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -473,24 +521,26 @@
 
   .modal {
     background: var(--card); border: 1px solid var(--border2);
-    border-radius: 16px; padding: 28px;
+    border-radius: 18px; padding: 28px;
     width: 90%; max-width: 480px;
-    transform: translateY(12px); transition: transform .25s;
+    transform: translateY(16px) scale(0.98); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,200,66,0.06);
   }
-  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-overlay.open .modal { transform: translateY(0) scale(1); }
 
-  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
 
   .modal-field { margin-bottom: 14px; }
   .modal-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
 
   .modal-field input, .modal-field select, .modal-field textarea {
-    width: 100%; background: var(--card2); border: 1px solid var(--border);
-    color: var(--text); padding: 9px 12px; border-radius: 8px;
-    font-family: var(--sans); font-size: 13px; outline: none; transition: border-color .2s;
+    width: 100%; background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text); padding: 10px 14px; border-radius: 9px;
+    font-family: var(--sans); font-size: 13px; outline: none; 
+    transition: border-color .2s, box-shadow .2s;
   }
   .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
-    border-color: var(--gold);
+    border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,200,66,0.08);
   }
   .modal-field textarea { resize: vertical; min-height: 80px; }
 
@@ -531,13 +581,51 @@
     display: flex; gap: 6px; align-items: center; margin-top: 6px;
   }
   .notes-input {
-    flex: 1; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 4px 8px; border-radius: 5px;
+    flex: 1; background: var(--card3); border: 1px solid var(--border2);
+    color: var(--text); padding: 5px 10px; border-radius: 7px;
     font-family: var(--sans); font-size: 11px; outline: none;
+    transition: border-color .2s;
   }
   .notes-input:focus { border-color: var(--gold); }
 
-  select option { background: #111827; }
+  select option { background: #0f1929; }
+
+  /* Status color coding in placement rows */
+  .status-messaged { color: var(--blue) !important; }
+  .status-interview { color: var(--purple) !important; }
+  .status-hired { color: var(--green) !important; }
+  .status-dropped { color: var(--red) !important; }
+
+  /* Verified glow on card */
+  .cand-card:has(.badge-verified) {
+    border-color: rgba(15,214,138,0.15);
+  }
+  .cand-card:has(.badge-verified):hover {
+    border-color: rgba(15,214,138,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(15,214,138,0.1);
+  }
+
+  /* JO card open glow */
+  .jo-card.open .jo-card-header {
+    background: linear-gradient(180deg, var(--gold-dim) 0%, transparent 100%);
+  }
+
+  /* Placement section header */
+  .placements-title {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .placements-title::before {
+    content: '';
+    display: block; width: 3px; height: 14px;
+    background: var(--gold); border-radius: 2px;
+    opacity: 0.6;
+  }
+
+  /* Cand card actions border */
+  .cand-card-actions {
+    padding-top: 12px !important;
+    margin-top: 4px;
+  }
 </style>
 </head>
 <body>
@@ -565,24 +653,28 @@
 
   <div class="stats-bar">
     <div class="stat">
+      <div class="stat-icon">👥</div>
       <div>
         <div class="stat-val" id="stat-candidates">—</div>
         <div class="stat-label">Total Candidates</div>
       </div>
     </div>
     <div class="stat">
+      <div class="stat-icon">✅</div>
       <div>
         <div class="stat-val" id="stat-verified">—</div>
         <div class="stat-label">Verified</div>
       </div>
     </div>
     <div class="stat">
+      <div class="stat-icon">📋</div>
       <div>
         <div class="stat-val" id="stat-active-jobs">—</div>
         <div class="stat-label">Active Jobs</div>
       </div>
     </div>
     <div class="stat">
+      <div class="stat-icon">🤝</div>
       <div>
         <div class="stat-val" id="stat-placements">—</div>
         <div class="stat-label">Placements</div>
