@@ -653,6 +653,166 @@
   .notes-input:focus { border-color: var(--gold); }
 
   select option { background: #0f1929; }
+  .prow-profile-btn {
+    background: none; border: 1px solid var(--border2);
+    color: var(--text3); border-radius: 5px; padding: 1px 5px;
+    font-size: 11px; cursor: pointer; transition: all .15s; flex-shrink: 0;
+  }
+  .prow-profile-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+  .prow-via-badge {
+    font-size: 10px; background: var(--blue-dim); color: var(--blue);
+    border: 1px solid rgba(79,156,249,0.3); padding: 2px 7px; border-radius: 99px;
+    white-space: nowrap; font-weight: 600;
+  }
+
+  /* Make prow-dates 3 columns */
+  .prow-dates {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    margin-top: 8px;
+  }
+
+  /* ─── JO TAB BAR ─── */
+  .jo-tab-bar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .jo-tab-btn {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 12px 16px;
+    cursor: pointer; text-align: left;
+    transition: all .2s; min-width: 160px; flex: 1;
+    font-family: var(--sans);
+  }
+  .jo-tab-btn:hover { border-color: var(--border3); background: var(--card2); }
+  .jo-tab-btn.active {
+    border-color: rgba(245,200,66,0.5); background: var(--gold-dim2);
+    box-shadow: 0 0 20px rgba(245,200,66,0.1);
+  }
+
+  .jo-tab-id {
+    font-family: var(--mono); font-size: 9px; color: var(--gold3);
+    background: var(--gold-dim); padding: 2px 7px; border-radius: 4px;
+    display: inline-block; margin-bottom: 6px;
+    border: 1px solid rgba(245,200,66,0.2);
+  }
+  .jo-tab-btn.active .jo-tab-id { background: var(--gold-dim2); }
+
+  .jo-tab-pos  { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; letter-spacing: -0.2px; }
+  .jo-tab-company { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .jo-tab-count { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+  .jo-tab-btn.active .jo-tab-count { color: var(--gold); }
+
+  /* ─── JO PANEL ─── */
+  .jo-panel {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: var(--shadow);
+    animation: fadeUp .2s ease;
+  }
+
+  .jo-panel-header {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: linear-gradient(180deg, var(--card2) 0%, var(--card) 100%);
+  }
+
+  .jo-panel-left {
+    display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 200px;
+  }
+
+  .jo-panel-actions {
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+
+  /* ─── CANDIDATE PROFILE MODAL ─── */
+  .cand-modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .cand-modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .cand-modal {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 20px; width: 92%; max-width: 520px;
+    max-height: 88vh; overflow-y: auto;
+    transform: translateY(20px) scale(0.97);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,200,66,0.08);
+  }
+  .cand-modal-overlay.open .cand-modal { transform: translateY(0) scale(1); }
+
+  .cand-modal-hero {
+    padding: 24px 24px 16px;
+    background: linear-gradient(135deg, var(--card2) 0%, var(--card3) 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .cand-modal-avatar {
+    width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--border2) 0%, var(--card3) 100%);
+    display: grid; place-items: center; font-size: 28px;
+    border: 2px solid var(--border3);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .cand-modal-name { font-size: 18px; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 4px; }
+  .cand-modal-id { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+
+  .cand-modal-body { padding: 20px 24px; }
+
+  .cand-modal-section { margin-bottom: 18px; }
+  .cand-modal-section-title {
+    font-size: 9px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+  }
+  .cand-modal-section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .cand-modal-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+
+  .cand-modal-field {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .cand-modal-field.full { grid-column: 1 / -1; }
+  .cand-modal-field-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; font-weight: 700; }
+  .cand-modal-field-val { font-size: 13px; color: var(--text); font-weight: 500; word-break: break-word; }
+  .cand-modal-field-val.empty { color: var(--text3); font-style: italic; }
+
+  .cand-modal-contact-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card2); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 14px;
+    cursor: pointer; transition: all .18s; text-decoration: none;
+    color: var(--text); font-family: var(--sans); font-size: 12px; font-weight: 600;
+    width: 100%;
+  }
+  .cand-modal-contact-btn:hover { border-color: var(--border3); background: var(--card3); transform: translateX(2px); }
+  .cand-modal-contact-btn .icon { font-size: 18px; }
+  .cand-modal-contact-btn .label { flex: 1; }
+  .cand-modal-contact-btn .sub { font-size: 11px; color: var(--text3); font-weight: 400; }
+
+  .cand-modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text2); width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; cursor: pointer; font-size: 16px;
+    transition: all .18s; z-index: 10;
+  }
+  .cand-modal-close:hover { background: var(--card3); color: var(--text); }
+
+  .cand-modal-hero { position: relative; }
+
 
   /* Status color coding in placement rows */
   .status-messaged { color: var(--blue) !important; }
@@ -1059,7 +1219,10 @@ async function loadAll() {
       id: r[0].trim() || '',
       timestamp: r[1] || '',
       name: r[2] || '',
+      facebook: r[3] || '',
       age: r[4] || '',
+      phone: r[5] || '',
+      email: r[6] || '',
       jobType: r[7] || '',
       skills: r[8] || '',
       location: r[9] || '',
@@ -1156,8 +1319,10 @@ function updateStats() {
 }
 
 // ═══════════════════════════════════════════════
-// JOB ORDERS
+// JOB ORDERS — Tab-based layout
 // ═══════════════════════════════════════════════
+let activeJOTab = 0;
+
 function renderJobOrders(allPlacements) {
   const container = document.getElementById('jo-container');
   document.getElementById('jo-count').textContent = jobOrders.length;
@@ -1167,56 +1332,63 @@ function renderJobOrders(allPlacements) {
     return;
   }
 
-  container.innerHTML = '';
-  const grid = document.createElement('div');
-  grid.className = 'cards-grid';
+  // Clamp active tab
+  if (activeJOTab >= jobOrders.length) activeJOTab = 0;
 
-  jobOrders.forEach(jo => {
+  // Build tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'jo-tab-bar';
+  jobOrders.forEach((jo, i) => {
     const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
-    const card = createJOCard(jo, joPlacements);
-    grid.appendChild(card);
+    const btn = document.createElement('button');
+    btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '');
+    btn.innerHTML = `
+      <div class="jo-tab-id">${escHtml(jo.id)}</div>
+      <div class="jo-tab-pos">${escHtml(jo.position)}</div>
+      <div class="jo-tab-company">${escHtml(jo.company)}</div>
+      <div class="jo-tab-count">${joPlacements.length} candidates</div>
+    `;
+    btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
+    tabBar.appendChild(btn);
   });
 
-  container.appendChild(grid);
+  // Build active JO panel
+  const jo = jobOrders[activeJOTab];
+  const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
+  const panel = buildJOPanel(jo, joPlacements);
+
+  container.innerHTML = '';
+  container.appendChild(tabBar);
+  container.appendChild(panel);
 }
 
-function createJOCard(jo, joPlacements) {
-  const card = document.createElement('div');
-  card.className = 'jo-card';
-  card.id = `jo-card-${jo.id}`;
+function buildJOPanel(jo, joPlacements) {
+  const panel = document.createElement('div');
+  panel.className = 'jo-panel';
 
-  const header = document.createElement('div');
-  header.className = 'jo-card-header';
-  header.innerHTML = `
-    <div class="jo-card-top">
-      <div class="jo-id">${escHtml(jo.id)}</div>
-      <div>
-        <div class="jo-title">${escHtml(jo.position)}</div>
-        <div class="jo-company">${escHtml(jo.company)}</div>
+  // Header
+  panel.innerHTML = `
+    <div class="jo-panel-header">
+      <div class="jo-panel-left">
+        <div class="jo-id">${escHtml(jo.id)}</div>
+        <div>
+          <div class="jo-title">${escHtml(jo.position)}</div>
+          <div class="jo-company">${escHtml(jo.company)}</div>
+        </div>
       </div>
-      <div class="jo-toggle-icon">▾</div>
-    </div>
-    <div class="jo-meta">
-      <div class="jo-meta-item">👥 Slots: <span>${escHtml(jo.slots)}</span></div>
-      <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
-      <div class="jo-meta-item">📌 <span class="text-green">${escHtml(jo.status)}</span></div>
-      <div class="jo-meta-item">🗂 Placed: <span>${joPlacements.length}</span></div>
+      <div class="jo-meta">
+        <div class="jo-meta-item">👥 <span>${escHtml(jo.slots)} slot${jo.slots!='1'?'s':''}</span></div>
+        <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
+        <div class="jo-meta-item">🗂 <span>${joPlacements.length} placed</span></div>
+      </div>
+      <div class="jo-panel-actions">
+        <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Find Candidates</button>
+        <button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add Candidate</button>
+      </div>
     </div>
   `;
-  header.onclick = () => toggleJOCard(card);
 
-  const body = document.createElement('div');
-  body.className = 'jo-card-body';
-
-  // Actions
-  const actions = document.createElement('div');
-  actions.className = 'jo-card-actions';
-  actions.innerHTML = `
-    <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Find Candidates</button>
-    <button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add Candidate</button>
-  `;
-
-  // Placements list
+  // Candidate list
   const placeSec = document.createElement('div');
   placeSec.className = 'placements-section';
   placeSec.innerHTML = `<div class="placements-title">Candidates in This Job Order</div>`;
@@ -1228,13 +1400,21 @@ function createJOCard(jo, joPlacements) {
     const statusOrder = { 'For Interview':0, 'Interviewed':1, 'Messaged':2, 'Hired':3, 'Dropped':4 };
     const responseOrder = { 'Interested':0, 'No Response':1, 'Not Interested':2 };
     const sorted = [...joPlacements].sort((a,b) => {
-      const aInactive = a.status === 'Dropped' || a.response === 'Not Interested';
-      const bInactive = b.status === 'Dropped' || b.response === 'Not Interested';
+      // Load saved overrides for sorting
+      const getPid = (p, i) => p.placementId || `${jo.id}_${p.candidateId}_${i}`;
+      const getExtra = (p, i) => { try { return JSON.parse(localStorage.getItem(`prow_extra_${getPid(p,i)}`) || '{}'); } catch(e){ return {}; } };
+      const extraA = getExtra(a, 0); const extraB = getExtra(b, 0);
+      const aResp = extraA.response || a.response || '';
+      const bResp = extraB.response || b.response || '';
+      const aStat = extraA.status   || a.status   || '';
+      const bStat = extraB.status   || b.status   || '';
+      const aInactive = aStat === 'Dropped' || aResp === 'Not Interested';
+      const bInactive = bStat === 'Dropped' || bResp === 'Not Interested';
       if (aInactive !== bInactive) return aInactive ? 1 : -1;
-      const sa = statusOrder[a.status] ?? 5;
-      const sb = statusOrder[b.status] ?? 5;
+      const sa = statusOrder[aStat] ?? 5;
+      const sb = statusOrder[bStat] ?? 5;
       if (sa !== sb) return sa - sb;
-      return (responseOrder[a.response]??3) - (responseOrder[b.response]??3);
+      return (responseOrder[aResp]??3) - (responseOrder[bResp]??3);
     });
     sorted.forEach((p, idx) => {
       const row = createPlacementRow(p, idx, jo.id);
@@ -1242,11 +1422,8 @@ function createJOCard(jo, joPlacements) {
     });
   }
 
-  body.appendChild(actions);
-  body.appendChild(placeSec);
-  card.appendChild(header);
-  card.appendChild(body);
-  return card;
+  panel.appendChild(placeSec);
+  return panel;
 }
 
 function getStatusDotClass(status, response) {
@@ -1275,30 +1452,40 @@ function createPlacementRow(p, idx, joId) {
   const lastContacted = extra.lastContacted || p.date || '';
   const interviewDate = extra.interviewDate || '';
 
-  const isInactive = p.status === 'Dropped' || p.response === 'Not Interested';
-  const dotClass = getStatusDotClass(p.status, p.response);
-  const pillClass = getStatusPillClass(p.status, p.response);
-  const pillLabel = p.response === 'Not Interested' ? 'Not Interested' : (p.status || 'No Status');
+  // Use localStorage overrides for response/status if they exist
+  const savedResponse = extra.response || p.response || 'No Response';
+  const savedStatus   = extra.status   || p.status   || 'Messaged';
+
+  const isInactive = savedStatus === 'Dropped' || savedResponse === 'Not Interested';
+  const dotClass = getStatusDotClass(savedStatus, savedResponse);
+  const pillClass = getStatusPillClass(savedStatus, savedResponse);
+  const pillLabel = savedResponse === 'Not Interested' ? 'Not Interested' : (savedStatus || 'No Status');
 
   // Follow-up check: if followup date is today or past
   const needsFollowup = followupDate && new Date(followupDate) <= new Date();
   // Also flag if Messaged and no followup date set and last contacted 2+ days ago
-  const autoFollowup = !followupDate && p.status === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 2;
+  const autoFollowup = !followupDate && savedStatus === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 2;
   const showFollowup = needsFollowup || autoFollowup;
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
   row.id = `prow-${pid}`;
 
+  const contactVia = extra.contactVia || '';
+
   row.innerHTML = `
     <div class="prow-header" onclick="toggleProw('${escAttr(pid)}')">
       <div class="prow-status-dot ${dotClass}"></div>
-      <div>
-        <div class="prow-name">${escHtml(p.candidateName)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="prow-name">${escHtml(p.candidateName)}</div>
+          <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModal('${escAttr(p.candidateId)}')" title="View profile">👤</button>
+        </div>
         <div class="prow-id">${escHtml(p.candidateId)}</div>
       </div>
       <div class="prow-badges">
         ${showFollowup ? '<span class="followup-flag">⚠️ Follow up</span>' : ''}
+        ${contactVia ? `<span class="prow-via-badge">${escHtml(contactVia)}</span>` : ''}
         <span class="prow-status-pill ${pillClass}">${escHtml(pillLabel)}</span>
         <span class="prow-chevron">▾</span>
       </div>
@@ -1308,21 +1495,27 @@ function createPlacementRow(p, idx, joId) {
         <div class="prow-field">
           <div class="prow-field-label">Response</div>
           <select onchange="saveProwField('${escAttr(pid)}','response',this.value,this)" data-pid="${escAttr(pid)}">
-            ${['No Response','Interested','Not Interested'].map(v=>`<option${v===p.response?' selected':''}>${v}</option>`).join('')}
+            ${['No Response','Interested','Not Interested'].map(v=>`<option${v===savedResponse?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
           <div class="prow-field-label">Status</div>
           <select onchange="saveProwField('${escAttr(pid)}','status',this.value,this)" data-pid="${escAttr(pid)}">
-            ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===p.status?' selected':''}>${v}</option>`).join('')}
+            ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===savedStatus?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
-      </div>
-      <div class="prow-dates">
+        <div class="prow-field">
+          <div class="prow-field-label">📱 Contacted Via</div>
+          <select onchange="saveProwExtra('${escAttr(pid)}','contactVia',this.value);updateViaDisplay(this,'${escAttr(pid)}')">
+            ${['','💬 SMS/Text','📞 Phone Call','💙 Facebook Messenger','✉️ Gmail','📲 Viber'].map(v=>`<option${v===contactVia?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
         <div class="prow-field">
           <div class="prow-field-label">📅 Last Contacted</div>
           <input type="date" value="${escAttr(lastContacted)}" onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value)">
         </div>
+      </div>
+      <div class="prow-dates">
         <div class="prow-field">
           <div class="prow-field-label">🔔 Follow-up Date</div>
           <input type="date" value="${escAttr(followupDate)}" onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value)">
@@ -1331,13 +1524,14 @@ function createPlacementRow(p, idx, joId) {
           <div class="prow-field-label">🗓 Interview Date</div>
           <input type="date" value="${escAttr(interviewDate)}" onchange="saveProwExtra('${escAttr(pid)}','interviewDate',this.value)">
         </div>
-      </div>
-      <div class="prow-fields" style="margin-top:8px">
-        <div class="prow-field full">
+        <div class="prow-field">
           <div class="prow-field-label">📝 Notes</div>
           <input type="text" value="${escAttr(savedNote)}" placeholder="Add notes…"
             onchange="saveProwExtra('${escAttr(pid)}','notes',this.value); saveNote('${escAttr(noteKey)}',this.value)">
         </div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-blue" style="width:100%" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 View Full Candidate Profile</button>
       </div>
     </div>
   `;
@@ -1356,6 +1550,21 @@ function saveProwExtra(pid, field, value) {
   try { extra = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e){}
   extra[field] = value;
   localStorage.setItem(key, JSON.stringify(extra));
+}
+
+function updateViaDisplay(sel, pid) {
+  const row = document.getElementById(`prow-${pid}`);
+  if (!row) return;
+  const badge = row.querySelector('.prow-via-badge');
+  const val = sel.value;
+  if (badge) { badge.textContent = val; badge.style.display = val ? '' : 'none'; }
+  else if (val) {
+    // create it
+    const badges = row.querySelector('.prow-badges');
+    const b = document.createElement('span');
+    b.className = 'prow-via-badge'; b.textContent = val;
+    badges.insertBefore(b, badges.firstChild);
+  }
 }
 
 function saveProwField(pid, field, value, el) {
@@ -1390,9 +1599,7 @@ function daysDiff(dateStr) {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
-function toggleJOCard(card) {
-  card.classList.toggle('open');
-}
+function toggleJOCard(card) { /* replaced by tab system */ }
 
 function updatePlacementLocal(id, field, value) {
   const mp = manualPlacements.find(p => p.placementId === id);
@@ -1484,6 +1691,8 @@ function createCandCard(c) {
     ? `<span class="cand-badge badge-blacklisted">⛔ Blacklisted: ${escHtml(bl.reason||'')}</span>`
     : '';
 
+  card.style.cursor = 'pointer';
+  card.onclick = (e) => { if (!e.target.closest('.btn')) openCandModal(c.id); };
   card.innerHTML = `
     <div class="cand-card-top">
       <div class="cand-avatar">${genderEmoji(c.gender)}</div>
@@ -1492,6 +1701,7 @@ function createCandCard(c) {
         <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
         <div class="cand-badges">${verifiedBadge}${blBadge}</div>
       </div>
+      <div style="color:var(--text3);font-size:11px;padding-top:2px">👁 View</div>
     </div>
     <div class="cand-details">
       <div class="cand-detail"><span class="cand-detail-label">Age</span><span class="cand-detail-val">${escHtml(c.age)}</span></div>
@@ -1804,6 +2014,105 @@ function addFromMatcher(joId, candId, candName) {
 }
 
 // ═══════════════════════════════════════════════
+// CANDIDATE PROFILE MODAL
+// ═══════════════════════════════════════════════
+function openCandModal(candId) {
+  const c = candidates.find(x => x.id === candId);
+  if (!c) {
+    // Candidate from placement may not be in sheet — show basic info
+    alert('Candidate details not found in current data.');
+    return;
+  }
+
+  const isBlacklisted = !!blacklist[c.id];
+  const verifiedBadge = c.status === 'Verified'
+    ? '<span class="cand-badge badge-verified">✅ Verified</span>'
+    : '<span class="cand-badge badge-unverified">○ Unverified</span>';
+  const blBadge = isBlacklisted ? '<span class="cand-badge badge-blacklisted">⛔ Blacklisted</span>' : '';
+
+  const field = (label, val, full=false) => `
+    <div class="cand-modal-field${full?' full':''}">
+      <div class="cand-modal-field-label">${label}</div>
+      <div class="cand-modal-field-val${!val?' empty':''}">${val ? escHtml(val) : '—'}</div>
+    </div>`;
+
+  const contactBtns = [];
+  if (c.phone) {
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="sms:${encodeURIComponent(c.phone)}">
+      <span class="icon">💬</span><div><div class="label">SMS / Text</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="tel:${encodeURIComponent(c.phone)}">
+      <span class="icon">📞</span><div><div class="label">Phone Call</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="viber://chat?number=${encodeURIComponent(c.phone)}" target="_blank">
+      <span class="icon">📲</span><div><div class="label">Viber</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
+  }
+  if (c.facebook) {
+    const fbSearch = `https://www.facebook.com/search/people/?q=${encodeURIComponent(c.facebook)}`;
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="${fbSearch}" target="_blank">
+      <span class="icon">💙</span><div><div class="label">Facebook Messenger</div><div class="sub">${escHtml(c.facebook)}</div></div></a>`);
+  }
+  if (c.email) {
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="mailto:${encodeURIComponent(c.email)}">
+      <span class="icon">✉️</span><div><div class="label">Gmail / Email</div><div class="sub">${escHtml(c.email)}</div></div></a>`);
+  }
+
+  const inner = document.getElementById('cand-modal-inner');
+  inner.innerHTML = `
+    <div class="cand-modal-hero">
+      <div class="cand-modal-avatar">${genderEmoji(c.gender)}</div>
+      <div style="flex:1">
+        <div class="cand-modal-name">${escHtml(c.name)}</div>
+        <div class="cand-modal-id">${escHtml(c.id)} · Registered ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}</div>
+      </div>
+      <button class="cand-modal-close" onclick="closeCandModal()">✕</button>
+    </div>
+    <div class="cand-modal-body">
+
+      <div class="cand-modal-section">
+        <div class="cand-modal-section-title">Personal Info</div>
+        <div class="cand-modal-grid">
+          ${field('Age', c.age)}
+          ${field('Gender', c.gender)}
+          ${field('Location', c.location)}
+          ${field('Expected Pay', c.expectedPay)}
+          ${field('Job Type', c.jobType)}
+          ${field('Verified Status', c.status)}
+        </div>
+      </div>
+
+      <div class="cand-modal-section">
+        <div class="cand-modal-section-title">Experience</div>
+        <div class="cand-modal-grid">
+          ${field('Skills & Qualifications', c.skills, true)}
+          ${field('Past Jobs / Work History', c.pastJobs, true)}
+        </div>
+      </div>
+
+      ${contactBtns.length ? `
+      <div class="cand-modal-section">
+        <div class="cand-modal-section-title">Contact</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${contactBtns.join('')}
+        </div>
+      </div>` : ''}
+
+      <div style="display:flex;gap:8px;padding-top:4px">
+        ${!isBlacklisted
+          ? `<button class="btn btn-red" style="flex:1" onclick="closeCandModal();openBlacklistModal('${escAttr(c.id)}','${escAttr(c.name)}')">🚫 Blacklist</button>`
+          : `<button class="btn btn-ghost" style="flex:1" onclick="closeCandModal();removeBlacklist('${escAttr(c.id)}')">↩ Remove Blacklist</button>`}
+        <button class="btn btn-green" style="flex:1" onclick="closeCandModal();openAddToJOModal('${escAttr(c.id)}','${escAttr(c.name)}')">➕ Add to Job Order</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-cand-profile').classList.add('open');
+}
+
+function closeCandModal() {
+  document.getElementById('modal-cand-profile').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════
 // TAB SWITCHING
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
@@ -1854,5 +2163,13 @@ function escAttr(str) {
 // ═══════════════════════════════════════════════
 loadAll();
 </script>
+
+<!-- ─── CANDIDATE PROFILE MODAL ─── -->
+<div class="cand-modal-overlay" id="modal-cand-profile" onclick="if(event.target===this)closeCandModal()">
+  <div class="cand-modal" id="cand-modal-inner">
+    <!-- filled by JS -->
+  </div>
+</div>
+
 </body>
 </html>
