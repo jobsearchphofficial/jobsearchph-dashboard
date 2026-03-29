@@ -888,11 +888,19 @@ async function loadAll() {
     fetchCSV(SHEET_PLACEMENTS)
   ]);
 
-  // CANDIDATES (Row 1 = headers, data from Row 2)
+  // CANDIDATES (Row 1 = title "JOB SEEKERS", Row 2 = merged header, Row 3 = actual headers, data from Row 4)
+  // Actual columns: A=ID, B=Timestamp, C=Full Name, D=Facebook Name, E=Age, F=Contact, G=Email,
+  // H=Job Type (Preferred), I=Skills/Qualifications, J=Preferred Location, K=Expected Pay,
+  // L=Gender, M=Past Jobs, N=Resume Link, O=Civil Status, P=When can start, Q=Status, R=Internal Notes
   if (results[0].status === 'fulfilled') {
     const rows = results[0].value;
-    candidates = rows.slice(1).filter(r => r[0]).map(r => ({
-      id: r[0] || '',
+    // Find the first row where col A looks like a candidate ID (e.g. C001, C002...)
+    let dataStart = 1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] && /^C\d+$/i.test(rows[i][0].trim())) { dataStart = i; break; }
+    }
+    candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => ({
+      id: r[0].trim() || '',
       timestamp: r[1] || '',
       name: r[2] || '',
       age: r[4] || '',
@@ -911,15 +919,24 @@ async function loadAll() {
   }
 
   // JOB REQUESTS (Row 1 = title, Row 2 = headers, data from Row 3)
+  // Actual columns: A=ID, B=Timestamp, C=Company, D=Contact Person, E=Contact#, F=Email,
+  // G=Address, H=Job Title/Position, I=Position (detailed), J=Slots, K=Work Schedule,
+  // L=Civil Status req, M=Marital Status, N=Gender Pref, O=Skills Needed, P=Experience,
+  // Q=Rate/Salary, R=Benefits, S=Tools/Equipment, T=Other Notes, U=JO Status, V=Workers Filled, W=Fee Rate, X=Fee Amount
   if (results[1].status === 'fulfilled') {
     const rows = results[1].value;
-    jobOrders = rows.slice(2).filter(r => r[0]).map(r => ({
-      id: r[0] || '',
+    // Find first data row (where col A looks like JO ID e.g. JOO-01)
+    let joDataStart = 2;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] && /^JO/i.test(rows[i][0].trim())) { joDataStart = i; break; }
+    }
+    jobOrders = rows.slice(joDataStart).filter(r => r[0] && /^JO/i.test(r[0].trim())).map(r => ({
+      id: r[0].trim() || '',
       company: r[2] || '',
       position: r[8] || '',
       slots: r[9] || '',
       salary: r[16] || '',
-      status: r[20] || '',
+      status: (r[20] || '').trim(),
     })).filter(jo => jo.status === 'Active');
     document.getElementById('jo-error').classList.add('hidden');
   } else {
@@ -1564,7 +1581,7 @@ function escAttr(str) {
 
 // ═══════════════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════════ 
+// ═══════════════════════════════════════════════
 loadAll();
 </script>
 </body>
