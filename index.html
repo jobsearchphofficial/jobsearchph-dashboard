@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Search PH — Operations Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --bg2: #0d1424;
+    --card: #111827;
+    --card2: #141d2e;
+    --border: #1f2937;
+    --border2: #2a3a52;
+    --gold: #f0c040;
+    --gold2: #d4a820;
+    --gold-dim: rgba(240,192,64,0.12);
+    --green: #10b981;
+    --green-dim: rgba(16,185,129,0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.12);
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── BACKGROUND ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(240,192,64,0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(59,130,246,0.04) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,15,30,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+  }
+
+  .header-top {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 0 10px;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .logo-mark {
+    width: 34px; height: 34px;
+    background: var(--gold);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-size: 15px; font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  .logo-sub {
+    font-size: 10px; font-weight: 400;
+    color: var(--text3);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .header-actions {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .btn-refresh {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text2); padding: 6px 12px; border-radius: 7px;
+    font-family: var(--sans); font-size: 12px; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-refresh:hover { border-color: var(--gold); color: var(--gold); }
+
+  .last-updated {
+    font-family: var(--mono); font-size: 10px; color: var(--text3);
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+  /* ─── STATS BAR ─── */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+
+  .stat {
+    background: var(--bg);
+    padding: 8px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .stat-val {
+    font-family: var(--mono); font-size: 18px; font-weight: 500;
+    color: var(--gold);
+  }
+
+  .stat-label {
+    font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex; gap: 2px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .tab {
+    padding: 8px 18px; border-radius: 8px;
+    border: 1px solid transparent;
+    background: none; color: var(--text3);
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .18s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); background: var(--card); }
+  .tab.active {
+    background: var(--gold-dim); border-color: rgba(240,192,64,0.3);
+    color: var(--gold);
+  }
+
+  /* ─── MAIN ─── */
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ─── SECTION HEADER ─── */
+  .section-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .section-title { font-size: 17px; font-weight: 600; }
+  .badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    padding: 2px 8px; border-radius: 99px;
+    background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(240,192,64,0.25);
+  }
+
+  /* ─── FILTER BAR ─── */
+  .filter-bar {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+
+  .filter-bar input, .filter-bar select {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 12px; border-radius: 7px;
+    font-family: var(--sans); font-size: 12px;
+    outline: none; transition: border-color .2s;
+    min-width: 140px;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--gold); }
+  .filter-bar input { flex: 1; min-width: 200px; }
+
+  .filter-bar select option { background: var(--card2); }
+
+  /* ─── CARDS GRID ─── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+  }
+
+  /* ─── JOB ORDER CARD ─── */
+  .jo-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .jo-card:hover { border-color: var(--border2); }
+
+  .jo-card-header {
+    padding: 16px 18px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .jo-card-top {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;
+  }
+
+  .jo-id {
+    font-family: var(--mono); font-size: 10px; color: var(--gold);
+    background: var(--gold-dim); padding: 2px 7px; border-radius: 5px;
+    border: 1px solid rgba(240,192,64,0.2); white-space: nowrap; margin-top: 2px;
+  }
+
+  .jo-title { font-size: 15px; font-weight: 600; flex: 1; line-height: 1.3; }
+  .jo-company { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .jo-meta {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  .jo-meta-item {
+    font-size: 11px; color: var(--text3);
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .jo-meta-item span { color: var(--text2); font-weight: 500; }
+
+  .jo-toggle-icon {
+    margin-left: auto; color: var(--text3); transition: transform .2s; flex-shrink: 0;
+  }
+  .jo-card.open .jo-toggle-icon { transform: rotate(180deg); }
+
+  .jo-card-body {
+    display: none; border-top: 1px solid var(--border);
+  }
+  .jo-card.open .jo-card-body { display: block; animation: fadeUp .2s ease; }
+
+  .jo-card-actions {
+    display: flex; gap: 8px; padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 7px;
+    font-family: var(--sans); font-size: 11px; font-weight: 500;
+    border: 1px solid; cursor: pointer; transition: all .18s;
+    white-space: nowrap;
+  }
+
+  .btn-gold {
+    background: var(--gold-dim); border-color: rgba(240,192,64,0.35);
+    color: var(--gold);
+  }
+  .btn-gold:hover { background: rgba(240,192,64,0.2); }
+
+  .btn-green {
+    background: var(--green-dim); border-color: rgba(16,185,129,0.35);
+    color: var(--green);
+  }
+  .btn-green:hover { background: rgba(16,185,129,0.2); }
+
+  .btn-blue {
+    background: var(--blue-dim); border-color: rgba(59,130,246,0.35);
+    color: var(--blue);
+  }
+  .btn-blue:hover { background: rgba(59,130,246,0.2); }
+
+  .btn-red {
+    background: var(--red-dim); border-color: rgba(239,68,68,0.35);
+    color: var(--red);
+  }
+  .btn-red:hover { background: rgba(239,68,68,0.2); }
+
+  .btn-ghost {
+    background: none; border-color: var(--border);
+    color: var(--text2);
+  }
+  .btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+
+  /* ─── PLACEMENTS TABLE ─── */
+  .placements-section { padding: 0 18px 14px; }
+
+  .placements-title {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 12px 0 8px;
+  }
+
+  .placement-row {
+    display: grid;
+    grid-template-columns: 1fr 130px 140px 100px auto;
+    gap: 8px; align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--card2);
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+
+  .placement-name { font-weight: 500; }
+  .placement-id { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+  .placement-row select {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 6px; border-radius: 5px;
+    font-family: var(--sans); font-size: 11px; outline: none;
+    width: 100%;
+  }
+
+  .followup-flag {
+    font-size: 10px; background: rgba(240,192,64,0.15); color: var(--gold);
+    padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(240,192,64,0.25);
+    white-space: nowrap;
+  }
+
+  .empty-placements {
+    text-align: center; padding: 16px;
+    color: var(--text3); font-size: 12px;
+    font-family: var(--mono);
+  }
+
+  /* ─── CANDIDATE CARD ─── */
+  .cand-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 18px;
+    transition: border-color .2s;
+    position: relative;
+  }
+  .cand-card:hover { border-color: var(--border2); }
+  .cand-card.blacklisted { border-color: rgba(239,68,68,0.3); opacity: .75; }
+
+  .cand-card-top {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;
+  }
+
+  .cand-avatar {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--border2) 0%, var(--card2) 100%);
+    display: grid; place-items: center; font-size: 16px;
+  }
+
+  .cand-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+  .cand-id { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  .cand-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+
+  .cand-badge {
+    font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 500;
+    border: 1px solid;
+  }
+  .badge-verified { background: var(--green-dim); border-color: rgba(16,185,129,.3); color: var(--green); }
+  .badge-unverified { background: var(--card2); border-color: var(--border); color: var(--text3); }
+  .badge-blacklisted { background: var(--red-dim); border-color: rgba(239,68,68,.3); color: var(--red); }
+
+  .cand-details {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px;
+    margin: 10px 0; font-size: 12px;
+  }
+
+  .cand-detail { display: flex; gap: 5px; }
+  .cand-detail-label { color: var(--text3); white-space: nowrap; }
+  .cand-detail-val { color: var(--text2); }
+
+  .cand-skills {
+    font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.5;
+  }
+
+  .cand-card-actions {
+    display: flex; gap: 6px; flex-wrap: wrap; padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── AI MATCHER ─── */
+  .matcher-panel {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 24px;
+  }
+
+  .matcher-panel h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+  .matcher-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .matcher-controls select {
+    flex: 1; min-width: 260px;
+    background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px;
+    font-family: var(--sans); font-size: 13px; outline: none;
+  }
+  .matcher-controls select:focus { border-color: var(--gold); }
+
+  .ai-results { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .ai-result-card {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: start;
+  }
+
+  .ai-rank {
+    font-family: var(--mono); font-size: 16px; font-weight: 500;
+    color: var(--text3); padding-top: 2px;
+  }
+  .ai-rank.rank-1 { color: var(--gold); }
+  .ai-rank.rank-2 { color: #94a3b8; }
+  .ai-rank.rank-3 { color: #92400e; }
+
+  .ai-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .ai-reason { font-size: 12px; color: var(--text2); line-height: 1.5; margin: 4px 0; }
+  .ai-flags { font-size: 11px; color: var(--red); }
+  .ai-next { font-size: 11px; color: var(--green); margin-top: 3px; }
+
+  .fit-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .fit-excellent { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.35); color: var(--green); }
+  .fit-good { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.35); color: var(--blue); }
+  .fit-fair { background: rgba(240,192,64,.15); border-color: rgba(240,192,64,.35); color: var(--gold); }
+  .fit-poor { background: var(--red-dim); border-color: rgba(239,68,68,.35); color: var(--red); }
+
+  /* ─── LOADING / EMPTY ─── */
+  .loading-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 20px; gap: 16px;
+  }
+
+  .spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid var(--border);
+    border-top-color: var(--gold);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+
+  .empty-state {
+    text-align: center; padding: 48px 20px;
+    color: var(--text3); font-family: var(--mono); font-size: 12px;
+  }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+  .error-msg {
+    background: var(--red-dim); border: 1px solid rgba(239,68,68,.3);
+    border-radius: 10px; padding: 14px 18px;
+    font-size: 12px; color: var(--red);
+    margin-bottom: 16px;
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 16px; padding: 28px;
+    width: 90%; max-width: 480px;
+    transform: translateY(12px); transition: transform .25s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+
+  .modal-field { margin-bottom: 14px; }
+  .modal-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+
+  .modal-field input, .modal-field select, .modal-field textarea {
+    width: 100%; background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px;
+    font-family: var(--sans); font-size: 13px; outline: none; transition: border-color .2s;
+  }
+  .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
+    border-color: var(--gold);
+  }
+  .modal-field textarea { resize: vertical; min-height: 80px; }
+
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ─── AI LOADING ─── */
+  .ai-loading {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px; background: var(--card2); border-radius: 10px;
+    color: var(--text2); font-size: 13px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 640px) {
+    header { padding: 0 16px; }
+    main { padding: 16px; }
+    .stats-bar { grid-template-columns: repeat(2,1fr); }
+    .cards-grid { grid-template-columns: 1fr; }
+    .placement-row { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
+    .tabs { padding: 10px 16px; gap: 4px; overflow-x: auto; }
+    .tab { font-size: 12px; padding: 7px 12px; }
+  }
+
+  /* ─── MISC ─── */
+  .hidden { display: none !important; }
+  .text-mono { font-family: var(--mono); }
+  .text-gold { color: var(--gold); }
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  .ai-status-msg {
+    font-family: var(--mono); font-size: 11px; color: var(--text3);
+    padding: 10px; text-align: center;
+  }
+
+  .notes-row {
+    display: flex; gap: 6px; align-items: center; margin-top: 6px;
+  }
+  .notes-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 8px; border-radius: 5px;
+    font-family: var(--sans); font-size: 11px; outline: none;
+  }
+  .notes-input:focus { border-color: var(--gold); }
+
+  select option { background: #111827; }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-mark">💼</div>
+      <div>
+        <div class="logo-text">Job Search PH</div>
+        <div class="logo-sub">Bacolod City · Operations Dashboard</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="last-updated">
+        <div class="pulse"></div>
+        <span id="last-updated-text">—</span>
+      </div>
+      <button class="btn-refresh" onclick="refreshAll()">
+        <span>↻</span> Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div>
+        <div class="stat-val" id="stat-candidates">—</div>
+        <div class="stat-label">Total Candidates</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div>
+        <div class="stat-val" id="stat-verified">—</div>
+        <div class="stat-label">Verified</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div>
+        <div class="stat-val" id="stat-active-jobs">—</div>
+        <div class="stat-label">Active Jobs</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div>
+        <div class="stat-val" id="stat-placements">—</div>
+        <div class="stat-label">Placements</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('jobs')">📋 Job Orders</button>
+    <button class="tab" onclick="switchTab('candidates')">👥 Candidates</button>
+    <button class="tab" onclick="switchTab('matcher')">🤖 AI Matcher</button>
+  </div>
+</header>
+
+<!-- ─── MAIN ─── -->
+<main>
+
+  <!-- ═══ TAB: JOBS ═══ -->
+  <div class="tab-content active" id="tab-jobs">
+    <div class="section-header">
+      <div class="section-title">Active Job Orders</div>
+      <div class="badge" id="jo-count">0</div>
+    </div>
+    <div id="jo-error" class="error-msg hidden"></div>
+    <div id="jo-container">
+      <div class="loading-wrap">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading job orders…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CANDIDATES ═══ -->
+  <div class="tab-content" id="tab-candidates">
+    <div class="section-header">
+      <div class="section-title">Candidate Pool</div>
+      <div class="badge" id="cand-count">0</div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="cand-search" placeholder="🔍  Search by name or ID…" oninput="renderCandidates()">
+      <select id="cand-filter-type" onchange="renderCandidates()">
+        <option value="">All Job Types</option>
+      </select>
+      <select id="cand-filter-location" onchange="renderCandidates()">
+        <option value="">All Locations</option>
+      </select>
+      <select id="cand-filter-status" onchange="renderCandidates()">
+        <option value="">All Statuses</option>
+        <option value="Verified">✅ Verified</option>
+        <option value="Unverified">○ Unverified</option>
+      </select>
+      <select id="cand-filter-gender" onchange="renderCandidates()">
+        <option value="">All Genders</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+      </select>
+      <select id="cand-filter-blacklist" onchange="renderCandidates()">
+        <option value="hide">Hide Blacklisted</option>
+        <option value="show">Show All</option>
+        <option value="only">Blacklisted Only</option>
+      </select>
+    </div>
+    <div id="cand-error" class="error-msg hidden"></div>
+    <div id="cand-container" class="cards-grid">
+      <div class="loading-wrap">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading candidates…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: AI MATCHER ═══ -->
+  <div class="tab-content" id="tab-matcher">
+    <div class="matcher-panel">
+      <h3>🤖 AI Candidate Matcher</h3>
+      <div class="matcher-controls">
+        <select id="matcher-jo-select">
+          <option value="">— Select a Job Order —</option>
+        </select>
+        <button class="btn btn-gold" onclick="runMatcher()">✨ Find Best Candidates</button>
+      </div>
+      <div id="matcher-results" class="ai-results"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── ADD PLACEMENT MODAL ─── -->
+<div class="modal-overlay" id="modal-add-placement">
+  <div class="modal">
+    <h3>➕ Add Candidate to Placement</h3>
+    <div class="modal-field">
+      <div class="modal-label">Job Order</div>
+      <select id="modal-jo-select">
+        <option value="">— Select Job Order —</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Candidate ID</div>
+      <input type="text" id="modal-cand-id" placeholder="e.g. C-001" readonly>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Candidate Name</div>
+      <input type="text" id="modal-cand-name" placeholder="Full name">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Company</div>
+      <input type="text" id="modal-company" placeholder="Auto-filled from JO" readonly>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Position</div>
+      <input type="text" id="modal-position" placeholder="Auto-filled from JO" readonly>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Response</div>
+      <select id="modal-response">
+        <option>No Response</option>
+        <option>Interested</option>
+        <option>Not Interested</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Status</div>
+      <select id="modal-status">
+        <option>Messaged</option>
+        <option>For Interview</option>
+        <option>Interviewed</option>
+        <option>Hired</option>
+        <option>Dropped</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Date</div>
+      <input type="date" id="modal-date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes</div>
+      <textarea id="modal-notes" placeholder="Optional notes…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-placement')">Cancel</button>
+      <button class="btn btn-green" onclick="savePlacement()">✔ Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── BLACKLIST MODAL ─── -->
+<div class="modal-overlay" id="modal-blacklist">
+  <div class="modal">
+    <h3>🚫 Blacklist Candidate</h3>
+    <div class="modal-field">
+      <div class="modal-label">Candidate</div>
+      <input type="text" id="bl-cand-name" readonly>
+      <input type="hidden" id="bl-cand-id">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Reason</div>
+      <select id="bl-reason">
+        <option>No Response/Ghost</option>
+        <option>No Show for Interview</option>
+        <option>Accepted then Backed Out</option>
+        <option>Fake Information</option>
+        <option>Unprofessional Behavior</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Additional Notes</div>
+      <textarea id="bl-notes" placeholder="Optional details…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-blacklist')">Cancel</button>
+      <button class="btn btn-red" onclick="confirmBlacklist()">🚫 Confirm Blacklist</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ADD TO JO MODAL ─── -->
+<div class="modal-overlay" id="modal-add-to-jo">
+  <div class="modal">
+    <h3>➕ Add Candidate to Job Order</h3>
+    <input type="hidden" id="atj-cand-id">
+    <input type="hidden" id="atj-cand-name">
+    <div class="modal-field">
+      <div class="modal-label">Candidate</div>
+      <input type="text" id="atj-cand-display" readonly>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Select Job Order</div>
+      <select id="atj-jo-select"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Response</div>
+      <select id="atj-response">
+        <option>No Response</option>
+        <option>Interested</option>
+        <option>Not Interested</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Status</div>
+      <select id="atj-status">
+        <option>Messaged</option>
+        <option>For Interview</option>
+        <option>Interviewed</option>
+        <option>Hired</option>
+        <option>Dropped</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Date</div>
+      <input type="date" id="atj-date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes</div>
+      <textarea id="atj-notes" placeholder="Optional…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-to-jo')">Cancel</button>
+      <button class="btn btn-green" onclick="saveAtjPlacement()">✔ Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const ANTHROPIC_API_KEY = "YOUR_API_KEY_HERE";
+
+const SHEET_CANDIDATES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxIFw8KDwhsz4Xw55Z3-GUb9yoyEBpnhKHovv2YYQEMxBqh0E4fRCDqCvHi3a6MrmWjaN0_e2KnGx2/pub?gid=1026175595&single=true&output=csv";
+const SHEET_JOB_REQUESTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxIFw8KDwhsz4Xw55Z3-GUb9yoyEBpnhKHovv2YYQEMxBqh0E4fRCDqCvHi3a6MrmWjaN0_e2KnGx2/pub?gid=865983128&single=true&output=csv";
+const SHEET_PLACEMENTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxIFw8KDwhsz4Xw55Z3-GUb9yoyEBpnhKHovv2YYQEMxBqh0E4fRCDqCvHi3a6MrmWjaN0_e2KnGx2/pub?gid=576481838&single=true&output=csv";
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let candidates = [];
+let jobOrders = [];
+let placements = [];
+let blacklist = {};
+let manualPlacements = [];
+let candidateNotes = {};
+
+// ═══════════════════════════════════════════════
+// LOCAL STORAGE
+// ═══════════════════════════════════════════════
+function loadLocal() {
+  try { blacklist = JSON.parse(localStorage.getItem('blacklist') || '{}'); } catch(e){ blacklist={}; }
+  try { manualPlacements = JSON.parse(localStorage.getItem('manual_placements') || '[]'); } catch(e){ manualPlacements=[]; }
+  try { candidateNotes = JSON.parse(localStorage.getItem('candidate_notes') || '{}'); } catch(e){ candidateNotes={}; }
+}
+
+function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); }
+function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); }
+function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); }
+
+// ═══════════════════════════════════════════════
+// CSV PARSER
+// ═══════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const rows = [];
+  for (const line of lines) {
+    const cols = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"' && !inQ) { inQ = true; continue; }
+      if (ch === '"' && inQ) {
+        if (line[i+1] === '"') { cur += '"'; i++; }
+        else { inQ = false; }
+        continue;
+      }
+      if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+      cur += ch;
+    }
+    cols.push(cur.trim());
+    rows.push(cols);
+  }
+  return rows;
+}
+
+async function fetchCSV(url) {
+  const cacheBuster = `&t=${Date.now()}`;
+  const resp = await fetch(url + cacheBuster);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return parseCSV(await resp.text());
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOAD
+// ═══════════════════════════════════════════════
+async function loadAll() {
+  loadLocal();
+
+  document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
+  document.getElementById('cand-container').innerHTML = loadingHTML('Loading candidates…');
+
+  const results = await Promise.allSettled([
+    fetchCSV(SHEET_CANDIDATES),
+    fetchCSV(SHEET_JOB_REQUESTS),
+    fetchCSV(SHEET_PLACEMENTS)
+  ]);
+
+  // CANDIDATES (Row 1 = headers, data from Row 2)
+  if (results[0].status === 'fulfilled') {
+    const rows = results[0].value;
+    candidates = rows.slice(1).filter(r => r[0]).map(r => ({
+      id: r[0] || '',
+      timestamp: r[1] || '',
+      name: r[2] || '',
+      age: r[4] || '',
+      jobType: r[7] || '',
+      skills: r[8] || '',
+      location: r[9] || '',
+      expectedPay: r[10] || '',
+      gender: r[11] || '',
+      pastJobs: r[12] || '',
+      status: r[16] || 'Unverified',
+    }));
+    document.getElementById('cand-error').classList.add('hidden');
+  } else {
+    showError('cand-error', 'Failed to load candidates: ' + results[0].reason?.message);
+    candidates = [];
+  }
+
+  // JOB REQUESTS (Row 1 = title, Row 2 = headers, data from Row 3)
+  if (results[1].status === 'fulfilled') {
+    const rows = results[1].value;
+    jobOrders = rows.slice(2).filter(r => r[0]).map(r => ({
+      id: r[0] || '',
+      company: r[2] || '',
+      position: r[8] || '',
+      slots: r[9] || '',
+      salary: r[16] || '',
+      status: r[20] || '',
+    })).filter(jo => jo.status === 'Active');
+    document.getElementById('jo-error').classList.add('hidden');
+  } else {
+    showError('jo-error', 'Failed to load job orders: ' + results[1].reason?.message);
+    jobOrders = [];
+  }
+
+  // PLACEMENTS (Row 1 = headers, data from Row 2)
+  if (results[2].status === 'fulfilled') {
+    const rows = results[2].value;
+    placements = rows.slice(1).filter(r => r[0]).map(r => ({
+      placementId: r[0] || '',
+      jobOrderId: r[1] || '',
+      candidateId: r[2] || '',
+      candidateName: r[3] || '',
+      company: r[4] || '',
+      response: r[5] || '',
+      position: r[6] || '',
+      status: r[7] || '',
+      date: r[8] || '',
+      notes: r[9] || '',
+      source: 'sheet'
+    }));
+  } else {
+    placements = [];
+  }
+
+  // Merge manual placements
+  const allPlacements = [...placements, ...manualPlacements];
+
+  updateStats();
+  renderJobOrders(allPlacements);
+  renderCandidates();
+  populateMatcherDropdown();
+  populateFilterDropdowns();
+  updateTimestamp();
+}
+
+function loadingHTML(msg) {
+  return `<div class="loading-wrap"><div class="spinner"></div><div class="loading-text">${msg}</div></div>`;
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = '⚠ ' + msg;
+  el.classList.remove('hidden');
+}
+
+function updateTimestamp() {
+  const now = new Date();
+  document.getElementById('last-updated-text').textContent =
+    now.toLocaleTimeString('en-PH', {hour:'2-digit',minute:'2-digit'});
+}
+
+function updateStats() {
+  const allPlacements = [...placements, ...manualPlacements];
+  document.getElementById('stat-candidates').textContent = candidates.length;
+  document.getElementById('stat-verified').textContent = candidates.filter(c => c.status === 'Verified').length;
+  document.getElementById('stat-active-jobs').textContent = jobOrders.length;
+  document.getElementById('stat-placements').textContent = allPlacements.length;
+}
+
+// ═══════════════════════════════════════════════
+// JOB ORDERS
+// ═══════════════════════════════════════════════
+function renderJobOrders(allPlacements) {
+  const container = document.getElementById('jo-container');
+  document.getElementById('jo-count').textContent = jobOrders.length;
+
+  if (!jobOrders.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>No active job orders found.</div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'cards-grid';
+
+  jobOrders.forEach(jo => {
+    const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
+    const card = createJOCard(jo, joPlacements);
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+}
+
+function createJOCard(jo, joPlacements) {
+  const card = document.createElement('div');
+  card.className = 'jo-card';
+  card.id = `jo-card-${jo.id}`;
+
+  const header = document.createElement('div');
+  header.className = 'jo-card-header';
+  header.innerHTML = `
+    <div class="jo-card-top">
+      <div class="jo-id">${escHtml(jo.id)}</div>
+      <div>
+        <div class="jo-title">${escHtml(jo.position)}</div>
+        <div class="jo-company">${escHtml(jo.company)}</div>
+      </div>
+      <div class="jo-toggle-icon">▾</div>
+    </div>
+    <div class="jo-meta">
+      <div class="jo-meta-item">👥 Slots: <span>${escHtml(jo.slots)}</span></div>
+      <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
+      <div class="jo-meta-item">📌 <span class="text-green">${escHtml(jo.status)}</span></div>
+      <div class="jo-meta-item">🗂 Placed: <span>${joPlacements.length}</span></div>
+    </div>
+  `;
+  header.onclick = () => toggleJOCard(card);
+
+  const body = document.createElement('div');
+  body.className = 'jo-card-body';
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'jo-card-actions';
+  actions.innerHTML = `
+    <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Find Candidates</button>
+    <button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add Candidate</button>
+  `;
+
+  // Placements list
+  const placeSec = document.createElement('div');
+  placeSec.className = 'placements-section';
+  placeSec.innerHTML = `<div class="placements-title">Candidates in This Job Order</div>`;
+
+  if (joPlacements.length === 0) {
+    placeSec.innerHTML += `<div class="empty-placements">No candidates assigned yet.</div>`;
+  } else {
+    joPlacements.forEach((p, idx) => {
+      const row = createPlacementRow(p, idx, jo.id);
+      placeSec.appendChild(row);
+    });
+  }
+
+  body.appendChild(actions);
+  body.appendChild(placeSec);
+  card.appendChild(header);
+  card.appendChild(body);
+  return card;
+}
+
+function createPlacementRow(p, idx, joId) {
+  const row = document.createElement('div');
+  row.className = 'placement-row';
+
+  const needsFollowup = (p.status === 'Messaged') && p.date && daysDiff(p.date) >= 2;
+  const noteKey = `${joId}_${p.candidateId}`;
+  const savedNote = candidateNotes[noteKey] || p.notes || '';
+
+  row.innerHTML = `
+    <div>
+      <div class="placement-name">${escHtml(p.candidateName)}</div>
+      <div class="placement-id">${escHtml(p.candidateId)}</div>
+      ${needsFollowup ? '<div class="followup-flag">⚠️ Follow up today</div>' : ''}
+      <div class="notes-row">
+        <input class="notes-input" type="text" value="${escAttr(savedNote)}" 
+          placeholder="Notes…"
+          onchange="saveNote('${escAttr(noteKey)}', this.value)">
+      </div>
+    </div>
+    <select onchange="updatePlacementLocal('${escAttr(p.placementId || `${joId}_${p.candidateId}_${idx}`)}','response',this.value)">
+      ${['No Response','Interested','Not Interested'].map(v=>`<option${v===p.response?' selected':''}>${v}</option>`).join('')}
+    </select>
+    <select onchange="updatePlacementLocal('${escAttr(p.placementId || `${joId}_${p.candidateId}_${idx}`)}','status',this.value)">
+      ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===p.status?' selected':''}>${v}</option>`).join('')}
+    </select>
+    <div class="text-mono" style="font-size:10px;color:var(--text3)">${p.date||''}</div>
+  `;
+
+  return row;
+}
+
+function daysDiff(dateStr) {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return 0;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function toggleJOCard(card) {
+  card.classList.toggle('open');
+}
+
+function updatePlacementLocal(id, field, value) {
+  // Update in manualPlacements if exists, else just track
+  const mp = manualPlacements.find(p => p.placementId === id);
+  if (mp) { mp[field] = value; saveManualPlacements(); }
+}
+
+function saveNote(key, val) {
+  candidateNotes[key] = val;
+  saveCandidateNotes();
+}
+
+// ═══════════════════════════════════════════════
+// CANDIDATES
+// ═══════════════════════════════════════════════
+function populateFilterDropdowns() {
+  const types = [...new Set(candidates.map(c=>c.jobType).filter(Boolean))].sort();
+  const locs = [...new Set(candidates.map(c=>c.location).filter(Boolean))].sort();
+
+  const typeEl = document.getElementById('cand-filter-type');
+  const locEl = document.getElementById('cand-filter-location');
+  const curType = typeEl.value;
+  const curLoc = locEl.value;
+
+  typeEl.innerHTML = '<option value="">All Job Types</option>' + types.map(t=>`<option${t===curType?' selected':''}>${t}</option>`).join('');
+  locEl.innerHTML = '<option value="">All Locations</option>' + locs.map(l=>`<option${l===curLoc?' selected':''}>${l}</option>`).join('');
+}
+
+function renderCandidates() {
+  const search = document.getElementById('cand-search').value.toLowerCase();
+  const filterType = document.getElementById('cand-filter-type').value;
+  const filterLoc = document.getElementById('cand-filter-location').value;
+  const filterStatus = document.getElementById('cand-filter-status').value;
+  const filterGender = document.getElementById('cand-filter-gender').value;
+  const filterBl = document.getElementById('cand-filter-blacklist').value;
+
+  let filtered = candidates.filter(c => {
+    if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
+    if (filterType && c.jobType !== filterType) return false;
+    if (filterLoc && c.location !== filterLoc) return false;
+    if (filterStatus && c.status !== filterStatus) return false;
+    if (filterGender && c.gender !== filterGender) return false;
+    const isBlacklisted = !!blacklist[c.id];
+    if (filterBl === 'hide' && isBlacklisted) return false;
+    if (filterBl === 'only' && !isBlacklisted) return false;
+    return true;
+  });
+
+  document.getElementById('cand-count').textContent = filtered.length;
+  const container = document.getElementById('cand-container');
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div>No candidates match your filters.</div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  // Sort: Verified first, then by name
+  filtered.sort((a,b) => {
+    if (a.status === 'Verified' && b.status !== 'Verified') return -1;
+    if (b.status === 'Verified' && a.status !== 'Verified') return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  filtered.forEach(c => {
+    container.appendChild(createCandCard(c));
+  });
+}
+
+function genderEmoji(g) {
+  if (!g) return '👤';
+  const gl = g.toLowerCase();
+  if (gl.includes('female') || gl.includes('girl') || gl.includes('woman')) return '👩';
+  if (gl.includes('male') || gl.includes('boy') || gl.includes('man')) return '👨';
+  return '👤';
+}
+
+function createCandCard(c) {
+  const isBlacklisted = !!blacklist[c.id];
+  const bl = blacklist[c.id] || {};
+
+  const card = document.createElement('div');
+  card.className = 'cand-card' + (isBlacklisted ? ' blacklisted' : '');
+
+  const verifiedBadge = c.status === 'Verified'
+    ? '<span class="cand-badge badge-verified">✅ Verified</span>'
+    : '<span class="cand-badge badge-unverified">○ Unverified</span>';
+
+  const blBadge = isBlacklisted
+    ? `<span class="cand-badge badge-blacklisted">⛔ Blacklisted: ${escHtml(bl.reason||'')}</span>`
+    : '';
+
+  card.innerHTML = `
+    <div class="cand-card-top">
+      <div class="cand-avatar">${genderEmoji(c.gender)}</div>
+      <div style="flex:1">
+        <div class="cand-name">${escHtml(c.name)}</div>
+        <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}</div>
+      </div>
+    </div>
+    <div class="cand-details">
+      <div class="cand-detail"><span class="cand-detail-label">Age</span><span class="cand-detail-val">${escHtml(c.age)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Gender</span><span class="cand-detail-val">${escHtml(c.gender)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Job Type</span><span class="cand-detail-val">${escHtml(c.jobType)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Location</span><span class="cand-detail-val">${escHtml(c.location)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Past Jobs</span><span class="cand-detail-val">${escHtml(c.pastJobs||'—')}</span></div>
+    </div>
+    ${c.skills ? `<div class="cand-skills">🛠 ${escHtml(c.skills)}</div>` : ''}
+    <div class="cand-card-actions">
+      ${!isBlacklisted
+        ? `<button class="btn btn-red" onclick="openBlacklistModal('${escAttr(c.id)}','${escAttr(c.name)}')">🚫 Blacklist</button>`
+        : `<button class="btn btn-ghost" onclick="removeBlacklist('${escAttr(c.id)}')">↩ Remove Blacklist</button>`
+      }
+      <button class="btn btn-green" onclick="openAddToJOModal('${escAttr(c.id)}','${escAttr(c.name)}')">➕ Add to Job Order</button>
+    </div>
+  `;
+  return card;
+}
+
+// ═══════════════════════════════════════════════
+// BLACKLIST
+// ═══════════════════════════════════════════════
+function openBlacklistModal(id, name) {
+  document.getElementById('bl-cand-id').value = id;
+  document.getElementById('bl-cand-name').value = name;
+  document.getElementById('bl-notes').value = '';
+  openModal('modal-blacklist');
+}
+
+function confirmBlacklist() {
+  const id = document.getElementById('bl-cand-id').value;
+  const reason = document.getElementById('bl-reason').value;
+  const notes = document.getElementById('bl-notes').value;
+  blacklist[id] = { reason, notes, date: new Date().toISOString() };
+  saveBlacklist();
+  closeModal('modal-blacklist');
+  renderCandidates();
+}
+
+function removeBlacklist(id) {
+  if (!confirm('Remove this candidate from the blacklist?')) return;
+  delete blacklist[id];
+  saveBlacklist();
+  renderCandidates();
+}
+
+// ═══════════════════════════════════════════════
+// ADD PLACEMENT MODAL (from JO card)
+// ═══════════════════════════════════════════════
+function openAddPlacementModal(joId, company, position) {
+  const sel = document.getElementById('modal-jo-select');
+  sel.innerHTML = jobOrders.map(jo => `<option value="${escAttr(jo.id)}" data-company="${escAttr(jo.company)}" data-pos="${escAttr(jo.position)}"${jo.id===joId?' selected':''}>${jo.id} – ${jo.position}</option>`).join('');
+
+  document.getElementById('modal-company').value = company;
+  document.getElementById('modal-position').value = position;
+  document.getElementById('modal-cand-id').value = '';
+  document.getElementById('modal-cand-name').value = '';
+  document.getElementById('modal-cand-id').removeAttribute('readonly');
+  document.getElementById('modal-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-notes').value = '';
+
+  sel.onchange = function() {
+    const opt = this.selectedOptions[0];
+    document.getElementById('modal-company').value = opt?.dataset.company || '';
+    document.getElementById('modal-position').value = opt?.dataset.pos || '';
+  };
+
+  openModal('modal-add-placement');
+}
+
+function savePlacement() {
+  const joId = document.getElementById('modal-jo-select').value;
+  const candId = document.getElementById('modal-cand-id').value.trim();
+  const candName = document.getElementById('modal-cand-name').value.trim();
+  const company = document.getElementById('modal-company').value;
+  const position = document.getElementById('modal-position').value;
+  const response = document.getElementById('modal-response').value;
+  const status = document.getElementById('modal-status').value;
+  const date = document.getElementById('modal-date').value;
+  const notes = document.getElementById('modal-notes').value;
+
+  if (!joId || !candName) { alert('Please fill in Job Order and Candidate Name.'); return; }
+
+  const placement = {
+    placementId: `M-${Date.now()}`,
+    jobOrderId: joId,
+    candidateId: candId || `M-${Date.now().toString(36)}`,
+    candidateName: candName,
+    company, position, response, status, date, notes,
+    source: 'manual'
+  };
+
+  manualPlacements.push(placement);
+  saveManualPlacements();
+  closeModal('modal-add-placement');
+  renderJobOrders([...placements, ...manualPlacements]);
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════
+// ADD TO JO MODAL (from Candidate card)
+// ═══════════════════════════════════════════════
+function openAddToJOModal(candId, candName) {
+  document.getElementById('atj-cand-id').value = candId;
+  document.getElementById('atj-cand-name').value = candName;
+  document.getElementById('atj-cand-display').value = `${candName} (${candId})`;
+  document.getElementById('atj-jo-select').innerHTML = jobOrders.map(jo => `<option value="${escAttr(jo.id)}" data-company="${escAttr(jo.company)}" data-pos="${escAttr(jo.position)}">${jo.id} – ${jo.position} @ ${jo.company}</option>`).join('');
+  document.getElementById('atj-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('atj-notes').value = '';
+  openModal('modal-add-to-jo');
+}
+
+function saveAtjPlacement() {
+  const candId = document.getElementById('atj-cand-id').value;
+  const candName = document.getElementById('atj-cand-name').value;
+  const joSel = document.getElementById('atj-jo-select');
+  const joId = joSel.value;
+  const opt = joSel.selectedOptions[0];
+  const company = opt?.dataset.company || '';
+  const position = opt?.dataset.pos || '';
+  const response = document.getElementById('atj-response').value;
+  const status = document.getElementById('atj-status').value;
+  const date = document.getElementById('atj-date').value;
+  const notes = document.getElementById('atj-notes').value;
+
+  if (!joId) { alert('Please select a Job Order.'); return; }
+
+  // Check already placed
+  const allP = [...placements, ...manualPlacements];
+  if (allP.find(p => p.jobOrderId === joId && p.candidateId === candId)) {
+    alert('This candidate is already in that Job Order.');
+    return;
+  }
+
+  const placement = {
+    placementId: `M-${Date.now()}`,
+    jobOrderId: joId,
+    candidateId: candId,
+    candidateName: candName,
+    company, position, response, status, date, notes,
+    source: 'manual'
+  };
+
+  manualPlacements.push(placement);
+  saveManualPlacements();
+  closeModal('modal-add-to-jo');
+  renderJobOrders([...placements, ...manualPlacements]);
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════
+// AI MATCHER
+// ═══════════════════════════════════════════════
+function populateMatcherDropdown() {
+  const sel = document.getElementById('matcher-jo-select');
+  sel.innerHTML = '<option value="">— Select a Job Order —</option>' +
+    jobOrders.map(jo => `<option value="${escAttr(jo.id)}">${jo.id} – ${jo.position} @ ${jo.company}</option>`).join('');
+}
+
+function openMatcherForJO(joId) {
+  switchTab('matcher');
+  const sel = document.getElementById('matcher-jo-select');
+  sel.value = joId;
+}
+
+async function runMatcher() {
+  const joId = document.getElementById('matcher-jo-select').value;
+  if (!joId) { alert('Please select a Job Order first.'); return; }
+
+  const jo = jobOrders.find(j => j.id === joId);
+  if (!jo) { alert('Job order not found.'); return; }
+
+  const resultsEl = document.getElementById('matcher-results');
+  resultsEl.innerHTML = `<div class="ai-loading"><div class="spinner"></div><span>Analyzing candidates with AI…</span></div>`;
+
+  // Already placed in this JO
+  const allP = [...placements, ...manualPlacements];
+  const alreadyPlaced = new Set(allP.filter(p => p.jobOrderId === joId).map(p => p.candidateId));
+
+  // Eligible candidates
+  const eligible = candidates.filter(c => {
+    if (blacklist[c.id]) return false;
+    if (alreadyPlaced.has(c.id)) return false;
+    return true;
+  });
+
+  if (eligible.length === 0) {
+    resultsEl.innerHTML = `<div class="ai-status-msg">No eligible candidates to rank.</div>`;
+    return;
+  }
+
+  const candSummaries = eligible.map(c =>
+    `ID: ${c.id} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Expected Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${c.status}`
+  ).join('\n');
+
+  const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
+
+JOB ORDER:
+ID: ${jo.id}
+Company: ${jo.company}
+Position: ${jo.position}
+Slots: ${jo.slots}
+Salary: ${jo.salary}
+
+ELIGIBLE CANDIDATES:
+${candSummaries}
+
+Rank the TOP 10 best-fit candidates for this job order. 
+
+RULES:
+- Prioritize Verified candidates
+- Consider job type match, location, expected pay vs salary, skills, past jobs
+- Return ONLY valid JSON array, no markdown, no preamble
+
+Return this exact JSON format:
+[
+  {
+    "rank": 1,
+    "id": "C-xxx",
+    "name": "Full Name",
+    "fit": "Excellent|Good|Fair|Poor",
+    "reason": "Short reason why this candidate fits",
+    "flags": "Any concerns or flags (or empty string)",
+    "nextStep": "Recommended next step"
+  }
+]`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const raw = data.content?.find(b=>b.type==='text')?.text || '[]';
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const ranked = JSON.parse(clean);
+
+    renderMatcherResults(ranked, joId);
+  } catch (err) {
+    resultsEl.innerHTML = `<div class="error-msg">AI Matcher error: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderMatcherResults(ranked, joId) {
+  const resultsEl = document.getElementById('matcher-results');
+
+  if (!ranked.length) {
+    resultsEl.innerHTML = `<div class="ai-status-msg">No ranked results returned.</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Showing ${ranked.length} ranked candidates for this job order</div>`;
+
+  ranked.forEach(r => {
+    const fitClass = {
+      'Excellent': 'fit-excellent',
+      'Good': 'fit-good',
+      'Fair': 'fit-fair',
+      'Poor': 'fit-poor'
+    }[r.fit] || 'fit-fair';
+
+    const card = document.createElement('div');
+    card.className = 'ai-result-card';
+    card.innerHTML = `
+      <div class="ai-rank rank-${r.rank}">#${r.rank}</div>
+      <div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <div class="ai-name">${escHtml(r.name)}</div>
+          <span class="fit-badge ${fitClass}">${escHtml(r.fit)}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escHtml(r.id)}</span>
+        </div>
+        <div class="ai-reason">${escHtml(r.reason)}</div>
+        ${r.flags ? `<div class="ai-flags">⚑ ${escHtml(r.flags)}</div>` : ''}
+        ${r.nextStep ? `<div class="ai-next">→ ${escHtml(r.nextStep)}</div>` : ''}
+      </div>
+      <div>
+        <button class="btn btn-green" onclick="addFromMatcher('${escAttr(joId)}','${escAttr(r.id)}','${escAttr(r.name)}')">➕ Add</button>
+      </div>
+    `;
+    resultsEl.appendChild(card);
+  });
+}
+
+function addFromMatcher(joId, candId, candName) {
+  document.getElementById('atj-cand-id').value = candId;
+  document.getElementById('atj-cand-name').value = candName;
+  document.getElementById('atj-cand-display').value = `${candName} (${candId})`;
+  document.getElementById('atj-jo-select').innerHTML = jobOrders.map(jo => `<option value="${escAttr(jo.id)}" data-company="${escAttr(jo.company)}" data-pos="${escAttr(jo.position)}"${jo.id===joId?' selected':''}>${jo.id} – ${jo.position} @ ${jo.company}</option>`).join('');
+  document.getElementById('atj-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('atj-notes').value = '';
+  openModal('modal-add-to-jo');
+}
+
+// ═══════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  const tabs = ['jobs','candidates','matcher'];
+  const idx = tabs.indexOf(tab);
+  document.querySelectorAll('.tab')[idx]?.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ═══════════════════════════════════════════════
+// REFRESH
+// ═══════════════════════════════════════════════
+async function refreshAll() {
+  await loadAll();
+}
+
+// ═══════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+  return String(str || '').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>
