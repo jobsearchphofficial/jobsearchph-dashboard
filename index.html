@@ -7,40 +7,46 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #060b18;
-    --bg2: #0a1120;
-    --card: #0f1929;
-    --card2: #131f30;
-    --card3: #172236;
-    --border: #1a2840;
-    --border2: #243550;
-    --border3: #2d4265;
-    --gold: #f5c842;
-    --gold2: #e6b020;
-    --gold3: #ffd96a;
-    --gold-dim: rgba(245,200,66,0.10);
-    --gold-dim2: rgba(245,200,66,0.18);
-    --green: #0fd68a;
-    --green2: #0ab574;
-    --green-dim: rgba(15,214,138,0.10);
-    --red: #f25555;
-    --red2: #d93f3f;
-    --red-dim: rgba(242,85,85,0.10);
-    --blue: #4f9cf9;
-    --blue-dim: rgba(79,156,249,0.10);
-    --purple: #a78bfa;
-    --purple-dim: rgba(167,139,250,0.10);
-    --orange: #fb923c;
-    --orange-dim: rgba(251,146,60,0.10);
-    --text: #dde6f5;
-    --text2: #8da3be;
-    --text3: #4d6480;
+    --bg: #f0f4ff;
+    --bg2: #e8eef9;
+    --card: #ffffff;
+    --card2: #f5f8ff;
+    --card3: #eef2fb;
+    --border: #dde5f5;
+    --border2: #c8d6f0;
+    --border3: #a8bfe8;
+    --accent: #1755ed;
+    --accent2: #1245cc;
+    --accent3: #4d7ff5;
+    --accent-dim: rgba(23,85,237,0.08);
+    --accent-dim2: rgba(23,85,237,0.14);
+    --gold: #f59e0b;
+    --gold2: #d97706;
+    --gold3: #fbbf24;
+    --gold-dim: rgba(245,158,11,0.10);
+    --gold-dim2: rgba(245,158,11,0.18);
+    --green: #059669;
+    --green2: #047857;
+    --green-dim: rgba(5,150,105,0.10);
+    --red: #dc2626;
+    --red2: #b91c1c;
+    --red-dim: rgba(220,38,38,0.10);
+    --blue: #1755ed;
+    --blue-dim: rgba(23,85,237,0.10);
+    --purple: #7c3aed;
+    --purple-dim: rgba(124,58,237,0.10);
+    --orange: #ea580c;
+    --orange-dim: rgba(234,88,12,0.10);
+    --text: #0f172a;
+    --text2: #334155;
+    --text3: #64748b;
     --mono: 'JetBrains Mono', monospace;
     --sans: 'Plus Jakarta Sans', sans-serif;
     --radius: 14px;
     --radius-sm: 8px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
-    --shadow-sm: 0 2px 12px rgba(0,0,0,0.3);
+    --shadow: 0 4px 24px rgba(23,85,237,0.10);
+    --shadow-sm: 0 2px 12px rgba(23,85,237,0.07);
+    --shadow-card: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(23,85,237,0.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,20 +65,19 @@
     content: '';
     position: fixed; inset: 0;
     background: 
-      radial-gradient(ellipse 70% 50% at 20% -5%, rgba(245,200,66,0.07) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 85% 90%, rgba(79,156,249,0.06) 0%, transparent 55%),
-      radial-gradient(ellipse 40% 30% at 60% 50%, rgba(15,214,138,0.03) 0%, transparent 50%);
+      radial-gradient(ellipse 70% 50% at 10% -10%, rgba(23,85,237,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(23,85,237,0.05) 0%, transparent 55%);
     pointer-events: none; z-index: 0;
   }
 
   /* ─── HEADER ─── */
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(6,11,24,0.95);
+    background: rgba(255,255,255,0.96);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     padding: 0 24px;
-    box-shadow: 0 1px 0 rgba(245,200,66,0.06), var(--shadow-sm);
+    box-shadow: 0 1px 0 rgba(23,85,237,0.08), var(--shadow-sm);
   }
 
   .header-top {
@@ -86,11 +91,11 @@
 
   .logo-mark {
     width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
     border-radius: 10px;
     display: grid; place-items: center;
     font-size: 18px; flex-shrink: 0;
-    box-shadow: 0 0 16px rgba(245,200,66,0.3), 0 2px 8px rgba(0,0,0,0.4);
+    box-shadow: 0 0 16px rgba(23,85,237,0.25), 0 2px 8px rgba(23,85,237,0.2);
   }
 
   .logo-text {
@@ -114,19 +119,19 @@
 
   .btn-refresh {
     display: flex; align-items: center; gap: 6px;
-    background: var(--card2); border: 1px solid var(--border2);
+    background: var(--card); border: 1px solid var(--border2);
     color: var(--text2); padding: 7px 14px; border-radius: 8px;
     font-family: var(--sans); font-size: 12px; font-weight: 600; cursor: pointer;
-    transition: all .2s;
+    transition: all .2s; box-shadow: var(--shadow-card);
   }
-  .btn-refresh:hover { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 12px rgba(245,200,66,0.1); }
+  .btn-refresh:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(23,85,237,0.12); }
 
   .last-updated {
     font-family: var(--mono); font-size: 10px; color: var(--text3);
     display: flex; align-items: center; gap: 5px;
   }
 
-  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
 
   /* ─── STATS BAR ─── */
@@ -138,13 +143,13 @@
   }
 
   .stat {
-    background: var(--bg2);
+    background: var(--card);
     padding: 10px 20px;
     display: flex; align-items: center; gap: 12px;
     position: relative; overflow: hidden;
     transition: background .2s;
   }
-  .stat:hover { background: var(--card); }
+  .stat:hover { background: var(--card2); }
 
   .stat-icon {
     font-size: 20px; opacity: 0.7;
@@ -152,7 +157,7 @@
 
   .stat-val {
     font-family: var(--mono); font-size: 20px; font-weight: 500;
-    color: var(--gold);
+    color: var(--accent);
     line-height: 1;
   }
 
@@ -179,8 +184,8 @@
   }
   .tab:hover { color: var(--text2); background: var(--card); border-color: var(--border); }
   .tab.active {
-    background: var(--gold-dim2); border-color: rgba(245,200,66,0.35);
-    color: var(--gold); box-shadow: 0 0 12px rgba(245,200,66,0.08);
+    background: var(--accent-dim2); border-color: rgba(23,85,237,0.3);
+    color: var(--accent); box-shadow: 0 0 12px rgba(23,85,237,0.08);
   }
 
   /* ─── MAIN ─── */
@@ -198,7 +203,7 @@
   .badge {
     font-family: var(--mono); font-size: 10px; font-weight: 500;
     padding: 3px 10px; border-radius: 99px;
-    background: var(--gold-dim2); color: var(--gold3); border: 1px solid rgba(245,200,66,0.3);
+    background: var(--accent-dim2); color: var(--accent); border: 1px solid rgba(23,85,237,0.25);
   }
 
   /* ─── FILTER BAR ─── */
@@ -211,10 +216,10 @@
     color: var(--text); padding: 8px 14px; border-radius: 9px;
     font-family: var(--sans); font-size: 12px; font-weight: 500;
     outline: none; transition: border-color .2s, box-shadow .2s;
-    min-width: 140px;
+    min-width: 140px; box-shadow: var(--shadow-card);
   }
   .filter-bar input:focus, .filter-bar select:focus { 
-    border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,200,66,0.08);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,0.10);
   }
   .filter-bar input { flex: 1; min-width: 200px; }
 
@@ -234,10 +239,10 @@
     border-radius: 16px;
     overflow: hidden;
     transition: border-color .25s, box-shadow .25s, transform .2s;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
   }
   .jo-card:hover { border-color: var(--border2); box-shadow: var(--shadow); transform: translateY(-1px); }
-  .jo-card.open { border-color: rgba(245,200,66,0.25); }
+  .jo-card.open { border-color: rgba(23,85,237,0.2); }
 
   .jo-card-header {
     padding: 16px 18px 14px;
@@ -250,10 +255,10 @@
   }
 
   .jo-id {
-    font-family: var(--mono); font-size: 10px; color: var(--gold3);
-    background: var(--gold-dim2); padding: 3px 9px; border-radius: 6px;
-    border: 1px solid rgba(245,200,66,0.28); white-space: nowrap; margin-top: 2px;
-    letter-spacing: 0.3px;
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+    background: var(--accent-dim); padding: 3px 9px; border-radius: 6px;
+    border: 1px solid rgba(23,85,237,0.2); white-space: nowrap; margin-top: 2px;
+    letter-spacing: 0.3px; font-weight: 500;
   }
 
   .jo-title { font-size: 16px; font-weight: 700; flex: 1; line-height: 1.3; letter-spacing: -0.3px; }
@@ -296,10 +301,10 @@
   .btn:active { transform: scale(0.97); }
 
   .btn-gold {
-    background: var(--gold-dim2); border-color: rgba(245,200,66,0.4);
-    color: var(--gold3);
+    background: var(--accent-dim2); border-color: rgba(23,85,237,0.35);
+    color: var(--accent);
   }
-  .btn-gold:hover { background: rgba(245,200,66,0.25); box-shadow: 0 0 12px rgba(245,200,66,0.15); }
+  .btn-gold:hover { background: rgba(23,85,237,0.2); box-shadow: 0 0 12px rgba(23,85,237,0.12); }
 
   .btn-green {
     background: var(--green-dim); border-color: rgba(15,214,138,0.35);
@@ -342,13 +347,14 @@
   /* Collapsed row — compact header only */
   .prow {
     border-radius: 10px;
-    background: var(--card2);
+    background: var(--card);
     margin-bottom: 6px;
     border: 1px solid var(--border);
     transition: border-color .2s, box-shadow .2s;
     overflow: hidden;
+    box-shadow: 0 1px 4px rgba(23,85,237,0.05);
   }
-  .prow:hover { border-color: var(--border2); }
+  .prow:hover { border-color: var(--accent3); box-shadow: 0 2px 8px rgba(23,85,237,0.1); }
   .prow.prow-inactive { opacity: 0.55; }
   .prow.prow-inactive:hover { opacity: 0.8; }
 
@@ -403,9 +409,10 @@
     display: none;
     padding: 0 12px 12px;
     border-top: 1px solid var(--border);
+    background: var(--card2);
   }
   .prow.open .prow-body { display: block; animation: fadeUp .18s ease; }
-  .prow.open { border-color: var(--border2); box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+  .prow.open { border-color: var(--accent3); box-shadow: 0 2px 12px rgba(23,85,237,0.12); }
 
   .prow-fields {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -417,12 +424,12 @@
     text-transform: uppercase; letter-spacing: 0.6px;
   }
   .prow-field select, .prow-field input[type=date], .prow-field input[type=text] {
-    background: var(--card3); border: 1px solid var(--border2);
+    background: var(--card); border: 1px solid var(--border2);
     color: var(--text); padding: 6px 10px; border-radius: 7px;
     font-family: var(--sans); font-size: 11px; font-weight: 500;
-    outline: none; width: 100%; transition: border-color .2s;
+    outline: none; width: 100%; transition: border-color .2s, box-shadow .2s;
   }
-  .prow-field select:focus, .prow-field input:focus { border-color: var(--gold); }
+  .prow-field select:focus, .prow-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(23,85,237,0.10); }
   .prow-field.full { grid-column: 1 / -1; }
   .prow-field input[type=text]::placeholder { color: var(--text3); }
 
@@ -468,9 +475,9 @@
     font-size: 10px; padding: 3px 9px; border-radius: 99px; font-weight: 600;
     border: 1px solid; letter-spacing: 0.2px;
   }
-  .badge-verified { background: var(--green-dim); border-color: rgba(15,214,138,.3); color: var(--green); }
+  .badge-verified { background: rgba(5,150,105,0.10); border-color: rgba(5,150,105,.3); color: var(--green); }
   .badge-unverified { background: var(--card2); border-color: var(--border2); color: var(--text3); }
-  .badge-blacklisted { background: var(--red-dim); border-color: rgba(242,85,85,.3); color: var(--red); }
+  .badge-blacklisted { background: var(--red-dim); border-color: rgba(220,38,38,.3); color: var(--red); }
 
   .cand-details {
     display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
@@ -554,7 +561,7 @@
   .spinner {
     width: 32px; height: 32px; border-radius: 50%;
     border: 2px solid var(--border2);
-    border-top-color: var(--gold);
+    border-top-color: var(--accent);
     animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -577,7 +584,7 @@
   /* ─── MODAL ─── */
   .modal-overlay {
     position: fixed; inset: 0; z-index: 999;
-    background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+    background: rgba(15,23,42,.35); backdrop-filter: blur(8px);
     display: grid; place-items: center;
     opacity: 0; pointer-events: none; transition: opacity .2s;
   }
@@ -588,7 +595,7 @@
     border-radius: 18px; padding: 28px;
     width: 90%; max-width: 480px;
     transform: translateY(16px) scale(0.98); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
-    box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,200,66,0.06);
+    box-shadow: 0 24px 64px rgba(23,85,237,0.15), 0 0 0 1px rgba(23,85,237,0.06);
   }
   .modal-overlay.open .modal { transform: translateY(0) scale(1); }
 
@@ -604,7 +611,7 @@
     transition: border-color .2s, box-shadow .2s;
   }
   .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
-    border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,200,66,0.08);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,0.10);
   }
   .modal-field textarea { resize: vertical; min-height: 80px; }
 
@@ -645,14 +652,14 @@
     display: flex; gap: 6px; align-items: center; margin-top: 6px;
   }
   .notes-input {
-    flex: 1; background: var(--card3); border: 1px solid var(--border2);
+    flex: 1; background: var(--card2); border: 1px solid var(--border2);
     color: var(--text); padding: 5px 10px; border-radius: 7px;
     font-family: var(--sans); font-size: 11px; outline: none;
     transition: border-color .2s;
   }
-  .notes-input:focus { border-color: var(--gold); }
+  .notes-input:focus { border-color: var(--accent); }
 
-  select option { background: #0f1929; }
+  select option { background: #ffffff; color: #0f172a; }
   .prow-profile-btn {
     background: none; border: 1px solid var(--border2);
     color: var(--text3); border-radius: 5px; padding: 1px 5px;
@@ -687,22 +694,22 @@
   }
   .jo-tab-btn:hover { border-color: var(--border3); background: var(--card2); }
   .jo-tab-btn.active {
-    border-color: rgba(245,200,66,0.5); background: var(--gold-dim2);
-    box-shadow: 0 0 20px rgba(245,200,66,0.1);
+    border-color: rgba(23,85,237,0.4); background: var(--accent-dim2);
+    box-shadow: 0 0 20px rgba(23,85,237,0.10);
   }
 
   .jo-tab-id {
-    font-family: var(--mono); font-size: 9px; color: var(--gold3);
-    background: var(--gold-dim); padding: 2px 7px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; color: var(--accent);
+    background: var(--accent-dim); padding: 2px 7px; border-radius: 4px;
     display: inline-block; margin-bottom: 6px;
-    border: 1px solid rgba(245,200,66,0.2);
+    border: 1px solid rgba(23,85,237,0.15); font-weight: 600;
   }
-  .jo-tab-btn.active .jo-tab-id { background: var(--gold-dim2); }
+  .jo-tab-btn.active .jo-tab-id { background: var(--accent-dim2); }
 
   .jo-tab-pos  { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; letter-spacing: -0.2px; }
   .jo-tab-company { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
   .jo-tab-count { font-size: 10px; color: var(--text3); font-family: var(--mono); }
-  .jo-tab-btn.active .jo-tab-count { color: var(--gold); }
+  .jo-tab-btn.active .jo-tab-count { color: var(--accent); }
 
   /* ─── JO PANEL ─── */
   .jo-panel {
@@ -716,7 +723,7 @@
     padding: 20px 22px;
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    background: linear-gradient(180deg, var(--card2) 0%, var(--card) 100%);
+    background: linear-gradient(135deg, var(--accent-dim) 0%, var(--card) 80%);
   }
 
   .jo-panel-left {
@@ -730,7 +737,7 @@
   /* ─── CANDIDATE PROFILE MODAL ─── */
   .cand-modal-overlay {
     position: fixed; inset: 0; z-index: 1000;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    background: rgba(15,23,42,0.4); backdrop-filter: blur(10px);
     display: grid; place-items: center;
     opacity: 0; pointer-events: none; transition: opacity .2s;
   }
@@ -742,13 +749,13 @@
     max-height: 88vh; overflow-y: auto;
     transform: translateY(20px) scale(0.97);
     transition: transform .3s cubic-bezier(.34,1.56,.64,1);
-    box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,200,66,0.08);
+    box-shadow: 0 24px 64px rgba(23,85,237,0.18), 0 0 0 1px rgba(23,85,237,0.08);
   }
   .cand-modal-overlay.open .cand-modal { transform: translateY(0) scale(1); }
 
   .cand-modal-hero {
     padding: 24px 24px 16px;
-    background: linear-gradient(135deg, var(--card2) 0%, var(--card3) 100%);
+    background: linear-gradient(135deg, var(--accent-dim) 0%, var(--card2) 100%);
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 16px;
   }
@@ -854,8 +861,9 @@
   /* ─── REMINDER BANNER ─── */
   .reminder-banner {
     border-radius: 14px; margin-bottom: 18px;
-    overflow: hidden; border: 1px solid rgba(245,200,66,0.25);
-    background: linear-gradient(135deg, rgba(245,200,66,0.06) 0%, rgba(251,146,60,0.04) 100%);
+    overflow: hidden; border: 1px solid rgba(23,85,237,0.18);
+    background: linear-gradient(135deg, rgba(23,85,237,0.05) 0%, rgba(79,156,249,0.03) 100%);
+    box-shadow: var(--shadow-card);
   }
   .reminder-banner-header {
     padding: 14px 18px 10px;
@@ -863,7 +871,7 @@
     border-bottom: 1px solid rgba(245,200,66,0.1);
   }
   .reminder-banner-title {
-    font-size: 13px; font-weight: 700; color: var(--gold3); flex: 1;
+    font-size: 13px; font-weight: 700; color: var(--accent); flex: 1;
     letter-spacing: -0.2px;
   }
   .reminder-banner-sub {
@@ -897,6 +905,30 @@
     padding: 10px 18px 14px; font-size: 12px; color: var(--green);
     font-family: var(--mono); display: flex; align-items: center; gap: 8px;
   }
+
+  /* ─── REMINDER CHECKLIST ─── */
+  .reminder-checklist-progress {
+    flex: 1; height: 6px; background: var(--border2);
+    border-radius: 99px; overflow: hidden; max-width: 120px;
+  }
+  .reminder-progress-bar {
+    height: 100%; background: linear-gradient(90deg, var(--accent) 0%, var(--accent3) 100%);
+    border-radius: 99px; transition: width .4s ease;
+  }
+  .reminder-check-box {
+    font-size: 16px; flex-shrink: 0; width: 20px; text-align: center;
+    color: var(--accent); cursor: pointer; user-select: none;
+  }
+  .reminder-item-done .reminder-check-box { color: var(--green); }
+  .reminder-item-pending { cursor: pointer; }
+  .reminder-item-pending:hover { background: var(--card2); }
+  .reminder-done-divider {
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    padding: 8px 0 4px; border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .reminder-item-done { opacity: 0.7; }
 
   /* ─── STALE CANDIDATE BADGE ─── */
   .prow-stale-badge {
@@ -1280,6 +1312,39 @@ async function loadAll() {
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] && /^C\d+$/i.test(rows[i][0].trim())) { dataStart = i; break; }
     }
+    // Location normalization map
+    const normLoc = loc => {
+      if (!loc) return '';
+      const l = loc.trim().toLowerCase();
+      if (l.includes('bacolod')) return 'Bacolod City';
+      if (l.includes('talisay')) return 'Talisay City';
+      if (l.includes('silay')) return 'Silay City';
+      if (l.includes('bago')) return 'Bago City';
+      if (l.includes('victorias')) return 'Victorias City';
+      if (l.includes('la carlota')) return 'La Carlota City';
+      if (l.includes('kabankalan')) return 'Kabankalan City';
+      if (l.includes('escalante')) return 'Escalante City';
+      if (l.includes('sagay')) return 'Sagay City';
+      if (l.includes('cadiz')) return 'Cadiz City';
+      if (l.includes('himamaylan')) return 'Himamaylan City';
+      if (l.includes('dumaguete')) return 'Dumaguete City';
+      if (l.includes('iloilo')) return 'Iloilo City';
+      if (l.includes('cebu')) return 'Cebu City';
+      if (l.includes('manila') || l.includes('metro')) return 'Metro Manila';
+      return loc.trim().split(',')[0].trim(); // take first part before comma
+    };
+
+    // Job type normalization: take first type if multiple listed
+    const normJobType = jt => {
+      if (!jt) return '';
+      // Take first meaningful option before comma
+      const first = jt.split(',')[0].trim();
+      // Clean up common duplicates/noise
+      if (first.toLowerCase().includes('full time') || first.toLowerCase() === 'full time') return 'Full Time';
+      if (first.toLowerCase().includes('part time') || first.toLowerCase() === 'part time') return 'Part Time';
+      return first;
+    };
+
     candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => ({
       id: r[0].trim() || '',
       timestamp: r[1] || '',
@@ -1288,9 +1353,11 @@ async function loadAll() {
       age: r[4] || '',
       phone: r[5] || '',
       email: r[6] || '',
-      jobType: r[7] || '',
+      jobType: normJobType(r[7] || ''),
+      jobTypeRaw: r[7] || '',
       skills: r[8] || '',
-      location: r[9] || '',
+      location: normLoc(r[9] || ''),
+      locationRaw: r[9] || '',
       expectedPay: r[10] || '',
       gender: r[11] || '',
       pastJobs: r[12] || '',
@@ -1329,21 +1396,29 @@ async function loadAll() {
   }
 
   // PLACEMENTS (Row 1 = headers, data from Row 2)
+  // Statuses that should be treated as "Dropped"
+  const DROPPED_STATUSES = ['ineligible','rejected by employer','rejected','cancelled','blacklisted','withdrawn','no show','no show for interview','not qualified','failed interview','backed out'];
+
   if (results[2].status === 'fulfilled') {
     const rows = results[2].value;
-    placements = rows.slice(1).filter(r => r[0]).map(r => ({
-      placementId: r[0] || '',
-      jobOrderId: r[1] || '',
-      candidateId: r[2] || '',
-      candidateName: r[3] || '',
-      company: r[4] || '',
-      response: r[5] || '',
-      position: r[6] || '',
-      status: r[7] || '',
-      date: r[8] || '',
-      notes: r[9] || '',
-      source: 'sheet'
-    }));
+    placements = rows.slice(1).filter(r => r[0]).map(r => {
+      const rawStatus = r[7] || '';
+      const normalizedStatus = DROPPED_STATUSES.includes(rawStatus.toLowerCase().trim()) ? 'Dropped' : rawStatus;
+      return {
+        placementId: r[0] || '',
+        jobOrderId: r[1] || '',
+        candidateId: r[2] || '',
+        candidateName: r[3] || '',
+        company: r[4] || '',
+        response: r[5] || '',
+        position: r[6] || '',
+        status: normalizedStatus,
+        originalStatus: rawStatus,
+        date: r[8] || '',
+        notes: r[9] || '',
+        source: 'sheet'
+      };
+    });
   } else {
     placements = [];
   }
@@ -1434,6 +1509,15 @@ function buildJOPanel(jo, joPlacements) {
   panel.className = 'jo-panel';
 
   // Header
+  // Count by status
+  const allP = [...placements,...manualPlacements].filter(p=>p.jobOrderId===jo.id);
+  const statusCounts = allP.reduce((acc,p)=>{
+    const s = (()=>{ let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return ex.status||p.status||''; })();
+    acc[s]=(acc[s]||0)+1; return acc;
+  },{});
+  const activeCount = allP.filter(p=>{ let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; const s=ex.status||p.status||''; return s!=='Dropped'&&s!=='Hired'; }).length;
+  const hiredCount = statusCounts['Hired']||0;
+
   panel.innerHTML = `
     <div class="jo-panel-header">
       <div class="jo-panel-left">
@@ -1443,10 +1527,12 @@ function buildJOPanel(jo, joPlacements) {
           <div class="jo-company">${escHtml(jo.company)}</div>
         </div>
       </div>
-      <div class="jo-meta">
+      <div class="jo-meta" style="flex:1;flex-wrap:wrap">
         <div class="jo-meta-item">👥 <span>${escHtml(jo.slots)} slot${jo.slots!='1'?'s':''}</span></div>
         <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
-        <div class="jo-meta-item">🗂 <span>${joPlacements.length} placed</span></div>
+        <div class="jo-meta-item">📋 <span>${joPlacements.length} total</span></div>
+        <div class="jo-meta-item">🟢 <span style="color:var(--green)">${hiredCount} hired</span></div>
+        <div class="jo-meta-item">⚡ <span style="color:var(--accent)">${activeCount} active</span></div>
       </div>
       <div class="jo-panel-actions">
         <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Find Candidates</button>
@@ -1542,6 +1628,7 @@ function createPlacementRow(p, idx, joId) {
 
   // Stale detection: days since last contact with no response
   const effectiveLastContact = extra.lastContacted || p.date || '';
+  const fmtLastContact = effectiveLastContact ? fmtDateShort(effectiveLastContact) : '';
   const staleDays = (savedResponse === 'No Response' || savedResponse === '') && effectiveLastContact
     ? daysDiff(effectiveLastContact) : 0;
 
@@ -1563,7 +1650,7 @@ function createPlacementRow(p, idx, joId) {
           <div class="prow-name">${escHtml(p.candidateName)}</div>
           <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModal('${escAttr(p.candidateId)}')" title="View profile">👤</button>
         </div>
-        <div class="prow-id">${escHtml(p.candidateId)}</div>
+        <div class="prow-id">${escHtml(p.candidateId)}${fmtLastContact ? ' · ' + escHtml(fmtLastContact) : ''}</div>
       </div>
       <div class="prow-badges">
         ${showFollowup ? '<span class="followup-flag">⚠️ Follow up</span>' : ''}
@@ -1759,34 +1846,72 @@ function buildReminderBanner() {
 
   banner.classList.remove('hidden');
 
-  if (!items.length) {
+  const todayStr = today.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric'});
+  const doneKey = 'reminder_done_' + today.toISOString().split('T')[0];
+  let doneSet = new Set();
+  try { doneSet = new Set(JSON.parse(localStorage.getItem(doneKey)||'[]')); } catch(e){}
+
+  const renderBanner = () => {
+    const pending = items.filter(it => !doneSet.has(it.pid + it.type));
+    const done = items.filter(it => doneSet.has(it.pid + it.type));
+    const total = items.length;
+    const doneCount = done.length;
+
+    if (!items.length) {
+      banner.innerHTML = `
+        <div class="reminder-banner-header">
+          <div class="reminder-banner-title">🔔 Daily Reminders</div>
+          <div class="reminder-banner-sub">${todayStr}</div>
+        </div>
+        <div class="reminder-empty">✅ All clear — no follow-ups or alerts today!</div>`;
+      return;
+    }
+
     banner.innerHTML = `
       <div class="reminder-banner-header">
-        <div class="reminder-banner-title">🔔 Daily Reminders</div>
-        <div class="reminder-banner-sub">All clear today</div>
-      </div>
-      <div class="reminder-empty">✅ No follow-ups or alerts — you're on top of everything!</div>`;
-    return;
-  }
-
-  const todayStr = today.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric'});
-  banner.innerHTML = `
-    <div class="reminder-banner-header">
-      <div class="reminder-banner-title">🔔 Daily Reminders</div>
-      <div class="reminder-banner-sub">${items.length} item${items.length!==1?'s':''} · ${todayStr}</div>
-    </div>
-    <div class="reminder-items">
-      ${items.slice(0,10).map(item => `
-        <div class="reminder-item" onclick="switchTab('jobs')">
-          <div class="reminder-item-icon">${item.icon}</div>
-          <div class="reminder-item-text">
-            <div class="reminder-item-name">${escHtml(item.name)}</div>
-            <div class="reminder-item-detail">${escHtml(item.detail)}</div>
+        <div style="display:flex;align-items:center;gap:10px;flex:1">
+          <div class="reminder-banner-title">🔔 Daily Reminders</div>
+          <div class="reminder-checklist-progress">
+            <div class="reminder-progress-bar" style="width:${total?Math.round(doneCount/total*100):0}%"></div>
           </div>
-          <span class="reminder-item-badge ${item.badgeClass}">${escHtml(item.badge)}</span>
-        </div>`).join('')}
-      ${items.length > 10 ? `<div style="text-align:center;font-size:11px;color:var(--text3);padding:4px">+${items.length-10} more</div>` : ''}
-    </div>`;
+          <span style="font-size:11px;font-weight:700;color:var(--accent);white-space:nowrap">${doneCount}/${total} done</span>
+        </div>
+        <div class="reminder-banner-sub">${todayStr}</div>
+      </div>
+      <div class="reminder-items" id="reminder-items-list">
+        ${pending.slice(0,10).map(item => `
+          <div class="reminder-item reminder-item-pending" data-key="${escAttr(item.pid+item.type)}" onclick="toggleReminderDone('${escAttr(item.pid+item.type)}','${escAttr(doneKey)}')">
+            <div class="reminder-check-box">☐</div>
+            <div class="reminder-item-icon">${item.icon}</div>
+            <div class="reminder-item-text">
+              <div class="reminder-item-name">${escHtml(item.name)}</div>
+              <div class="reminder-item-detail">${escHtml(item.detail)}</div>
+            </div>
+            <span class="reminder-item-badge ${item.badgeClass}">${escHtml(item.badge)}</span>
+          </div>`).join('')}
+        ${done.length ? `<div class="reminder-done-divider">✓ Completed today (${done.length})</div>` : ''}
+        ${done.map(item => `
+          <div class="reminder-item reminder-item-done" data-key="${escAttr(item.pid+item.type)}" onclick="toggleReminderDone('${escAttr(item.pid+item.type)}','${escAttr(doneKey)}')">
+            <div class="reminder-check-box">☑</div>
+            <div class="reminder-item-icon" style="opacity:.4">${item.icon}</div>
+            <div class="reminder-item-text" style="text-decoration:line-through;opacity:.5">
+              <div class="reminder-item-name">${escHtml(item.name)}</div>
+              <div class="reminder-item-detail">${escHtml(item.detail)}</div>
+            </div>
+            <span class="reminder-item-badge ${item.badgeClass}" style="opacity:.4">${escHtml(item.badge)}</span>
+          </div>`).join('')}
+      </div>`;
+  };
+
+  renderBanner();
+}
+
+function toggleReminderDone(key, doneKey) {
+  let doneSet = new Set();
+  try { doneSet = new Set(JSON.parse(localStorage.getItem(doneKey)||'[]')); } catch(e){}
+  if (doneSet.has(key)) doneSet.delete(key); else doneSet.add(key);
+  localStorage.setItem(doneKey, JSON.stringify([...doneSet]));
+  buildReminderBanner(); // re-render
 }
 
 function updateViaDisplay(sel, pid) {
@@ -1834,6 +1959,20 @@ function daysDiff(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d)) return 0;
   return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateShort(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric' });
 }
 
 function toggleJOCard(card) { /* replaced by tab system */ }
@@ -1945,6 +2084,7 @@ function createCandCard(c) {
       <div class="cand-detail"><span class="cand-detail-label">Gender</span><span class="cand-detail-val">${escHtml(c.gender)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Job Type</span><span class="cand-detail-val">${escHtml(c.jobType)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Location</span><span class="cand-detail-val">${escHtml(c.location)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Registered</span><span class="cand-detail-val">${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Past Jobs</span><span class="cand-detail-val">${escHtml(c.pastJobs||'—')}</span></div>
     </div>
@@ -2300,7 +2440,7 @@ function openCandModal(candId) {
       <div class="cand-modal-avatar">${genderEmoji(c.gender)}</div>
       <div style="flex:1">
         <div class="cand-modal-name">${escHtml(c.name)}</div>
-        <div class="cand-modal-id">${escHtml(c.id)} · Registered ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
+        <div class="cand-modal-id">${escHtml(c.id)} · Registered ${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</div>
         <div class="cand-badges">${verifiedBadge}${blBadge}</div>
       </div>
       <button class="cand-modal-close" onclick="closeCandModal()">✕</button>
@@ -2312,9 +2452,9 @@ function openCandModal(candId) {
         <div class="cand-modal-grid">
           ${field('Age', c.age)}
           ${field('Gender', c.gender)}
-          ${field('Location', c.location)}
+          ${field('Location', c.locationRaw || c.location)}
           ${field('Expected Pay', c.expectedPay)}
-          ${field('Job Type', c.jobType)}
+          ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', c.status)}
         </div>
       </div>
