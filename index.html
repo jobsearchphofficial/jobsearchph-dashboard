@@ -906,6 +906,55 @@
     font-family: var(--mono); display: flex; align-items: center; gap: 8px;
   }
 
+
+  /* ─── JO STATUS SYSTEM ─── */
+  .jo-status-filter-bar {
+    display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .jo-status-filter-btn {
+    padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border2);
+    background: var(--card); color: var(--text2); font-family: var(--sans);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .18s;
+  }
+  .jo-status-filter-btn.sfactive,
+  .jo-status-filter-btn:hover { background: var(--accent-dim2); color: var(--accent); border-color: rgba(23,85,237,.3); }
+
+  .jo-status-pill {
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid currentColor; opacity: 0.85;
+  }
+  .jo-status-chip {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px;
+  }
+  .jo-tab-nactive { opacity: 0.75; }
+
+  /* ─── HIRING PROGRESS BAR ─── */
+  .jo-hire-progress {
+    height: 7px; background: var(--border2); border-radius: 99px; overflow: hidden;
+    margin-top: 8px;
+  }
+  .jo-hire-bar {
+    height: 100%; background: linear-gradient(90deg, var(--accent) 0%, var(--green) 100%);
+    border-radius: 99px; transition: width .5s ease;
+  }
+
+  /* ─── AUTOFILL DROPDOWN ─── */
+  .autofill-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 10px; box-shadow: var(--shadow);
+    max-height: 220px; overflow-y: auto; margin-top: 4px;
+  }
+  .autofill-item {
+    padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .autofill-item:last-child { border-bottom: none; }
+  .autofill-item:hover { background: var(--accent-dim); }
+
+  /* ─── RATING STARS ─── */
+  .rating-stars { color: var(--gold); letter-spacing: 1px; }
+
   /* ─── REMINDER CHECKLIST ─── */
   .reminder-checklist-progress {
     flex: 1; height: 6px; background: var(--border2);
@@ -1093,13 +1142,14 @@
         <option value="">— Select Job Order —</option>
       </select>
     </div>
-    <div class="modal-field">
-      <div class="modal-label">Candidate ID</div>
-      <input type="text" id="modal-cand-id" placeholder="e.g. C-001" readonly>
+    <div class="modal-field" style="position:relative">
+      <div class="modal-label">Search Candidate (name or ID)</div>
+      <input type="text" id="modal-cand-name" placeholder="Type name e.g. Maria, or ID e.g. C001" autocomplete="off">
+      <div id="modal-cand-dropdown" class="autofill-dropdown" style="display:none"></div>
     </div>
     <div class="modal-field">
-      <div class="modal-label">Candidate Name</div>
-      <input type="text" id="modal-cand-name" placeholder="Full name">
+      <div class="modal-label">Candidate ID (auto-filled)</div>
+      <input type="text" id="modal-cand-id" placeholder="Auto-filled when selected above">
     </div>
     <div class="modal-field">
       <div class="modal-label">Company</div>
@@ -1238,6 +1288,8 @@ let placements = [];
 let blacklist = {};
 let manualPlacements = [];
 let candidateNotes = {};
+let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
+let candidateRatings = {};    // { candId: { rating, docs, notes } }
 
 // ═══════════════════════════════════════════════
 // LOCAL STORAGE
@@ -1246,11 +1298,15 @@ function loadLocal() {
   try { blacklist = JSON.parse(localStorage.getItem('blacklist') || '{}'); } catch(e){ blacklist={}; }
   try { manualPlacements = JSON.parse(localStorage.getItem('manual_placements') || '[]'); } catch(e){ manualPlacements=[]; }
   try { candidateNotes = JSON.parse(localStorage.getItem('candidate_notes') || '{}'); } catch(e){ candidateNotes={}; }
+  try { joStatusOverrides = JSON.parse(localStorage.getItem('jo_status_overrides') || '{}'); } catch(e){ joStatusOverrides={}; }
+  try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
 }
 
 function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); }
 function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); }
 function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); }
+function saveJOStatusOverrides() { localStorage.setItem('jo_status_overrides', JSON.stringify(joStatusOverrides)); }
+function saveCandidateRatings() { localStorage.setItem('candidate_ratings', JSON.stringify(candidateRatings)); }
 
 // ═══════════════════════════════════════════════
 // CSV PARSER
@@ -1381,14 +1437,19 @@ async function loadAll() {
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] && /^JO/i.test(rows[i][0].trim())) { joDataStart = i; break; }
     }
-    jobOrders = rows.slice(joDataStart).filter(r => r[0] && /^JO/i.test(r[0].trim())).map(r => ({
+    const allJobOrders = rows.slice(joDataStart).filter(r => r[0] && /^JO/i.test(r[0].trim())).map(r => ({
       id: r[0].trim() || '',
       company: r[2] || '',
       position: r[8] || '',
       slots: r[9] || '',
       salary: r[16] || '',
-      status: (r[20] || '').trim(),
-    })).filter(jo => jo.status === 'Active');
+      sheetStatus: (r[20] || '').trim(),
+    }));
+    // Apply localStorage status overrides, show all non-cancelled unless toggled
+    jobOrders = allJobOrders.map(jo => ({
+      ...jo,
+      status: joStatusOverrides[jo.id] || jo.sheetStatus || 'Active'
+    })).filter(jo => ['Active','On Hold','Fulfilled'].includes(jo.status) || joStatusOverrides[jo.id]);
     document.getElementById('jo-error').classList.add('hidden');
   } else {
     showError('jo-error', 'Failed to load job orders: ' + results[1].reason?.message);
@@ -1426,6 +1487,7 @@ async function loadAll() {
   // Merge manual placements
   const allPlacements = [...placements, ...manualPlacements];
 
+  checkDelayedCloses();
   updateStats();
   renderJobOrders(allPlacements);
   buildReminderBanner();
@@ -1477,29 +1539,61 @@ function renderJobOrders(allPlacements) {
   // Clamp active tab
   if (activeJOTab >= jobOrders.length) activeJOTab = 0;
 
+  // Status filter bar
+  const filterWrap = document.createElement('div');
+  filterWrap.className = 'jo-status-filter-bar';
+  const statusFilters = ['All','Active','On Hold','Fulfilled','Cancelled'];
+  const currentFilter = window._joFilter || 'All';
+  filterWrap.innerHTML = statusFilters.map(s => `
+    <button class="jo-status-filter-btn${s===currentFilter?' sfactive':''}" onclick="setJOFilter('${s}')">${s}</button>
+  `).join('');
+
+  // Filter job orders
+  const visibleJOs = currentFilter === 'All'
+    ? jobOrders
+    : jobOrders.filter(jo => jo.status === currentFilter);
+
+  if (activeJOTab >= visibleJOs.length) activeJOTab = 0;
+
   // Build tab bar
   const tabBar = document.createElement('div');
   tabBar.className = 'jo-tab-bar';
-  jobOrders.forEach((jo, i) => {
+
+  if (!visibleJOs.length) {
+    container.innerHTML = '';
+    container.appendChild(filterWrap);
+    container.innerHTML += `<div class="empty-state"><div class="empty-icon">📭</div>No ${currentFilter !== 'All' ? currentFilter : ''} job orders.</div>`;
+    return;
+  }
+
+  visibleJOs.forEach((jo, i) => {
     const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
+    const hiredC = joPlacements.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Hired'; }).length;
+    const slots = parseInt(jo.slots) || 1;
+    const statusColors = {'Active':'var(--accent)','On Hold':'var(--orange)','Fulfilled':'var(--green)','Cancelled':'var(--red)'};
     const btn = document.createElement('button');
-    btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '');
+    btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '') + (jo.status !== 'Active' ? ' jo-tab-nactive' : '');
     btn.innerHTML = `
-      <div class="jo-tab-id">${escHtml(jo.id)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div class="jo-tab-id">${escHtml(jo.id)}</div>
+        <span class="jo-status-pill" style="color:${statusColors[jo.status]||'var(--text3)'}">${escHtml(jo.status)}</span>
+      </div>
       <div class="jo-tab-pos">${escHtml(jo.position)}</div>
       <div class="jo-tab-company">${escHtml(jo.company)}</div>
-      <div class="jo-tab-count">${joPlacements.length} candidates</div>
+      <div class="jo-tab-count">${hiredC}/${slots} hired · ${joPlacements.length} total</div>
     `;
     btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
     tabBar.appendChild(btn);
   });
 
-  // Build active JO panel
-  const jo = jobOrders[activeJOTab];
-  const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
-  const panel = buildJOPanel(jo, joPlacements);
+  // Override active JO with filtered list
+  const jo_active = visibleJOs[activeJOTab];
+  const jo_activePlacements = allPlacements.filter(p => p.jobOrderId === jo_active.id);
+
+  const panel = buildJOPanel(jo_active, jo_activePlacements);
 
   container.innerHTML = '';
+  container.appendChild(filterWrap);
   container.appendChild(tabBar);
   container.appendChild(panel);
 }
@@ -1508,15 +1602,36 @@ function buildJOPanel(jo, joPlacements) {
   const panel = document.createElement('div');
   panel.className = 'jo-panel';
 
-  // Header
-  // Count by status
+  // Count hires
   const allP = [...placements,...manualPlacements].filter(p=>p.jobOrderId===jo.id);
-  const statusCounts = allP.reduce((acc,p)=>{
-    const s = (()=>{ let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return ex.status||p.status||''; })();
-    acc[s]=(acc[s]||0)+1; return acc;
-  },{});
-  const activeCount = allP.filter(p=>{ let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; const s=ex.status||p.status||''; return s!=='Dropped'&&s!=='Hired'; }).length;
-  const hiredCount = statusCounts['Hired']||0;
+  const getExtra = pid => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}')}catch(e){}; return ex; };
+  const hiredCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); return (ex.status||p.status)==='Hired'; }).length;
+  const activeCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); const s=ex.status||p.status||''; return s!=='Dropped'&&s!=='Hired'; }).length;
+  const slots = parseInt(jo.slots)||1;
+  const isFulfilled = hiredCount >= slots;
+  const hiringPct = Math.min(100, Math.round(hiredCount/slots*100));
+
+  const joStatus = jo.status || 'Active';
+  const statusCfg = {
+    'Active':    { color:'var(--accent)',  bg:'var(--accent-dim2)', label:'Active' },
+    'On Hold':   { color:'var(--orange)',  bg:'var(--orange-dim)',  label:'On Hold' },
+    'Fulfilled': { color:'var(--green)',   bg:'var(--green-dim)',   label:'Fulfilled ✓' },
+    'Cancelled': { color:'var(--red)',     bg:'var(--red-dim)',     label:'Cancelled' },
+  };
+  const sc = statusCfg[joStatus] || statusCfg['Active'];
+
+  // Status change buttons
+  const statusActions = {
+    'Active':    [['⏸ Hold','On Hold','btn-ghost'],['❌ Cancel','Cancelled','btn-ghost']],
+    'On Hold':   [['▶ Reopen','Active','btn-green'],['❌ Cancel','Cancelled','btn-ghost']],
+    'Cancelled': [['▶ Reopen','Active','btn-green'],['⏸ Hold','On Hold','btn-ghost']],
+    'Fulfilled': [['▶ Reopen','Active','btn-green']],
+  };
+  const statusBtns = (statusActions[joStatus]||[]).map(([label,newStatus,cls])=>
+    `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`
+  ).join('');
+
+  const canAdd = joStatus === 'Active' && !isFulfilled;
 
   panel.innerHTML = `
     <div class="jo-panel-header">
@@ -1527,19 +1642,41 @@ function buildJOPanel(jo, joPlacements) {
           <div class="jo-company">${escHtml(jo.company)}</div>
         </div>
       </div>
-      <div class="jo-meta" style="flex:1;flex-wrap:wrap">
-        <div class="jo-meta-item">👥 <span>${escHtml(jo.slots)} slot${jo.slots!='1'?'s':''}</span></div>
-        <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
-        <div class="jo-meta-item">📋 <span>${joPlacements.length} total</span></div>
-        <div class="jo-meta-item">🟢 <span style="color:var(--green)">${hiredCount} hired</span></div>
-        <div class="jo-meta-item">⚡ <span style="color:var(--accent)">${activeCount} active</span></div>
+      <div style="flex:1;min-width:200px">
+        <div class="jo-meta" style="flex-wrap:wrap;margin-bottom:8px">
+          <div class="jo-meta-item">👥 <span>${escHtml(jo.slots)} slot${slots!==1?'s':''}</span></div>
+          <div class="jo-meta-item">💰 <span>${escHtml(jo.salary)}</span></div>
+          <div class="jo-meta-item">📋 <span>${joPlacements.length} total</span></div>
+          <div class="jo-meta-item">⚡ <span style="color:var(--accent)">${activeCount} active</span></div>
+        </div>
+        <div class="jo-hire-progress">
+          <div class="jo-hire-bar" style="width:${hiringPct}%"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px">
+          <span style="font-size:11px;font-weight:700;color:${isFulfilled?'var(--green)':'var(--accent)'}">
+            ${hiredCount}/${slots} hired ${isFulfilled?'✓':''}
+          </span>
+          <span class="jo-status-chip" style="color:${sc.color};background:${sc.bg}">${sc.label}</span>
+        </div>
       </div>
-      <div class="jo-panel-actions">
-        <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Find Candidates</button>
-        <button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add Candidate</button>
+      <div class="jo-panel-actions" style="flex-direction:column;gap:6px;align-items:flex-end">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">🤖 Match</button>
+          ${canAdd
+            ? `<button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add</button>`
+            : `<button class="btn btn-ghost" onclick="confirmAddOverride('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">➕ Add (Override)</button>`}
+        </div>
+        <div style="display:flex;gap:6px">
+          ${statusBtns}
+        </div>
       </div>
     </div>
   `;
+
+  // If newly fulfilled, trigger popup
+  if (isFulfilled && joStatus === 'Active') {
+    setTimeout(() => triggerFulfillmentPopup(jo.id, jo.position, jo.company), 300);
+  }
 
   // Candidate list
   const placeSec = document.createElement('div');
@@ -2085,6 +2222,8 @@ function createCandCard(c) {
       <div class="cand-detail"><span class="cand-detail-label">Job Type</span><span class="cand-detail-val">${escHtml(c.jobType)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Location</span><span class="cand-detail-val">${escHtml(c.location)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Registered</span><span class="cand-detail-val">${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">⭐ Rating</span><span class="cand-detail-val" style="color:${getRatingColor(calcCandRating(c.id))};font-weight:700">${calcCandRating(c.id)}/10 ${getRatingStars(calcCandRating(c.id))}</span></div>
+      ${isHighDemand(c.id) ? '<div class="cand-detail" style="grid-column:1/-1"><span style="font-size:10px;font-weight:700;color:var(--orange)">🔥 High Demand — in multiple active orders</span></div>' : ''}
       <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Past Jobs</span><span class="cand-detail-val">${escHtml(c.pastJobs||'—')}</span></div>
     </div>
@@ -2149,6 +2288,7 @@ function openAddPlacementModal(joId, company, position) {
   };
 
   openModal('modal-add-placement');
+  setTimeout(initCandAutofill, 50);
 }
 
 function savePlacement() {
@@ -2164,21 +2304,28 @@ function savePlacement() {
 
   if (!joId || !candName) { alert('Please fill in Job Order and Candidate Name.'); return; }
 
-  const placement = {
-    placementId: `M-${Date.now()}`,
-    jobOrderId: joId,
-    candidateId: candId || `M-${Date.now().toString(36)}`,
-    candidateName: candName,
-    company, position, response, status, date, notes,
-    source: 'manual'
+  const doSave = () => {
+    const placement = {
+      placementId: `M-${Date.now()}`,
+      jobOrderId: joId,
+      candidateId: candId || `M-${Date.now().toString(36)}`,
+      candidateName: candName,
+      company, position, response, status, date, notes,
+      source: 'manual'
+    };
+    manualPlacements.push(placement);
+    saveManualPlacements();
+    closeModal('modal-add-placement');
+    renderJobOrders([...placements, ...manualPlacements]);
+    buildReminderBanner();
+    updateStats();
   };
 
-  manualPlacements.push(placement);
-  saveManualPlacements();
-  closeModal('modal-add-placement');
-  renderJobOrders([...placements, ...manualPlacements]);
-  buildReminderBanner();
-  updateStats();
+  if (candId) {
+    checkDuplicateBeforeAdd(candId, candName, joId, doSave);
+  } else {
+    doSave();
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2274,9 +2421,12 @@ async function runMatcher() {
     return;
   }
 
-  const candSummaries = eligible.map(c =>
-    `ID: ${c.id} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Expected Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${c.status}`
-  ).join('\n');
+  const candSummaries = eligible.map(c => {
+    const r = calcCandRating(c.id);
+    const docs = (candidateRatings[c.id]?.docs)||{};
+    const docStr = Object.entries({brgy:docs.brgy,police:docs.police,resume:docs.resume,nbi:docs.nbi}).filter(([,v])=>v).map(([k])=>k).join(',');
+    return `ID: ${c.id} | Rating: ${r}/10 | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Expected Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${c.status} | Docs: ${docStr||'none'}`;
+  }).join('\n');
 
   const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
 
@@ -2434,6 +2584,15 @@ function openCandModal(candId) {
       <span class="icon">✉️</span><div><div class="label">Gmail / Email</div><div class="sub">${escHtml(c.email)}</div></div></a>`);
   }
 
+  const rating = calcCandRating(c.id);
+  const ratingColor = getRatingColor(rating);
+  const ratingStars = getRatingStars(rating);
+  const storedRating = candidateRatings[c.id] || {};
+  const docs = storedRating.docs || {};
+  const adjustment = storedRating.adjustment || 0;
+  const activeJOs = getCandidateActiveJOs(c.id);
+  const highDemand = activeJOs.length >= 2;
+
   const inner = document.getElementById('cand-modal-inner');
   inner.innerHTML = `
     <div class="cand-modal-hero">
@@ -2446,6 +2605,35 @@ function openCandModal(candId) {
       <button class="cand-modal-close" onclick="closeCandModal()">✕</button>
     </div>
     <div class="cand-modal-body">
+
+      <div class="cand-modal-section">
+        <div class="cand-modal-section-title">Rating & Status</div>
+        <div style="display:flex;align-items:center;gap:16px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+          <div style="text-align:center">
+            <div style="font-size:28px;font-weight:800;color:${ratingColor};font-family:var(--mono)">${rating}</div>
+            <div style="font-size:14px;color:${ratingColor}">${ratingStars}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">out of 10</div>
+          </div>
+          <div style="flex:1">
+            ${highDemand ? '<div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:6px">🔥 High Demand Candidate</div>' : ''}
+            ${activeJOs.length ? `<div style="font-size:11px;color:var(--text2);margin-bottom:6px">Active in ${activeJOs.length} job order${activeJOs.length>1?'s':''}</div>` : ''}
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Adjustment (±)</div>
+            <input type="number" min="-3" max="3" step="0.5" value="${adjustment}" style="width:80px;background:var(--card);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none"
+              onchange="saveCandAdjustment('${escAttr(c.id)}',this.value)">
+          </div>
+        </div>
+        <div class="cand-modal-section-title" style="margin-top:12px">Documents</div>
+        <div class="cand-modal-grid">
+          ${[['brgy','🏘 Barangay Clearance'],['police','👮 Police Clearance'],['resume','📄 Resume'],['nbi','🔍 NBI Clearance'],['medical','🏥 Medical Certificate']].map(([key,label])=>`
+          <div class="cand-modal-field" style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="saveCandDoc('${escAttr(c.id)}','${key}',${!docs[key]})">
+            <div style="font-size:18px">${docs[key]?'✅':'⬜'}</div>
+            <div>
+              <div class="cand-modal-field-label">${label}</div>
+              <div class="cand-modal-field-val" style="color:${docs[key]?'var(--green)':'var(--text3)'}">${docs[key]?'Submitted':'Not Submitted'}</div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
 
       <div class="cand-modal-section">
         <div class="cand-modal-section-title">Personal Info</div>
@@ -2489,6 +2677,268 @@ function openCandModal(candId) {
 
 function closeCandModal() {
   document.getElementById('modal-cand-profile').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════
+// JOB STATUS SYSTEM
+// ═══════════════════════════════════════════════
+function setJOFilter(status) {
+  window._joFilter = status;
+  activeJOTab = 0;
+  renderJobOrders([...placements, ...manualPlacements]);
+}
+
+function changeJOStatus(joId, newStatus) {
+  joStatusOverrides[joId] = newStatus;
+  saveJOStatusOverrides();
+  // Update in-memory jobOrders
+  const jo = jobOrders.find(j => j.id === joId);
+  if (jo) jo.status = newStatus;
+  renderJobOrders([...placements, ...manualPlacements]);
+  buildReminderBanner();
+  showToast(`Job Order ${joId} → ${newStatus}`, newStatus === 'Active' ? 'green' : 'orange');
+}
+
+function confirmAddOverride(joId, company, position) {
+  const jo = jobOrders.find(j => j.id === joId);
+  const slots = parseInt(jo?.slots)||1;
+  const hiredCount = [...placements,...manualPlacements].filter(p=>{
+    if(p.jobOrderId!==joId) return false;
+    const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+    return (ex.status||p.status)==='Hired';
+  }).length;
+  const msg = jo?.status === 'Fulfilled'
+    ? `This job order is marked Fulfilled (${hiredCount}/${slots} hired). Add another candidate anyway?`
+    : `All ${slots} slot(s) are filled. Add another candidate anyway?`;
+  if (confirm(msg)) openAddPlacementModal(joId, company, position);
+}
+
+function triggerFulfillmentPopup(joId, position, company) {
+  // Prevent double popup
+  const key = `fulfilled_popup_${joId}`;
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.id = 'fulfill-modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <div style="font-size:28px;text-align:center;margin-bottom:8px">🎉</div>
+      <h3 style="text-align:center;margin-bottom:6px">Order Fulfilled!</h3>
+      <p style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:20px">
+        All slots for <strong>${escHtml(position)}</strong> at <strong>${escHtml(company)}</strong> have been hired.
+      </p>
+      <div class="modal-field">
+        <div class="modal-label">Remarks / Notes</div>
+        <textarea id="fulfill-remarks" placeholder="e.g. Employer satisfied, smooth placement…" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:10px;border-radius:8px;font-family:var(--sans);font-size:12px;outline:none;resize:vertical;min-height:70px"></textarea>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Payment Status</div>
+        <select id="fulfill-payment" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:8px;font-family:var(--sans);font-size:12px;outline:none">
+          <option>Paid</option>
+          <option>Pending Payment</option>
+          <option>Waived</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Close Order</div>
+        <select id="fulfill-close" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:8px;font-family:var(--sans);font-size:12px;outline:none">
+          <option value="now">Close now</option>
+          <option value="3">Close in 3 days</option>
+          <option value="5">Close in 5 days</option>
+          <option value="7">Close in 7 days</option>
+          <option value="no">Keep open (don't close yet)</option>
+        </select>
+      </div>
+      <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+        <button class="btn btn-ghost" onclick="document.getElementById('fulfill-modal-overlay').remove()">Keep Open</button>
+        <button class="btn btn-green" onclick="confirmFulfill('${escAttr(joId)}')">✓ Close Order</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmFulfill(joId) {
+  const remarks = document.getElementById('fulfill-remarks')?.value || '';
+  const payment = document.getElementById('fulfill-payment')?.value || '';
+  const closeOpt = document.getElementById('fulfill-close')?.value || 'now';
+
+  // Save fulfillment data
+  const key = `jo_fulfill_${joId}`;
+  localStorage.setItem(key, JSON.stringify({ remarks, payment, closeOpt, date: new Date().toISOString() }));
+
+  document.getElementById('fulfill-modal-overlay')?.remove();
+
+  if (closeOpt === 'no') {
+    showToast('Order kept open. Data saved.', 'green');
+    return;
+  }
+
+  if (closeOpt === 'now') {
+    changeJOStatus(joId, 'Fulfilled');
+  } else {
+    // Schedule delayed close
+    const days = parseInt(closeOpt);
+    const closeDate = new Date(); closeDate.setDate(closeDate.getDate() + days);
+    localStorage.setItem(`jo_delayed_close_${joId}`, closeDate.toISOString());
+    showToast(`Order will auto-close in ${days} days`, 'green');
+  }
+}
+
+// Check for delayed closes on load
+function checkDelayedCloses() {
+  const now = new Date();
+  jobOrders.forEach(jo => {
+    const key = `jo_delayed_close_${jo.id}`;
+    const closeDate = localStorage.getItem(key);
+    if (closeDate && new Date(closeDate) <= now && jo.status === 'Active') {
+      changeJOStatus(jo.id, 'Fulfilled');
+      localStorage.removeItem(key);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CANDIDATE RATING SYSTEM (1-10)
+// ═══════════════════════════════════════════════
+function calcCandRating(candId) {
+  const stored = candidateRatings[candId] || {};
+  const c = candidates.find(x => x.id === candId);
+  let score = 5; // base
+
+  // Verified: +1
+  if (c?.status === 'Verified') score += 1;
+
+  // Documents
+  const docs = stored.docs || {};
+  if (docs.brgy) score += 0.5;
+  if (docs.police) score += 0.5;
+  if (docs.resume) score += 0.5;
+  if (docs.nbi) score += 0.5;
+
+  // Past jobs: +0.5 if they have work history
+  if (c?.pastJobs && c.pastJobs.length > 10) score += 0.5;
+
+  // Manual adjustment from stored
+  const adj = stored.adjustment || 0;
+  score += adj;
+
+  // Responsiveness: check how many placements they were dropped/no-response vs hired
+  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
+  const hired = allP.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Hired'; }).length;
+  const dropped = allP.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Dropped'; }).length;
+  if (hired > 0) score += 0.5;
+  if (dropped > 1) score -= 0.5;
+  if (blacklist[candId]) score = 1;
+
+  return Math.min(10, Math.max(1, Math.round(score * 10) / 10));
+}
+
+function getRatingColor(r) {
+  if (r >= 8) return 'var(--green)';
+  if (r >= 6) return 'var(--accent)';
+  if (r >= 4) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function getRatingStars(r) {
+  const filled = Math.round(r / 2);
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+
+function saveCandDoc(candId, docKey, val) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = { docs: {} };
+  if (!candidateRatings[candId].docs) candidateRatings[candId].docs = {};
+  candidateRatings[candId].docs[docKey] = val;
+  saveCandidateRatings();
+  // Re-render cand modal if open
+  const modal = document.getElementById('modal-cand-profile');
+  if (modal?.classList.contains('open')) openCandModal(candId);
+}
+
+function saveCandAdjustment(candId, val) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  candidateRatings[candId].adjustment = parseFloat(val) || 0;
+  saveCandidateRatings();
+  const modal = document.getElementById('modal-cand-profile');
+  if (modal?.classList.contains('open')) openCandModal(candId);
+}
+
+// ═══════════════════════════════════════════════
+// DUPLICATE CANDIDATE WARNING + HIGH DEMAND TAG
+// ═══════════════════════════════════════════════
+function getCandidateActiveJOs(candId) {
+  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
+  return allP.filter(p => {
+    const jo = jobOrders.find(j => j.id === p.jobOrderId);
+    if (!jo || jo.status !== 'Active') return false;
+    const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+    const s = ex.status || p.status || '';
+    return s !== 'Dropped';
+  });
+}
+
+function isHighDemand(candId) {
+  return getCandidateActiveJOs(candId).length >= 2;
+}
+
+function checkDuplicateBeforeAdd(candId, candName, joId, onConfirm) {
+  const activeJOs = getCandidateActiveJOs(candId).filter(p => p.jobOrderId !== joId);
+  if (!activeJOs.length) { onConfirm(); return; }
+
+  const joList = activeJOs.map(p => {
+    const jo = jobOrders.find(j => j.id === p.jobOrderId);
+    return `${p.jobOrderId}${jo ? ' — ' + jo.company : ''}`;
+  }).join(', ');
+
+  const msg = `⚠️ ${candName} is already in: ${joList}\n\nAdd to this job order anyway?`;
+  if (confirm(msg)) onConfirm();
+}
+
+// ═══════════════════════════════════════════════
+// SMART AUTOFILL IN ADD PLACEMENT MODAL
+// ═══════════════════════════════════════════════
+function initCandAutofill() {
+  const nameInput = document.getElementById('modal-cand-name');
+  const idInput = document.getElementById('modal-cand-id');
+  const dropdown = document.getElementById('modal-cand-dropdown');
+  if (!nameInput || !dropdown) return;
+
+  nameInput.oninput = function() {
+    const q = this.value.toLowerCase().trim();
+    if (q.length < 2) { dropdown.style.display='none'; return; }
+    const matches = candidates.filter(c =>
+      c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
+    ).slice(0, 8);
+    if (!matches.length) { dropdown.style.display='none'; return; }
+    dropdown.innerHTML = matches.map(c => `
+      <div class="autofill-item" onclick="selectAutofillCand('${escAttr(c.id)}','${escAttr(c.name)}','${escAttr(c.phone||'')}')">
+        <div style="font-weight:600">${escHtml(c.name)}</div>
+        <div style="font-size:10px;color:var(--text3)">${escHtml(c.id)} · ${escHtml(c.jobType)} · ${escHtml(c.location)}</div>
+      </div>
+    `).join('');
+    dropdown.style.display = 'block';
+  };
+
+  idInput.oninput = function() {
+    const q = this.value.trim();
+    if (!q) return;
+    const c = candidates.find(x => x.id.toLowerCase() === q.toLowerCase());
+    if (c) selectAutofillCand(c.id, c.name, c.phone||'');
+  };
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#modal-cand-name') && !e.target.closest('#modal-cand-dropdown'))
+      dropdown.style.display = 'none';
+  });
+}
+
+function selectAutofillCand(id, name, phone) {
+  document.getElementById('modal-cand-id').value = id;
+  document.getElementById('modal-cand-name').value = name;
+  document.getElementById('modal-cand-dropdown').style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════
