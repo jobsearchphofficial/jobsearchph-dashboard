@@ -995,6 +995,203 @@
   }
   .prow-bl-btn:hover { border-color: rgba(242,85,85,.4); color: var(--red); background: var(--red-dim); }
 
+
+  /* ─── HIRED TAB ─── */
+  .hired-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+    transition: border-color .2s, transform .2s;
+  }
+  .hired-card:hover { border-color: var(--accent3); transform: translateY(-2px); box-shadow: var(--shadow); }
+
+  .hired-card-header {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px;
+  }
+
+  .hired-card-meta {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .hired-meta-item {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .hm-label {
+    font-size: 9px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .hired-inline-input {
+    background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text); padding: 5px 8px; border-radius: 7px;
+    font-family: var(--sans); font-size: 12px; outline: none;
+    width: 100%; transition: border-color .2s;
+  }
+  .hired-inline-input:focus { border-color: var(--accent); }
+  .hired-inline-select {
+    background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text); padding: 5px 8px; border-radius: 7px;
+    font-family: var(--sans); font-size: 12px; outline: none; width: 100%;
+  }
+  .hired-guarantee-bar {
+    height: 6px; background: var(--border2); border-radius: 99px;
+    overflow: hidden; margin-top: 12px;
+  }
+  .hired-guarantee-fill {
+    height: 100%; border-radius: 99px; transition: width .5s;
+  }
+  .hired-issue-badge {
+    flex: 1; background: var(--orange-dim); border: 1px solid rgba(234,88,12,.3);
+    color: var(--orange); border-radius: 8px; padding: 6px 12px;
+    font-size: 11px; font-weight: 600;
+  }
+
+  /* ─── CANDIDATE NOTES ─── */
+  .cand-notes-list { display: flex; flex-direction: column; gap: 6px; }
+  .cand-note-item {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 12px; position: relative;
+    border-left: 3px solid var(--accent);
+  }
+  .cand-note-ts {
+    font-size: 9px; color: var(--text3); font-family: var(--mono);
+    margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .cand-note-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .cand-note-del {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 12px; padding: 2px 4px; border-radius: 4px;
+    transition: color .15s;
+  }
+  .cand-note-del:hover { color: var(--red); }
+
+  /* ─── FOLLOW-UP SUGGEST ─── */
+  .prow-suggest {
+    font-size: 10px; color: var(--accent); cursor: pointer;
+    margin-top: 4px; padding: 2px 6px; border-radius: 4px;
+    background: var(--accent-dim); display: inline-block;
+    transition: background .15s;
+  }
+  .prow-suggest:hover { background: var(--accent-dim2); }
+
+  /* ─── BTN ACCENT ─── */
+  .btn-accent {
+    background: var(--accent); border-color: var(--accent2);
+    color: #fff; font-weight: 700;
+  }
+  .btn-accent:hover { background: var(--accent2); }
+
+  /* ─── INTERVIEW FIELD HIGHLIGHT ─── */
+  .prow-interview-field {
+    border-left: 2px solid var(--purple);
+    padding-left: 8px;
+  }
+
+
+  /* ═══ RATING SYSTEM ═══ */
+  .rating-hero {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 18px; margin-bottom: 14px;
+  }
+  .rating-score-circle {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 3px solid; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .rating-score-num { font-size: 24px; font-weight: 800; font-family: var(--mono); line-height: 1; }
+  .rating-score-denom { font-size: 10px; color: var(--text3); }
+  .rating-label {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 99px; margin-bottom: 6px;
+  }
+  .rating-stars-row { font-size: 16px; color: var(--gold); letter-spacing: 2px; }
+  .rating-hd-tag {
+    font-size: 11px; font-weight: 700; color: var(--orange);
+    margin-top: 4px;
+  }
+
+  /* Score breakdown */
+  .rating-breakdown {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .rating-breakdown-title {
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+  }
+  .rating-breakdown-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .rating-breakdown-row:last-of-type { border-bottom: none; }
+  .rb-sign {
+    width: 18px; height: 18px; border-radius: 50%; display: grid;
+    place-items: center; font-size: 11px; font-weight: 800; flex-shrink: 0;
+  }
+  .rb-plus  { background: rgba(5,150,105,.15);  color: var(--green); }
+  .rb-minus { background: rgba(220,38,38,.12);  color: var(--red); }
+  .rb-base  { background: var(--accent-dim);    color: var(--accent); }
+  .rb-label { flex: 1; color: var(--text2); }
+  .rb-val   { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--text); }
+  .rating-breakdown-total {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 8px; margin-top: 4px; border-top: 2px solid var(--border2);
+    font-size: 13px; font-weight: 700;
+  }
+
+  /* Documents */
+  .rating-docs-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .rating-doc-card {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; cursor: pointer;
+    transition: all .18s; display: flex; flex-direction: column; gap: 2px;
+  }
+  .rating-doc-card:hover { border-color: var(--accent3); background: var(--accent-dim); }
+  .rating-doc-card.doc-checked { border-color: rgba(5,150,105,.4); background: rgba(5,150,105,.07); }
+  .doc-icon  { font-size: 18px; }
+  .doc-name  { font-size: 11px; font-weight: 600; color: var(--text); margin-top: 2px; }
+  .doc-pts   { font-size: 10px; color: var(--accent); font-weight: 700; }
+  .doc-status { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .rating-doc-card.doc-checked .doc-status { color: var(--green); }
+
+  /* Call Attitude */
+  .attitude-row {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .attitude-btn {
+    flex: 1; background: var(--card2); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 8px 4px; cursor: pointer;
+    text-align: center; transition: all .18s; font-family: var(--sans);
+  }
+  .attitude-btn:hover { border-color: var(--accent3); background: var(--accent-dim); }
+  .attitude-btn.attitude-sel { border-color: var(--accent); background: var(--accent-dim2); }
+  .att-num   { font-size: 18px; font-weight: 800; color: var(--accent); font-family: var(--mono); }
+  .att-label { font-size: 9px; color: var(--text2); font-weight: 600; margin: 2px 0; }
+  .att-pts   { font-size: 10px; font-weight: 700; color: var(--text3); }
+  .attitude-btn.attitude-sel .att-pts { color: var(--accent); }
+
+  /* Behavior Flags */
+  .rating-flags-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
+  }
+  .rating-flag-card {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; cursor: pointer;
+    transition: all .18s; display: grid;
+    grid-template-columns: auto 1fr auto; grid-template-rows: auto auto;
+    gap: 2px 8px; align-items: center;
+  }
+  .rating-flag-card:hover { border-color: var(--border3); }
+  .rating-flag-card.flag-active.flag-good { border-color: rgba(5,150,105,.4); background: rgba(5,150,105,.07); }
+  .rating-flag-card.flag-active.flag-bad  { border-color: rgba(220,38,38,.3); background: rgba(220,38,38,.06); }
+  .flag-icon  { font-size: 18px; grid-row: 1/3; }
+  .flag-label { font-size: 11px; font-weight: 600; color: var(--text); }
+  .flag-pts   { font-size: 10px; font-weight: 700; grid-row: 2; }
+  .flag-check { font-size: 16px; color: var(--accent); grid-row: 1/3; }
+
 </style>
 </head>
 <body>
@@ -1054,6 +1251,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('jobs')">📋 Job Orders</button>
     <button class="tab" onclick="switchTab('candidates')">👥 Candidates</button>
+    <button class="tab" onclick="switchTab('hired')">✅ Hired</button>
     <button class="tab" onclick="switchTab('matcher')">🤖 AI Matcher</button>
   </div>
 </header>
@@ -1113,6 +1311,34 @@
         <div class="spinner"></div>
         <div class="loading-text">Loading candidates…</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: HIRED ═══ -->
+  <div class="tab-content" id="tab-hired">
+    <div class="section-header">
+      <div class="section-title">Hired Candidates</div>
+      <div class="badge" id="hired-count">0</div>
+    </div>
+    <div id="hired-filter-bar" class="filter-bar" style="margin-bottom:16px">
+      <select id="hired-filter-jo" onchange="renderHiredTab()">
+        <option value="">All Job Orders</option>
+      </select>
+      <select id="hired-filter-fee" onchange="renderHiredTab()">
+        <option value="">All Fee Status</option>
+        <option value="Paid">💚 Paid</option>
+        <option value="Pending">🟡 Pending</option>
+        <option value="Waived">⚪ Waived</option>
+      </select>
+      <select id="hired-filter-guar" onchange="renderHiredTab()">
+        <option value="">All Guarantee Status</option>
+        <option value="active">🛡 Guarantee Active</option>
+        <option value="expired">✓ Guarantee Expired</option>
+        <option value="issue">⚠️ Issue Reported</option>
+      </select>
+    </div>
+    <div id="hired-container" class="cards-grid">
+      <div class="loading-wrap"><div class="spinner"></div><div class="loading-text">Loading…</div></div>
     </div>
   </div>
 
@@ -1490,6 +1716,7 @@ async function loadAll() {
   checkDelayedCloses();
   updateStats();
   renderJobOrders(allPlacements);
+  renderHiredTab();
   buildReminderBanner();
   checkUrgentAlerts();
   renderCandidates();
@@ -1738,7 +1965,8 @@ function createPlacementRow(p, idx, joId) {
   try { extra = JSON.parse(localStorage.getItem(extraKey) || '{}'); } catch(e){}
 
   const savedNote = extra.notes || candidateNotes[noteKey] || p.notes || '';
-  const followupDate = extra.followupDate || '';
+  const followupDate  = extra.followupDate  || '';
+  const followup2Date = extra.followup2Date || '';
   const lastContacted = extra.lastContacted || p.date || '';
   const interviewDate = extra.interviewDate || '';
 
@@ -1751,11 +1979,21 @@ function createPlacementRow(p, idx, joId) {
   const pillClass = getStatusPillClass(savedStatus, savedResponse);
   const pillLabel = savedResponse === 'Not Interested' ? 'Not Interested' : (savedStatus || 'No Status');
 
-  // Follow-up check: if followup date is today or past
-  const needsFollowup = followupDate && new Date(followupDate) <= new Date();
-  // Also flag if Messaged and no followup date set and last contacted 2+ days ago
-  const autoFollowup = !followupDate && savedStatus === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 2;
-  const showFollowup = needsFollowup || autoFollowup;
+  // Follow-up check
+  const today0 = new Date(); today0.setHours(0,0,0,0);
+  const needsFollowup  = followupDate  && new Date(followupDate)  <= today0;
+  const needsFollowup2 = followup2Date && new Date(followup2Date) <= today0;
+  const autoFollowup   = !followupDate && savedStatus === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 3;
+  const showFollowup   = needsFollowup || needsFollowup2 || autoFollowup;
+
+  // Auto-suggest followup2 = lastContacted + 3 days (stored separately)
+  const suggestFollowup = lastContacted && !followupDate ? (() => {
+    const d = new Date(lastContacted); d.setDate(d.getDate()+3);
+    return d.toISOString().split('T')[0];
+  })() : '';
+
+  // Only show interview fields when relevant
+  const showInterview = ['For Interview','Interviewed'].includes(savedStatus);
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
@@ -1802,13 +2040,13 @@ function createPlacementRow(p, idx, joId) {
       <div class="prow-fields">
         <div class="prow-field">
           <div class="prow-field-label">Response</div>
-          <select onchange="saveProwField('${escAttr(pid)}','response',this.value,this)" data-pid="${escAttr(pid)}">
+          <select onchange="saveProwField('${escAttr(pid)}','response',this.value,this)">
             ${['No Response','Interested','Not Interested'].map(v=>`<option${v===savedResponse?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
           <div class="prow-field-label">Status</div>
-          <select onchange="saveProwField('${escAttr(pid)}','status',this.value,this)" data-pid="${escAttr(pid)}">
+          <select id="status-sel-${escAttr(pid)}" onchange="saveProwField('${escAttr(pid)}','status',this.value,this);refreshProwBody('${escAttr(pid)}')">
             ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===savedStatus?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
@@ -1820,24 +2058,42 @@ function createPlacementRow(p, idx, joId) {
         </div>
         <div class="prow-field">
           <div class="prow-field-label">📅 Last Contacted</div>
-          <input type="date" value="${escAttr(lastContacted)}" onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value)">
+          <input type="date" value="${escAttr(lastContacted)}"
+            onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value);autoSuggestFollowup('${escAttr(pid)}',this.value)">
         </div>
       </div>
-      <div class="prow-dates">
-        <div class="prow-field">
-          <div class="prow-field-label">🔔 Follow-up Date</div>
-          <input type="date" value="${escAttr(followupDate)}" onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value)">
+
+      <div class="prow-fields" style="margin-top:8px">
+        <div class="prow-field" id="fu1-field-${escAttr(pid)}">
+          <div class="prow-field-label" style="color:${needsFollowup?'var(--orange)':''}">
+            🔔 Follow-up #1${needsFollowup?' ⚠️ Overdue':''}
+          </div>
+          <input type="date" value="${escAttr(followupDate)}" id="fu1-${escAttr(pid)}"
+            onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value);refreshProwBadges('${escAttr(pid)}')"
+            style="${needsFollowup?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
+          ${suggestFollowup && !followupDate ? `<div class="prow-suggest" onclick="applyFollowupSuggest('${escAttr(pid)}','followupDate','${escAttr(suggestFollowup)}')">💡 Suggest: ${escHtml(fmtDateShort(suggestFollowup))}</div>` : ''}
         </div>
-        <div class="prow-field">
-          <div class="prow-field-label">🗓 Interview Date</div>
-          <input type="date" value="${escAttr(interviewDate)}" onchange="saveProwExtra('${escAttr(pid)}','interviewDate',this.value)">
+        <div class="prow-field" id="fu2-field-${escAttr(pid)}">
+          <div class="prow-field-label" style="color:${needsFollowup2?'var(--orange)':''}">
+            🔔 Follow-up #2${needsFollowup2?' ⚠️ Overdue':''}
+          </div>
+          <input type="date" value="${escAttr(followup2Date)}" id="fu2-${escAttr(pid)}"
+            onchange="saveProwExtra('${escAttr(pid)}','followup2Date',this.value);refreshProwBadges('${escAttr(pid)}')"
+            style="${needsFollowup2?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
         </div>
-        <div class="prow-field">
+        ${showInterview ? `
+        <div class="prow-field prow-interview-field">
+          <div class="prow-field-label" style="color:var(--purple)">🗓 Interview Date</div>
+          <input type="date" value="${escAttr(interviewDate)}"
+            onchange="saveProwExtra('${escAttr(pid)}','interviewDate',this.value)">
+        </div>` : ''}
+        <div class="prow-field${showInterview?'':' full'}">
           <div class="prow-field-label">📝 Notes</div>
           <input type="text" value="${escAttr(savedNote)}" placeholder="Add notes…"
-            onchange="saveProwExtra('${escAttr(pid)}','notes',this.value); saveNote('${escAttr(noteKey)}',this.value)">
+            onchange="saveProwExtra('${escAttr(pid)}','notes',this.value);saveNote('${escAttr(noteKey)}',this.value)">
         </div>
       </div>
+
       <div style="margin-top:10px">
         <button class="btn btn-blue" style="width:100%" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 View Full Candidate Profile</button>
       </div>
@@ -1858,6 +2114,62 @@ function saveProwExtra(pid, field, value) {
   try { extra = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e){}
   extra[field] = value;
   localStorage.setItem(key, JSON.stringify(extra));
+}
+
+function autoSuggestFollowup(pid, lastContactedVal) {
+  if (!lastContactedVal) return;
+  const d = new Date(lastContactedVal);
+  d.setDate(d.getDate() + 3);
+  const suggested = d.toISOString().split('T')[0];
+  // Only suggest if followup1 is empty
+  const fu1 = document.getElementById(`fu1-${pid}`);
+  if (fu1 && !fu1.value) {
+    // Show suggestion text - re-render would be complex, just set value with confirm
+    const suggestEl = fu1.parentElement.querySelector('.prow-suggest');
+    if (suggestEl) {
+      suggestEl.style.display = 'block';
+      suggestEl.onclick = () => applyFollowupSuggest(pid, 'followupDate', suggested);
+    }
+  }
+}
+
+function applyFollowupSuggest(pid, field, val) {
+  saveProwExtra(pid, field, val);
+  const input = document.getElementById(`fu1-${pid}`);
+  if (input) input.value = val;
+  const suggestEl = input?.parentElement.querySelector('.prow-suggest');
+  if (suggestEl) suggestEl.style.display = 'none';
+}
+
+function refreshProwBody(pid) {
+  // Re-render just the interview field visibility based on new status
+  const row = document.getElementById(`prow-${pid}`);
+  if (!row) return;
+  const statusSel = document.getElementById(`status-sel-${pid}`);
+  const newStatus = statusSel?.value || '';
+  const interviewField = row.querySelector('.prow-interview-field');
+  const showInterview = ['For Interview','Interviewed'].includes(newStatus);
+  if (interviewField) {
+    interviewField.style.display = showInterview ? '' : 'none';
+  }
+}
+
+function refreshProwBadges(pid) {
+  // Update the follow-up warning in collapsed header
+  const row = document.getElementById(`prow-${pid}`);
+  if (!row) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const fu1 = document.getElementById(`fu1-${pid}`)?.value || '';
+  const fu2 = document.getElementById(`fu2-${pid}`)?.value || '';
+  const overdue = (fu1 && new Date(fu1) <= today) || (fu2 && new Date(fu2) <= today);
+  const badge = row.querySelector('.followup-flag');
+  if (overdue && !badge) {
+    const badges = row.querySelector('.prow-badges');
+    const b = document.createElement('span'); b.className = 'followup-flag'; b.textContent = '⚠️ Follow up';
+    badges.insertBefore(b, badges.firstChild);
+  } else if (!overdue && badge) {
+    badge.remove();
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2422,10 +2734,13 @@ async function runMatcher() {
   }
 
   const candSummaries = eligible.map(c => {
-    const r = calcCandRating(c.id);
+    const rf = calcCandRatingFull(c.id);
     const docs = (candidateRatings[c.id]?.docs)||{};
-    const docStr = Object.entries({brgy:docs.brgy,police:docs.police,resume:docs.resume,nbi:docs.nbi}).filter(([,v])=>v).map(([k])=>k).join(',');
-    return `ID: ${c.id} | Rating: ${r}/10 | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Expected Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${c.status} | Docs: ${docStr||'none'}`;
+    const sc   = (candidateRatings[c.id]?.scores)||{};
+    const docStr = ['brgy','police','resume','nbi'].filter(k=>docs[k]).join(',');
+    const flags = ['repliedFast','showedUp','completedJob','lateReply','noShow','backedOut'].filter(k=>sc[k]).join(',');
+    const rLabel = getRatingLabel(rf.score).label;
+    return `ID: ${c.id} | Rating: ${rf.score}/10 (${rLabel}) | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${c.status} | Docs: ${docStr||'none'} | Behavior: ${flags||'none'}`;
   }).join('\n');
 
   const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
@@ -2584,12 +2899,13 @@ function openCandModal(candId) {
       <span class="icon">✉️</span><div><div class="label">Gmail / Email</div><div class="sub">${escHtml(c.email)}</div></div></a>`);
   }
 
-  const rating = calcCandRating(c.id);
+  const ratingFull  = calcCandRatingFull(c.id);
+  const rating      = ratingFull.score;
   const ratingColor = getRatingColor(rating);
   const ratingStars = getRatingStars(rating);
   const storedRating = candidateRatings[c.id] || {};
-  const docs = storedRating.docs || {};
-  const adjustment = storedRating.adjustment || 0;
+  const docs   = storedRating.docs    || {};
+  const scores = storedRating.scores  || {};
   const activeJOs = getCandidateActiveJOs(c.id);
   const highDemand = activeJOs.length >= 2;
 
@@ -2607,31 +2923,83 @@ function openCandModal(candId) {
     <div class="cand-modal-body">
 
       <div class="cand-modal-section">
-        <div class="cand-modal-section-title">Rating & Status</div>
-        <div style="display:flex;align-items:center;gap:16px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
-          <div style="text-align:center">
-            <div style="font-size:28px;font-weight:800;color:${ratingColor};font-family:var(--mono)">${rating}</div>
-            <div style="font-size:14px;color:${ratingColor}">${ratingStars}</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">out of 10</div>
+        <div class="cand-modal-section-title">Rating</div>
+
+        <!-- Score Hero -->
+        <div class="rating-hero">
+          <div class="rating-score-circle" style="border-color:${ratingColor};color:${ratingColor}">
+            <span class="rating-score-num">${rating}</span>
+            <span class="rating-score-denom">/10</span>
           </div>
           <div style="flex:1">
-            ${highDemand ? '<div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:6px">🔥 High Demand Candidate</div>' : ''}
-            ${activeJOs.length ? `<div style="font-size:11px;color:var(--text2);margin-bottom:6px">Active in ${activeJOs.length} job order${activeJOs.length>1?'s':''}</div>` : ''}
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Adjustment (±)</div>
-            <input type="number" min="-3" max="3" step="0.5" value="${adjustment}" style="width:80px;background:var(--card);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none"
-              onchange="saveCandAdjustment('${escAttr(c.id)}',this.value)">
+            <div class="rating-label" style="background:${ratingColor}20;color:${ratingColor};border:1px solid ${ratingColor}40">
+              ${getRatingLabel(rating).label}${ratingFull.isBlacklisted ? ' · ⛔ Do Not Recommend' : ''}
+            </div>
+            <div class="rating-stars-row">${ratingStars}</div>
+            ${highDemand ? '<div class="rating-hd-tag">🔥 High Demand</div>' : ''}
+            ${activeJOs.length ? `<div style="font-size:11px;color:var(--text2);margin-top:4px">Active in ${activeJOs.length} job order${activeJOs.length>1?'s':''}</div>` : ''}
           </div>
         </div>
-        <div class="cand-modal-section-title" style="margin-top:12px">Documents</div>
-        <div class="cand-modal-grid">
-          ${[['brgy','🏘 Barangay Clearance'],['police','👮 Police Clearance'],['resume','📄 Resume'],['nbi','🔍 NBI Clearance'],['medical','🏥 Medical Certificate']].map(([key,label])=>`
-          <div class="cand-modal-field" style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="saveCandDoc('${escAttr(c.id)}','${key}',${!docs[key]})">
-            <div style="font-size:18px">${docs[key]?'✅':'⬜'}</div>
-            <div>
-              <div class="cand-modal-field-label">${label}</div>
-              <div class="cand-modal-field-val" style="color:${docs[key]?'var(--green)':'var(--text3)'}">${docs[key]?'Submitted':'Not Submitted'}</div>
-            </div>
+
+        <!-- Score Breakdown -->
+        <div class="rating-breakdown">
+          <div class="rating-breakdown-title">Score Breakdown</div>
+          ${ratingFull.breakdown.map(b => `
+            <div class="rating-breakdown-row">
+              <span class="rb-sign ${b.sign==='+' ? 'rb-plus' : b.sign==='-' ? 'rb-minus' : 'rb-base'}">${b.sign||'='}</span>
+              <span class="rb-label">${escHtml(b.label)}</span>
+              <span class="rb-val">${typeof b.val === 'number' ? b.val.toFixed(1) : b.val}</span>
+            </div>`).join('')}
+          <div class="rating-breakdown-total">
+            <span>Final Score</span>
+            <span style="color:${ratingColor};font-weight:800;font-family:var(--mono)">${rating}</span>
+          </div>
+        </div>
+
+        <!-- Documents -->
+        <div class="cand-modal-section-title" style="margin-top:14px">Documents</div>
+        <div class="rating-docs-grid">
+          ${[['brgy','🏘','Barangay Clearance','+0.5'],['police','👮','Police Clearance','+1.0'],['resume','📄','Resume','+0.5'],['nbi','🔍','NBI Clearance','info']].map(([key,icon,label,pts])=>`
+          <div class="rating-doc-card ${docs[key]?'doc-checked':''}" onclick="saveCandDoc('${escAttr(c.id)}','${key}',${!docs[key]})">
+            <div class="doc-icon">${icon}</div>
+            <div class="doc-name">${label}</div>
+            <div class="doc-pts">${pts}</div>
+            <div class="doc-status">${docs[key]?'✅ Submitted':'⬜ Not yet'}</div>
           </div>`).join('')}
+        </div>
+
+        <!-- Call Attitude -->
+        <div class="cand-modal-section-title" style="margin-top:14px">📞 Call Attitude Test</div>
+        <div class="attitude-row">
+          ${[1,2,3,4,5].map(n => {
+            const labels = {1:'Poor',2:'Below Avg',3:'Average',4:'Good',5:'Excellent'};
+            const pts = {1:'-1.5',2:'-0.5',3:'0',4:'+0.5',5:'+1.0'};
+            const sel = (scores.callAttitude||0) === n;
+            return `<button class="attitude-btn ${sel?'attitude-sel':''}" onclick="saveCandScore('${escAttr(c.id)}','callAttitude',${n})">
+              <div class="att-num">${n}</div>
+              <div class="att-label">${labels[n]}</div>
+              <div class="att-pts">${pts[n]}</div>
+            </button>`;
+          }).join('')}
+        </div>
+
+        <!-- Behavior Flags -->
+        <div class="cand-modal-section-title" style="margin-top:14px">Behavior Flags</div>
+        <div class="rating-flags-grid">
+          ${[
+            ['repliedFast',  '⚡', 'Replied within 24hrs',      '+1.0', false],
+            ['showedUp',     '✅', 'Showed up to interview',     '+2.0', false],
+            ['completedJob', '🏆', 'Completed a job',            '+2.0', false],
+            ['lateReply',    '🐢', 'Late/no reply (3+ days)',    '-1.0', true],
+            ['noShow',       '🚫', 'No-show (interview/work)',   '-2.5', true],
+            ['backedOut',    '💔', 'Backed out after accepting', '-2.0', true],
+          ].map(([key,icon,label,pts,bad]) => `
+            <div class="rating-flag-card ${scores[key]?'flag-active':''}  ${bad?'flag-bad':'flag-good'}" onclick="saveCandScore('${escAttr(c.id)}','${key}',${!scores[key]})">
+              <div class="flag-icon">${icon}</div>
+              <div class="flag-label">${label}</div>
+              <div class="flag-pts" style="color:${bad?'var(--red)':'var(--green)'}">${pts}</div>
+              <div class="flag-check">${scores[key]?'☑':'☐'}</div>
+            </div>`).join('')}
         </div>
       </div>
 
@@ -2662,6 +3030,8 @@ function openCandModal(candId) {
           ${contactBtns.join('')}
         </div>
       </div>` : ''}
+
+      ${buildCandNotesSection(c.id)}
 
       <div style="display:flex;gap:8px;padding-top:4px">
         ${!isBlacklisted
@@ -2803,49 +3173,79 @@ function checkDelayedCloses() {
 // ═══════════════════════════════════════════════
 // CANDIDATE RATING SYSTEM (1-10)
 // ═══════════════════════════════════════════════
-function calcCandRating(candId) {
+function calcCandRatingFull(candId) {
   const stored = candidateRatings[candId] || {};
-  const c = candidates.find(x => x.id === candId);
-  let score = 5; // base
+  const docs   = stored.docs   || {};
+  const scores = stored.scores || {};   // { callAttitude, repliedFast, showedUp, completedJob, noShow, lateReply, backedOut }
+  const breakdown = [];
+  let total = 5.0;
+  breakdown.push({ label: 'Base Score', val: 5.0, sign: '' });
 
-  // Verified: +1
-  if (c?.status === 'Verified') score += 1;
+  // ── Documents ──
+  if (docs.brgy)   { total += 0.5;  breakdown.push({ label: 'Barangay Clearance', val: 0.5,  sign: '+' }); }
+  if (docs.police) { total += 1.0;  breakdown.push({ label: 'Police Clearance',   val: 1.0,  sign: '+' }); }
+  if (docs.resume) { total += 0.5;  breakdown.push({ label: 'Resume on File',     val: 0.5,  sign: '+' }); }
+  if (docs.nbi)    { total += 0;    /* NBI is informational only */ }
 
-  // Documents
-  const docs = stored.docs || {};
-  if (docs.brgy) score += 0.5;
-  if (docs.police) score += 0.5;
-  if (docs.resume) score += 0.5;
-  if (docs.nbi) score += 0.5;
+  // ── Call Attitude (1–5) ──
+  const att = parseInt(scores.callAttitude) || 0;
+  if (att > 0) {
+    const attPoints = att === 5 ? 1.0 : att === 4 ? 0.5 : att === 3 ? 0 : att === 2 ? -0.5 : -1.5;
+    total += attPoints;
+    const signs = attPoints > 0 ? '+' : attPoints < 0 ? '-' : '=';
+    breakdown.push({ label: `Call Attitude (${att}/5)`, val: Math.abs(attPoints), sign: signs });
+  }
 
-  // Past jobs: +0.5 if they have work history
-  if (c?.pastJobs && c.pastJobs.length > 10) score += 0.5;
+  // ── Responsiveness ──
+  if (scores.repliedFast) { total += 1.0;  breakdown.push({ label: 'Replied within 24hrs', val: 1.0, sign: '+' }); }
+  if (scores.lateReply)   { total -= 1.0;  breakdown.push({ label: 'Late/no reply (3+ days)', val: 1.0, sign: '-' }); }
 
-  // Manual adjustment from stored
-  const adj = stored.adjustment || 0;
-  score += adj;
+  // ── Interview & Work ──
+  if (scores.showedUp)     { total += 2.0;  breakdown.push({ label: 'Showed up to interview', val: 2.0, sign: '+' }); }
+  if (scores.completedJob) { total += 2.0;  breakdown.push({ label: 'Completed a job',        val: 2.0, sign: '+' }); }
 
-  // Responsiveness: check how many placements they were dropped/no-response vs hired
-  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
-  const hired = allP.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Hired'; }).length;
-  const dropped = allP.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Dropped'; }).length;
-  if (hired > 0) score += 0.5;
-  if (dropped > 1) score -= 0.5;
-  if (blacklist[candId]) score = 1;
+  // ── Negatives ──
+  if (scores.noShow)    { total -= 2.5;  breakdown.push({ label: 'No-show (interview/work)', val: 2.5, sign: '-' }); }
+  if (scores.backedOut) { total -= 2.0;  breakdown.push({ label: 'Backed out after accepting', val: 2.0, sign: '-' }); }
 
-  return Math.min(10, Math.max(1, Math.round(score * 10) / 10));
+  // ── Blacklist cap ──
+  const isBlacklisted = !!blacklist[candId];
+  if (isBlacklisted && total > 2.0) {
+    total = 2.0;
+    breakdown.push({ label: 'Blacklisted (capped)', val: '→ 2.0', sign: '⛔' });
+  }
+
+  const final = Math.min(10, Math.max(1, Math.round(total * 10) / 10));
+  return { score: final, breakdown, isBlacklisted };
+}
+
+function calcCandRating(candId) {
+  return calcCandRatingFull(candId).score;
+}
+
+function getRatingLabel(r) {
+  if (r >= 9)   return { label: 'Elite',    color: '#059669' };
+  if (r >= 7)   return { label: 'Good',     color: 'var(--accent)' };
+  if (r >= 5)   return { label: 'Average',  color: 'var(--orange)' };
+  return              { label: 'Avoid',    color: 'var(--red)' };
 }
 
 function getRatingColor(r) {
-  if (r >= 8) return 'var(--green)';
-  if (r >= 6) return 'var(--accent)';
-  if (r >= 4) return 'var(--orange)';
-  return 'var(--red)';
+  return getRatingLabel(r).color;
 }
 
 function getRatingStars(r) {
   const filled = Math.round(r / 2);
   return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+
+function saveCandScore(candId, key, val) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
+  candidateRatings[candId].scores[key] = val;
+  saveCandidateRatings();
+  const modal = document.getElementById('modal-cand-profile');
+  if (modal?.classList.contains('open')) openCandModal(candId);
 }
 
 function saveCandDoc(candId, docKey, val) {
@@ -2859,6 +3259,7 @@ function saveCandDoc(candId, docKey, val) {
 }
 
 function saveCandAdjustment(candId, val) {
+  // legacy kept for compatibility
   if (!candidateRatings[candId]) candidateRatings[candId] = {};
   candidateRatings[candId].adjustment = parseFloat(val) || 0;
   saveCandidateRatings();
@@ -2942,15 +3343,223 @@ function selectAutofillCand(id, name, phone) {
 }
 
 // ═══════════════════════════════════════════════
+// HIRED TAB
+// ═══════════════════════════════════════════════
+function renderHiredTab() {
+  const container = document.getElementById('hired-container');
+  if (!container) return;
+
+  const filterJO  = document.getElementById('hired-filter-jo')?.value || '';
+  const filterFee = document.getElementById('hired-filter-fee')?.value || '';
+  const filterGuar = document.getElementById('hired-filter-guar')?.value || '';
+
+  const allP = [...placements, ...manualPlacements];
+  const hiredRows = [];
+
+  allP.forEach(p => {
+    const pid = p.placementId || p.candidateId;
+    let ex = {};
+    try { ex = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e) {}
+    const status = ex.status || p.status || '';
+    if (status !== 'Hired') return;
+
+    const jo = jobOrders.find(j => j.id === p.jobOrderId);
+    const hireKey = `hire_data_${pid}`;
+    let hireData = {};
+    try { hireData = JSON.parse(localStorage.getItem(hireKey) || '{}'); } catch(e) {}
+
+    hiredRows.push({ p, ex, jo, hireData, pid });
+  });
+
+  // Populate JO filter
+  const joSel = document.getElementById('hired-filter-jo');
+  if (joSel && joSel.options.length <= 1) {
+    const joIds = [...new Set(hiredRows.map(r => r.p.jobOrderId))];
+    joIds.forEach(id => {
+      const o = document.createElement('option');
+      o.value = id;
+      const jo = jobOrders.find(j => j.id === id);
+      o.textContent = `${id}${jo ? ' — ' + jo.company : ''}`;
+      joSel.appendChild(o);
+    });
+  }
+
+  // Filter
+  let filtered = hiredRows;
+  if (filterJO)  filtered = filtered.filter(r => r.p.jobOrderId === filterJO);
+  if (filterFee) filtered = filtered.filter(r => (r.hireData.feeStatus || 'Pending') === filterFee);
+  if (filterGuar) {
+    filtered = filtered.filter(r => {
+      const g = getGuaranteeStatus(r);
+      return g.key === filterGuar;
+    });
+  }
+
+  document.getElementById('hired-count').textContent = filtered.length;
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">✅</div>No hired candidates${filterJO||filterFee||filterGuar?' matching filters':''}.</div>`;
+    return;
+  }
+
+  // Sort: most recent hire date first
+  filtered.sort((a,b) => {
+    const da = a.hireData.hireDate || a.ex.lastContacted || '';
+    const db = b.hireData.hireDate || b.ex.lastContacted || '';
+    return db.localeCompare(da);
+  });
+
+  container.innerHTML = '';
+  filtered.forEach(({ p, ex, jo, hireData, pid }) => {
+    const card = buildHiredCard(p, ex, jo, hireData, pid);
+    container.appendChild(card);
+  });
+}
+
+function getGuaranteeStatus({ hireData, pid }) {
+  if (hireData.issueReported) return { key:'issue', label:'⚠️ Issue Reported', color:'var(--orange)' };
+  const hireDate = hireData.hireDate;
+  if (!hireDate) return { key:'active', label:'🛡 Guarantee Active', color:'var(--accent)' };
+  const daysSince = daysDiff(hireDate);
+  if (daysSince > 30) return { key:'expired', label:'✓ 30-day Guarantee Expired', color:'var(--text3)' };
+  const remaining = 30 - daysSince;
+  return { key:'active', label:`🛡 ${remaining} days remaining`, color:'var(--accent)' };
+}
+
+function buildHiredCard(p, ex, jo, hireData, pid) {
+  const card = document.createElement('div');
+  card.className = 'hired-card';
+
+  const gStatus = getGuaranteeStatus({ hireData, pid });
+  const feeStatus = hireData.feeStatus || 'Pending';
+  const feeColors = { 'Paid':'var(--green)', 'Pending':'var(--orange)', 'Waived':'var(--text3)' };
+  const hireDate = hireData.hireDate || '';
+  const feeAmount = hireData.feeAmount || '';
+  const c = candidates.find(x => x.id === p.candidateId);
+
+  card.innerHTML = `
+    <div class="hired-card-header">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <div class="cand-avatar" style="width:40px;height:40px;font-size:18px">${genderEmoji(c?.gender||'')}</div>
+        <div>
+          <div style="font-size:15px;font-weight:700">${escHtml(p.candidateName)}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escHtml(p.candidateId)}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;font-weight:700;color:${gStatus.color}">${gStatus.label}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${jo ? escHtml(jo.company) : escHtml(p.company||'')}</div>
+      </div>
+    </div>
+
+    <div class="hired-card-meta">
+      <div class="hired-meta-item"><span class="hm-label">Position</span><span>${escHtml(p.position || jo?.position || '—')}</span></div>
+      <div class="hired-meta-item"><span class="hm-label">Hire Date</span>
+        <input type="date" value="${escAttr(hireDate)}" class="hired-inline-input"
+          onchange="saveHireData('${escAttr(pid)}','hireDate',this.value)">
+      </div>
+      <div class="hired-meta-item"><span class="hm-label">Fee Amount</span>
+        <input type="text" value="${escAttr(feeAmount)}" placeholder="e.g. ₱1,400" class="hired-inline-input"
+          onchange="saveHireData('${escAttr(pid)}','feeAmount',this.value)">
+      </div>
+      <div class="hired-meta-item"><span class="hm-label">Fee Status</span>
+        <select class="hired-inline-select" onchange="saveHireData('${escAttr(pid)}','feeStatus',this.value);renderHiredTab()">
+          ${['Pending','Paid','Waived'].map(v=>`<option${v===feeStatus?' selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="hired-guarantee-bar">
+      <div class="hired-guarantee-fill" style="width:${Math.min(100,Math.max(0,hireDate?Math.round(Math.min(daysDiff(hireDate),30)/30*100):0))}%;background:${gStatus.key==='expired'?'var(--green)':gStatus.key==='issue'?'var(--orange)':'var(--accent)'}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px;padding:0 2px">
+      <span>Hire date</span>
+      <span style="color:${gStatus.color};font-weight:600">${gStatus.label}</span>
+      <span>Day 30</span>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      ${!hireData.issueReported
+        ? `<button class="btn btn-ghost" style="flex:1" onclick="reportGuaranteeIssue('${escAttr(pid)}')">⚠️ Report Issue</button>`
+        : `<div class="hired-issue-badge">⚠️ Issue: ${escHtml(hireData.issueNote||'Reported')}</div>`}
+      <button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
+    </div>
+  `;
+  return card;
+}
+
+function saveHireData(pid, field, value) {
+  const key = `hire_data_${pid}`;
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(key)||'{}'); } catch(e){}
+  d[field] = value;
+  localStorage.setItem(key, JSON.stringify(d));
+}
+
+function reportGuaranteeIssue(pid) {
+  const note = prompt('Describe the issue (e.g. candidate no-showed, employer complaint):');
+  if (note === null) return;
+  saveHireData(pid, 'issueReported', true);
+  saveHireData(pid, 'issueNote', note);
+  renderHiredTab();
+  showToast('Issue reported. Candidate flagged for replacement.', 'orange');
+}
+
+// ═══════════════════════════════════════════════
+// CANDIDATE PROFILE NOTES (with timestamps)
+// ═══════════════════════════════════════════════
+function getCandNotes(candId) {
+  try { return JSON.parse(localStorage.getItem(`cand_notes_${candId}`) || '[]'); } catch(e) { return []; }
+}
+
+function saveCandNote(candId, text) {
+  if (!text.trim()) return;
+  const notes = getCandNotes(candId);
+  notes.unshift({ text: text.trim(), ts: new Date().toISOString() });
+  localStorage.setItem(`cand_notes_${candId}`, JSON.stringify(notes.slice(0, 50)));
+  openCandModal(candId); // re-render modal
+}
+
+function deleteCandNote(candId, idx) {
+  const notes = getCandNotes(candId);
+  notes.splice(idx, 1);
+  localStorage.setItem(`cand_notes_${candId}`, JSON.stringify(notes));
+  openCandModal(candId);
+}
+
+function buildCandNotesSection(candId) {
+  const notes = getCandNotes(candId);
+  const noteItems = notes.map((n, i) => `
+    <div class="cand-note-item">
+      <div class="cand-note-ts">${new Date(n.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="cand-note-text">${escHtml(n.text)}</div>
+      <button class="cand-note-del" onclick="deleteCandNote('${escAttr(candId)}',${i})">✕</button>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No notes yet.</div>';
+
+  return `
+    <div class="cand-modal-section">
+      <div class="cand-modal-section-title">Notes</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="text" id="cand-note-input-${escAttr(candId)}" placeholder="Add a note…"
+          style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:8px;font-family:var(--sans);font-size:12px;outline:none"
+          onkeydown="if(event.key==='Enter')saveCandNote('${escAttr(candId)}',this.value)">
+        <button class="btn btn-accent" onclick="saveCandNote('${escAttr(candId)}',document.getElementById('cand-note-input-${escAttr(candId)}').value)">Add</button>
+      </div>
+      <div class="cand-notes-list">${noteItems}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
 // TAB SWITCHING
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
-  const tabs = ['jobs','candidates','matcher'];
+  const tabs = ['jobs','candidates','hired','matcher'];
   const idx = tabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
+  if (tab === 'hired') renderHiredTab();
 }
 
 // ═══════════════════════════════════════════════
