@@ -1214,6 +1214,9 @@
       <button class="btn-refresh" onclick="refreshAll()">
         <span>↻</span> Refresh
       </button>
+      <button class="btn-refresh" onclick="promptApiKey()" id="api-key-btn" title="Set Anthropic API Key">
+        🔑 API Key
+      </button>
     </div>
   </div>
 
@@ -1499,7 +1502,29 @@
 // ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
-const ANTHROPIC_API_KEY = "YOUR_API_KEY_HERE";
+// API Key — loaded from localStorage, never hardcoded in file
+let ANTHROPIC_API_KEY = localStorage.getItem('anthropic_api_key') || '';
+
+function getApiKey() {
+  return localStorage.getItem('anthropic_api_key') || '';
+}
+
+function promptApiKey() {
+  const existing = localStorage.getItem('anthropic_api_key') || '';
+  const key = prompt(
+    existing
+      ? 'Update your Anthropic API key (leave blank to keep current):'
+      : 'Enter your Anthropic API key to use AI Matcher:\n(Starts with sk-ant-...)',
+    ''
+  );
+  if (key && key.trim().startsWith('sk-ant-')) {
+    localStorage.setItem('anthropic_api_key', key.trim());
+    ANTHROPIC_API_KEY = key.trim();
+    showToast('✅ API key saved to this browser', 'green');
+  } else if (key && key.trim()) {
+    alert('That doesn\'t look like a valid Anthropic key. It should start with sk-ant-');
+  }
+}
 
 const SHEET_CANDIDATES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxIFw8KDwhsz4Xw55Z3-GUb9yoyEBpnhKHovv2YYQEMxBqh0E4fRCDqCvHi3a6MrmWjaN0_e2KnGx2/pub?gid=1026175595&single=true&output=csv";
 const SHEET_JOB_REQUESTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxIFw8KDwhsz4Xw55Z3-GUb9yoyEBpnhKHovv2YYQEMxBqh0E4fRCDqCvHi3a6MrmWjaN0_e2KnGx2/pub?gid=865983128&single=true&output=csv";
@@ -2712,6 +2737,12 @@ function openMatcherForJO(joId) {
 }
 
 async function runMatcher() {
+  ANTHROPIC_API_KEY = getApiKey();
+  if (!ANTHROPIC_API_KEY) {
+    promptApiKey();
+    ANTHROPIC_API_KEY = getApiKey();
+    if (!ANTHROPIC_API_KEY) return;
+  }
   const joId = document.getElementById('matcher-jo-select').value;
   if (!joId) { alert('Please select a Job Order first.'); return; }
 
@@ -3637,7 +3668,18 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // REFRESH
 // ═══════════════════════════════════════════════
 async function refreshAll() {
-  await loadAll();
+  await // Show API key status on load
+(function() {
+  const btn = document.getElementById('api-key-btn');
+  if (btn) {
+    const hasKey = !!localStorage.getItem('anthropic_api_key');
+    btn.title = hasKey ? '✅ API Key is set — click to update' : '⚠️ No API Key — click to add';
+    btn.style.borderColor = hasKey ? 'var(--green)' : 'var(--orange)';
+    btn.style.color = hasKey ? 'var(--green)' : 'var(--orange)';
+  }
+})();
+
+loadAll();
 }
 
 // ═══════════════════════════════════════════════
