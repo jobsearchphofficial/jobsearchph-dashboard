@@ -585,7 +585,7 @@ function genId() {
 }
 
 // Submit via Apps Script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQzLYSlPUZNczc1-FemRFlWFEAOFsZppSTzrxiITCUOO4-wKTQd6rAf1CVI1gAnJXnaA/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFdQm_l5kq3rf6GmfNodpgxd0ZvBhXEUJXOF1MoTXtpzh9fASlfUqfKIM825QZny2kZw/exec';
 
 async function submitCandidate() {
   const name = document.getElementById('f_name').value.trim();
@@ -622,20 +622,42 @@ async function submitCandidate() {
     notes:      document.getElementById('f_notes').value.trim(),
   };
 
+  // Use iframe trick to bypass CORS — works from GitHub Pages
   try {
-    // Apps Script requires no-cors mode — we can't read the response
-    // but the data still gets written to the Sheet
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(payload)
-    });
-    // Since no-cors returns opaque response, assume success if no throw
+    const params = new URLSearchParams();
+    Object.keys(payload).forEach(k => params.append(k, payload[k]));
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.name = 'submit_frame_' + Date.now();
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = APPS_SCRIPT_URL;
+    form.target = iframe.name;
+    form.style.display = 'none';
+
+    // Apps Script reads postData.contents so we send as single JSON field
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'data';
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+
+    setTimeout(() => {
+      form.remove();
+      iframe.remove();
+    }, 5000);
+
     showToast(`✓ ${name} saved to Google Sheet!`, 'success');
     clearForm();
     document.getElementById('statusDot').className = 'status-dot';
   } catch (e) {
-    showToast('Network error — check connection', 'error');
+    showToast('Error — ' + e.message, 'error');
   }
 
   btn.disabled = false;
