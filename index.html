@@ -1279,6 +1279,47 @@
     letter-spacing: 0.7px; margin-bottom: 6px; margin-top: 4px;
   }
 
+
+  /* ═══ QUALITY FLAGS ═══ */
+  .quality-flags-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+  }
+  .quality-flag-chip {
+    font-size: 11px; font-weight: 600; padding: 4px 10px;
+    border-radius: 99px; border: 1px solid; white-space: nowrap;
+  }
+
+  /* ═══ REFLECTION TIMELINE ═══ */
+  .refl-timeline {
+    display: flex; flex-direction: column; gap: 0;
+    position: relative; padding-left: 20px;
+  }
+  .refl-timeline::before {
+    content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--border2); border-radius: 99px;
+  }
+  .refl-item {
+    display: flex; gap: 12px; padding: 8px 0; position: relative;
+  }
+  .refl-dot {
+    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    margin-top: 2px; position: absolute; left: -20px;
+    border: 2px solid white; box-shadow: 0 0 0 1px var(--border2);
+  }
+  .refl-content { flex: 1; min-width: 0; }
+  .refl-header {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+  .refl-result { font-size: 12px; font-weight: 700; }
+  .refl-jo     { font-size: 10px; color: var(--accent); font-family: var(--mono);
+                 background: var(--accent-dim); padding: 1px 6px; border-radius: 4px; }
+  .refl-date   { font-size: 10px; color: var(--text3); margin-left: auto; }
+  .refl-employer { font-size: 11px; color: var(--text2); }
+  .refl-notes  { font-size: 11px; color: var(--text3); margin-top: 3px;
+                 background: var(--card2); border-radius: 6px; padding: 4px 8px; }
+  .refl-add-form { margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -1739,24 +1780,72 @@ async function loadAll() {
       return first;
     };
 
-    candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => ({
-      id: r[0].trim() || '',
-      timestamp: r[1] || '',
-      name: r[2] || '',
-      facebook: r[3] || '',
-      age: r[4] || '',
-      phone: r[5] || '',
-      email: r[6] || '',
-      jobType: normJobType(r[7] || ''),
-      jobTypeRaw: r[7] || '',
-      skills: r[8] || '',
-      location: normLoc(r[9] || ''),
-      locationRaw: r[9] || '',
-      expectedPay: r[10] || '',
-      gender: r[11] || '',
-      pastJobs: r[12] || '',
-      status: r[16] || 'Unverified',
-    }));
+    // Enhanced normLoc: strip "Anywhere", "Negros Occidental", raw barangays
+    const normLocCity = loc => {
+      if (!loc) return '';
+      const l = loc.trim().toLowerCase();
+      if (l === 'anywhere' || l === 'negros occidental' || l === 'neg. occ.' || l === 'neg occ') return '';
+      if (l.includes('bacolod')) return 'Bacolod City';
+      if (l.includes('talisay')) return 'Talisay City';
+      if (l.includes('silay')) return 'Silay City';
+      if (l.includes('bago')) return 'Bago City';
+      if (l.includes('victorias')) return 'Victorias City';
+      if (l.includes('la carlota')) return 'La Carlota City';
+      if (l.includes('kabankalan')) return 'Kabankalan City';
+      if (l.includes('escalante')) return 'Escalante City';
+      if (l.includes('sagay')) return 'Sagay City';
+      if (l.includes('cadiz')) return 'Cadiz City';
+      if (l.includes('himamaylan')) return 'Himamaylan City';
+      if (l.includes('dumaguete')) return 'Dumaguete City';
+      if (l.includes('iloilo')) return 'Iloilo City';
+      if (l.includes('cebu')) return 'Cebu City';
+      if (l.includes('manila') || l.includes('metro')) return 'Metro Manila';
+      // If it looks like a barangay (no "City"/"Municipality" keyword), keep first comma part
+      const firstPart = loc.trim().split(',')[0].trim();
+      return firstPart;
+    };
+
+    // Single job type: take latest (last) if multiple
+    const normJobTypeSingle = jt => {
+      if (!jt) return '';
+      const parts = jt.split(',').map(s => s.trim()).filter(Boolean);
+      const last = parts[parts.length - 1] || '';
+      if (last.toLowerCase() === 'full time' || last.toLowerCase().includes('full time')) return 'Full Time';
+      if (last.toLowerCase() === 'part time' || last.toLowerCase().includes('part time')) return 'Part Time';
+      return last;
+    };
+
+    candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => {
+      const ageRaw = r[4] || '';
+      const ageInt = parseInt(ageRaw) || 0;
+      const pastJobs = r[12] || '';
+      const experienceFlag = pastJobs.length > 10 ? 'yes' : 'no';
+      const cityFormatted = normLocCity(r[9] || '');
+      const jobTypeFormatted = normJobTypeSingle(r[7] || '');
+      return {
+        id: r[0].trim() || '',
+        timestamp: r[1] || '',
+        name: r[2] || '',
+        facebook: r[3] || '',
+        age: ageRaw,
+        ageInt,
+        phone: r[5] || '',
+        email: r[6] || '',
+        jobType: normJobType(r[7] || ''),
+        jobTypeFormatted,
+        jobTypeRaw: r[7] || '',
+        skills: r[8] || '',
+        location: normLoc(r[9] || ''),
+        cityFormatted,
+        locationRaw: r[9] || '',
+        expectedPay: r[10] || '',
+        gender: r[11] || '',
+        pastJobs,
+        experienceFlag,
+        status: r[16] || 'Unverified',
+        candStatus: 'active', // runtime status: active | interview | hired | blacklisted
+      };
+    });
     document.getElementById('cand-error').classList.add('hidden');
   } else {
     showError('cand-error', 'Failed to load candidates: ' + results[0].reason?.message);
@@ -2850,10 +2939,16 @@ async function runMatcher() {
   const allP = [...placements, ...manualPlacements];
   const alreadyPlaced = new Set(allP.filter(p => p.jobOrderId === joId).map(p => p.candidateId));
 
-  // Eligible candidates
+  // ── Match Safety Rules: strict filtering ──
   const eligible = candidates.filter(c => {
     if (blacklist[c.id]) return false;
     if (alreadyPlaced.has(c.id)) return false;
+    // Exclude hired candidates
+    const isHired = [...placements, ...manualPlacements].some(p => {
+      const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+      return p.candidateId === c.id && (ex.status || p.status) === 'Hired';
+    });
+    if (isHired) return false;
     return true;
   });
 
@@ -2862,24 +2957,33 @@ async function runMatcher() {
     return;
   }
 
-  // Step 2+3: Calculate ERA and sort by score, availability, recent activity
-  eligible.sort((a, b) => {
-    const eraA = calcERA(a.id, joId).score;
-    const eraB = calcERA(b.id, joId).score;
-    return eraB - eraA;
+  // Step 1: Calculate ERA with JO context
+  // Step 2: Sort by ERA score → job match → location match
+  const scoredEligible = eligible.map(c => {
+    const era = calcERA(c.id, joId);
+    const jobMatchScore = era.qualityFlags?.jobMatch ? 1 : 0;
+    const locMatchScore = era.qualityFlags?.locationMatch ? 1 : 0;
+    return { c, era, jobMatchScore, locMatchScore };
   });
-  // Take top 50 to avoid token overload
-  const eligibleSorted = eligible.slice(0, 50);
+
+  scoredEligible.sort((a, b) => {
+    if (b.era.score !== a.era.score) return b.era.score - a.era.score;
+    if (b.jobMatchScore !== a.jobMatchScore) return b.jobMatchScore - a.jobMatchScore;
+    return b.locMatchScore - a.locMatchScore;
+  });
+
+  // Top 30 only for token efficiency
+  const eligibleSorted = scoredEligible.slice(0, 30).map(x => x.c);
 
   const candSummaries = eligibleSorted.map(c => {
     const era = calcERA(c.id, joId);
     const docs = (candidateRatings[c.id]?.docs)||{};
-    const sc   = (candidateRatings[c.id]?.scores)||{};
     const docStr = ['brgy','police','resume','nbi','validId'].filter(k=>docs[k]).join(',');
     const effVer = getEffectiveVerified(c);
     const rLabel = getRatingLabel(era.score).label;
-    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job Type: ${c.jobType} | Location: ${c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Past Jobs: ${c.pastJobs} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr||'none'}`;
-  }).join('\n');;
+    const qf = era.qualityFlags || {};
+    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job: ${c.jobTypeFormatted||c.jobType} | City: ${c.cityFormatted||c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr||'none'} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'}`;
+  }).join('\n');
 
   const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
 
@@ -2893,7 +2997,7 @@ Salary: ${jo.salary}
 ELIGIBLE CANDIDATES:
 ${candSummaries}
 
-Rank the TOP 10 best-fit candidates for this job order. 
+Rank the TOP 3 best-fit candidates for this job order based on ERA score, job match, and location match. 
 
 RULES:
 - Prioritize Verified candidates
@@ -3117,9 +3221,26 @@ function openCandModal(candId) {
 
         <!-- Total -->
         <div class="era-total-row">
-          <span>Base 5.0 + E(${ratingFull.era.E>=0?'+':''}${ratingFull.era.E.toFixed(1)}) + R(${ratingFull.era.R>=0?'+':''}${ratingFull.era.R.toFixed(1)}) + A(${ratingFull.era.A>=0?'+':''}${ratingFull.era.A.toFixed(1)}) + Bonus(+${ratingFull.era.bonus.toFixed(1)})</span>
+          <span>Base 3.0 + E(${ratingFull.era.E>=0?'+':''}${ratingFull.era.E.toFixed(1)}) + R(${ratingFull.era.R>=0?'+':''}${ratingFull.era.R.toFixed(1)}) + A(${ratingFull.era.A>=0?'+':''}${ratingFull.era.A.toFixed(1)}) + Bonus(+${ratingFull.era.bonus.toFixed(1)})</span>
           <span class="era-total-score" style="color:${ratingColor}">${rating}</span>
         </div>
+
+        <!-- Quality Flags -->
+        ${ratingFull.era.qualityFlags ? `
+        <div class="quality-flags-row">
+          ${[
+            ['jobMatch','💼','Job Match'],
+            ['locationMatch','📍','Location'],
+            ['ageMatch','🎂','Age Fit'],
+          ].map(([key,icon,label]) => {
+            const val = ratingFull.era.qualityFlags[key];
+            const color = val === true ? 'var(--green)' : val === false ? 'var(--red)' : 'var(--text3)';
+            const text  = val === true ? 'Yes' : val === false ? 'No' : 'N/A';
+            return `<div class="quality-flag-chip" style="border-color:${color}20;background:${color}10;color:${color}">
+              ${icon} ${label}: <strong>${text}</strong>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
 
         <!-- Documents -->
         <div class="cand-modal-section-title" style="margin-top:14px">
@@ -3225,6 +3346,8 @@ function openCandModal(candId) {
           ${contactBtns.join('')}
         </div>
       </div>` : ''}
+
+      ${buildReflectionLog(c.id)}
 
       ${buildCandNotesSection(c.id)}
 
@@ -3393,55 +3516,90 @@ function calcERA(candId, joId) {
   const c = candidates.find(x => x.id === candId);
   const jo = joId ? jobOrders.find(j => j.id === joId) : null;
 
-  // ── E: ELIGIBILITY (max +2.0) ──
+  // ── E: ELIGIBILITY (cap +2.0 / floor -2.0) ──
   let E = 0;
   const eBreakdown = [];
+  const qualityFlags = { ageMatch: null, locationMatch: null, jobMatch: null };
 
   if (jo) {
-    // Role match
-    const candType = (c?.jobType || '').toLowerCase();
-    const joPos    = (jo.position || '').toLowerCase();
-    const roleMatch = candType && joPos && (
-      joPos.includes(candType) || candType.includes(joPos) ||
-      (joPos.includes('yaya') && candType.includes('yaya')) ||
-      (joPos.includes('helper') && (candType.includes('helper') || candType.includes('kasambahay'))) ||
-      (joPos.includes('kasambahay') && candType.includes('kasambahay'))
+    // Job role match using cityFormatted and jobTypeFormatted
+    const candJobFmt = (c?.jobTypeFormatted || c?.jobType || '').toLowerCase();
+    const joPos      = (jo.position || '').toLowerCase();
+    const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor'];
+    const roleMatch = candJobFmt && joPos && (
+      joPos.includes(candJobFmt) || candJobFmt.includes(joPos) ||
+      jobKeywords.some(kw => joPos.includes(kw) && candJobFmt.includes(kw))
     );
-    if (roleMatch) { E += 1.0; eBreakdown.push({ label: 'Role match', val: 1.0, sign: '+' }); }
-    else           { E -= 1.0; eBreakdown.push({ label: 'Role mismatch', val: 1.0, sign: '-' }); }
-
-    // Location match
-    const candLoc = (c?.location || '').toLowerCase();
-    const joCity  = (jo.company || '').toLowerCase();
-    if (candLoc && candLoc.includes('bacolod')) {
-      E += 0.5; eBreakdown.push({ label: 'Location match', val: 0.5, sign: '+' });
+    if (roleMatch) {
+      E += 1.0; eBreakdown.push({ label: 'Job type match', val: 1.0, sign: '+' });
+      qualityFlags.jobMatch = true;
+    } else {
+      E -= 1.0; eBreakdown.push({ label: 'Job type mismatch', val: 1.0, sign: '-' });
+      qualityFlags.jobMatch = false;
     }
+
+    // Location match using cityFormatted
+    const candCity = (c?.cityFormatted || c?.location || '').toLowerCase();
+    const joCity   = (jo.company || '').toLowerCase(); // employer city approximation
+    const locMatch = candCity && (candCity.includes('bacolod') || candCity === joCity);
+    if (locMatch) {
+      E += 0.5; eBreakdown.push({ label: 'Location match', val: 0.5, sign: '+' });
+      qualityFlags.locationMatch = true;
+    } else if (candCity) {
+      E -= 0.5; eBreakdown.push({ label: 'Location far', val: 0.5, sign: '-' });
+      qualityFlags.locationMatch = false;
+    }
+
+    // Age factor
+    const candAge = c?.ageInt || parseInt(c?.age) || 0;
+    const joPrefs = (jo.position + ' ' + (jo.salary||'')).toLowerCase();
+    if (candAge > 0) {
+      // Most household employer preferences: 20-45
+      if (candAge >= 20 && candAge <= 45) {
+        E += 0.5; eBreakdown.push({ label: 'Age within preferred range (20-45)', val: 0.5, sign: '+' });
+        qualityFlags.ageMatch = true;
+      } else if (candAge >= 18 && candAge <= 50) {
+        eBreakdown.push({ label: 'Age slightly outside preferred', val: 0, sign: '=' });
+        qualityFlags.ageMatch = false;
+        E -= 0.5;
+      } else {
+        E -= 1.0; eBreakdown.push({ label: 'Age outside strict requirement', val: 1.0, sign: '-' });
+        qualityFlags.ageMatch = false;
+      }
+    }
+
+    // Experience factor
+    const expFlag = c?.experienceFlag || 'no';
+    if (expFlag === 'yes') {
+      E += 0.5; eBreakdown.push({ label: 'Relevant experience', val: 0.5, sign: '+' });
+    } else {
+      eBreakdown.push({ label: 'No experience (allowed)', val: 0, sign: '=' });
+    }
+
   } else {
-    // No JO context — give neutral eligibility
-    E = 1.0;
-    eBreakdown.push({ label: 'General eligibility', val: 1.0, sign: '+' });
+    // No JO — general eligibility
+    E = 0.5;
+    eBreakdown.push({ label: 'General eligibility', val: 0.5, sign: '+' });
+    qualityFlags.jobMatch = null;
+    qualityFlags.locationMatch = null;
+    qualityFlags.ageMatch = null;
   }
 
-  // Employer preference match (verified = meets basic bar)
-  if (getEffectiveVerified(c)) {
-    E += 0.5; eBreakdown.push({ label: 'Meets employer criteria (verified)', val: 0.5, sign: '+' });
-  }
+  E = Math.min(2.0, Math.max(-2.0, E));
 
-  E = Math.min(2.0, Math.max(-1.5, E));
-
-  // ── R: RESPONSIVENESS (max +3.0) ──
+  // ── R: RESPONSIVENESS (cap +3.0) ──
   let R = 0;
   const rBreakdown = [];
 
-  if (scores.repliedFast)    { R += 1.0; rBreakdown.push({ label: 'Replied within 24hrs', val: 1.0, sign: '+' }); }
-  if (scores.answeredCall)   { R += 1.0; rBreakdown.push({ label: 'Answered call',         val: 1.0, sign: '+' }); }
-  if (scores.confirmedIntv)  { R += 1.0; rBreakdown.push({ label: 'Confirmed interview',   val: 1.0, sign: '+' }); }
-  if (scores.lateReply)      { R -= 1.0; rBreakdown.push({ label: 'Late reply (3+ days)',  val: 1.0, sign: '-' }); }
-  if (scores.noShow)         { R -= 2.5; rBreakdown.push({ label: 'No-show',               val: 2.5, sign: '-' }); }
+  if (scores.repliedFast)   { R += 0.5; rBreakdown.push({ label: 'Replied within 24hrs', val: 0.5, sign: '+' }); }
+  if (scores.answeredCall)  { R += 0.5; rBreakdown.push({ label: 'Answered call',         val: 0.5, sign: '+' }); }
+  if (scores.confirmedIntv) { R += 1.0; rBreakdown.push({ label: 'Confirmed interview',   val: 1.0, sign: '+' }); }
+  if (scores.lateReply)     { R -= 1.0; rBreakdown.push({ label: 'Late reply (3+ days)',  val: 1.0, sign: '-' }); }
+  if (scores.noShow)        { R -= 2.5; rBreakdown.push({ label: 'No-show',               val: 2.5, sign: '-' }); }
 
   R = Math.min(3.0, R);
 
-  // ── A: ATTITUDE (max +3.0) ──
+  // ── A: ATTITUDE (cap +3.0) ──
   let A = 0;
   const aBreakdown = [];
 
@@ -3452,27 +3610,32 @@ function calcERA(candId, joId) {
     const sign = attPts > 0 ? '+' : attPts < 0 ? '-' : '=';
     aBreakdown.push({ label: `Call attitude (${att}/5)`, val: Math.abs(attPts), sign });
   }
-  if (scores.polite)     { A += 1.0; aBreakdown.push({ label: 'Positive communication',    val: 1.0, sign: '+' }); }
-  if (scores.backedOut)  { A -= 2.0; aBreakdown.push({ label: 'Backed out after accepting', val: 2.0, sign: '-' }); }
+  if (scores.showedUp)  { A += 2.0; aBreakdown.push({ label: 'Showed up to interview', val: 2.0, sign: '+' }); }
+  if (scores.polite)    { A += 0.5; aBreakdown.push({ label: 'Positive communication', val: 0.5, sign: '+' }); }
+  if (scores.backedOut) { A -= 2.0; aBreakdown.push({ label: 'Backed out after accepting', val: 2.0, sign: '-' }); }
 
   A = Math.min(3.0, A);
 
-  // ── BONUSES ──
+  // ── BONUSES (capped at +1.0 total) ──
   let bonus = 0;
   const bonusBreakdown = [];
 
   if (scores.completedJob) { bonus += 2.0; bonusBreakdown.push({ label: 'Completed a job', val: 2.0, sign: '+' }); }
-  if (docs.validId)        { bonus += 0.5; bonusBreakdown.push({ label: 'Valid ID',         val: 0.5, sign: '+' }); }
-  if (getEffectiveVerified(c)) { bonus += 0.5; bonusBreakdown.push({ label: 'Verified status', val: 0.5, sign: '+' }); }
-  const hasDoc = docs.brgy || docs.police || docs.nbi || docs.resume || docs.medical;
-  if (hasDoc)              { bonus += 0.5; bonusBreakdown.push({ label: 'Submitted documents', val: 0.5, sign: '+' }); }
+  // Doc bonuses capped at 1.0 total
+  let docBonus = 0;
+  if (docs.validId && docBonus < 1.0)        { const add = Math.min(0.5, 1.0-docBonus); docBonus += add; bonusBreakdown.push({ label: 'Valid ID', val: add, sign: '+' }); }
+  if (getEffectiveVerified(c) && docBonus < 1.0) { const add = Math.min(0.5, 1.0-docBonus); docBonus += add; bonusBreakdown.push({ label: 'Verified status', val: add, sign: '+' }); }
+  bonus += docBonus;
+
+  // ── PENALTIES ──
+  // (already in R and A — noShow, backedOut, lateReply handled above)
 
   // ── FINAL ──
-  let total = 5.0 + E + R + A + bonus;
+  let total = 3.0 + E + R + A + bonus;
   const isBlacklisted = !!blacklist[candId];
   if (isBlacklisted) total = Math.min(total, 2.0);
 
-  const final = Math.min(15, Math.max(1, Math.round(total * 10) / 10));
+  const final = Math.min(10, Math.max(1, Math.round(total * 10) / 10));
 
   return {
     score: final,
@@ -3481,7 +3644,7 @@ function calcERA(candId, joId) {
     A: Math.round(A * 10) / 10,
     bonus: Math.round(bonus * 10) / 10,
     eBreakdown, rBreakdown, aBreakdown, bonusBreakdown,
-    isBlacklisted
+    isBlacklisted, qualityFlags
   };
 }
 
@@ -3504,10 +3667,10 @@ function calcCandRating(candId) {
 }
 
 function getRatingLabel(r) {
-  if (r >= 9)   return { label: '⭐ Elite',  color: '#059669',        emoji: '⭐' };
-  if (r >= 7)   return { label: '⭐ Strong', color: 'var(--accent)',  emoji: '⭐' };
-  if (r >= 5)   return { label: '⚠ Average', color: 'var(--orange)', emoji: '⚠' };
-  return              { label: '❌ Risk',    color: 'var(--red)',     emoji: '❌' };
+  if (r >= 9)   return { label: '⭐ Elite',  color: '#059669' };
+  if (r >= 7)   return { label: '⭐ Strong', color: 'var(--accent)' };
+  if (r >= 5)   return { label: '⚠ Average', color: 'var(--orange)' };
+  return              { label: '❌ Risk',    color: 'var(--red)' };
 }
 
 function getRatingColor(r) {
@@ -3838,6 +4001,92 @@ function buildCandNotesSection(candId) {
         <button class="btn btn-accent" onclick="saveCandNote('${escAttr(candId)}',document.getElementById('cand-note-input-${escAttr(candId)}').value)">Add</button>
       </div>
       <div class="cand-notes-list">${noteItems}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// REFLECTION LOG
+// ═══════════════════════════════════════════════
+function getReflectionLog(candId) {
+  // Auto-build from placements data
+  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
+  const log = allP.map(p => {
+    const pid = p.placementId || p.candidateId;
+    let ex = {};
+    try { ex = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e) {}
+    const status = ex.status || p.status || '';
+    const result = status === 'Hired' ? 'Hired'
+      : status === 'Interviewed' ? 'Interviewed'
+      : status === 'Dropped' ? 'Dropped'
+      : (ex.response || p.response) === 'No Response' ? 'No Reply'
+      : status === 'For Interview' ? 'Interview Scheduled'
+      : 'Messaged';
+    const jo = jobOrders.find(j => j.id === p.jobOrderId);
+    return {
+      joId: p.jobOrderId,
+      employer: jo?.company || p.company || '—',
+      position: p.position || jo?.position || '—',
+      result,
+      date: ex.lastContacted || p.date || '',
+      notes: ex.notes || p.notes || '',
+    };
+  });
+  // Also include manually saved reflections
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(`reflection_${candId}`) || '[]'); } catch(e) { return []; } })();
+  return [...log, ...saved].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+
+function addReflection(candId) {
+  const joId   = document.getElementById(`refl-jo-${candId}`)?.value || '';
+  const result = document.getElementById(`refl-result-${candId}`)?.value || '';
+  const notes  = document.getElementById(`refl-notes-${candId}`)?.value || '';
+  if (!result) return;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(`reflection_${candId}`) || '[]'); } catch(e) { return []; } })();
+  saved.unshift({ joId, employer: jobOrders.find(j=>j.id===joId)?.company||'Manual entry', position: '', result, date: new Date().toISOString().split('T')[0], notes, manual: true });
+  localStorage.setItem(`reflection_${candId}`, JSON.stringify(saved));
+  openCandModal(candId);
+}
+
+function buildReflectionLog(candId) {
+  const log = getReflectionLog(candId);
+  const resultColors = {
+    'Hired':'var(--green)','Interviewed':'var(--accent)','Interview Scheduled':'var(--purple)',
+    'Dropped':'var(--red)','No Reply':'var(--text3)','Messaged':'var(--orange)'
+  };
+  const items = log.map(entry => `
+    <div class="refl-item">
+      <div class="refl-dot" style="background:${resultColors[entry.result]||'var(--text3)'}"></div>
+      <div class="refl-content">
+        <div class="refl-header">
+          <span class="refl-result" style="color:${resultColors[entry.result]||'var(--text3)'}">${escHtml(entry.result)}</span>
+          <span class="refl-jo">${escHtml(entry.joId||'')}</span>
+          <span class="refl-date">${entry.date ? fmtDateShort(entry.date) : ''}</span>
+        </div>
+        <div class="refl-employer">${escHtml(entry.employer)}${entry.position?' · '+escHtml(entry.position):''}</div>
+        ${entry.notes ? `<div class="refl-notes">${escHtml(entry.notes)}</div>` : ''}
+      </div>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No history yet.</div>';
+
+  return `
+    <div class="cand-modal-section">
+      <div class="cand-modal-section-title">Reflection History</div>
+      <div class="refl-timeline">${items}</div>
+      <div class="refl-add-form">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          <select id="refl-jo-${escAttr(candId)}" style="flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
+            <option value="">Manual / No JO</option>
+            ${jobOrders.map(jo=>`<option value="${escAttr(jo.id)}">${escHtml(jo.id)} — ${escHtml(jo.company)}</option>`).join('')}
+          </select>
+          <select id="refl-result-${escAttr(candId)}" style="flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
+            <option value="">Select result…</option>
+            ${['Hired','Interviewed','Interview Scheduled','Dropped','No Reply','Messaged'].map(r=>`<option>${r}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input type="text" id="refl-notes-${escAttr(candId)}" placeholder="Notes…" style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
+          <button class="btn btn-accent" onclick="addReflection('${escAttr(candId)}')">Add</button>
+        </div>
+      </div>
     </div>`;
 }
 
