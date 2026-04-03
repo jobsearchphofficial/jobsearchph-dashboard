@@ -338,19 +338,9 @@
   </div>
 
   <!-- Config -->
-  <div class="config-bar">
-    <div class="field">
-      <label>Google Sheet ID</label>
-      <input type="text" id="sheetId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs..." />
-    </div>
-    <div class="field">
-      <label>Sheet Tab Name</label>
-      <input type="text" id="sheetTab" placeholder="Candidates" value="Candidates" />
-    </div>
-    <div class="field">
-      <label>API Key</label>
-      <input type="password" id="apiKey" placeholder="AIza..." />
-    </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#15803d;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:18px;">&#x2705;</span>
+    <span><strong>Connected</strong> &mdash; data saves directly to Job Search PH Google Sheet</span>
   </div>
 
   <!-- Paste Zone -->
@@ -505,20 +495,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// Save config to localStorage
-const sheetIdEl = document.getElementById('sheetId');
-const sheetTabEl = document.getElementById('sheetTab');
-const apiKeyEl = document.getElementById('apiKey');
-
-// Load saved config
-sheetIdEl.value = localStorage.getItem('jsp_sheetId') || '';
-sheetTabEl.value = localStorage.getItem('jsp_sheetTab') || 'Candidates';
-apiKeyEl.value = localStorage.getItem('jsp_apiKey') || '';
-
-sheetIdEl.addEventListener('change', () => localStorage.setItem('jsp_sheetId', sheetIdEl.value));
-sheetTabEl.addEventListener('change', () => localStorage.setItem('jsp_sheetTab', sheetTabEl.value));
-apiKeyEl.addEventListener('change', () => localStorage.setItem('jsp_apiKey', apiKeyEl.value));
-
 // Toast
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
@@ -608,23 +584,16 @@ function genId() {
   return 'JSP-' + Date.now().toString(36).toUpperCase();
 }
 
-// Submit to Google Sheets
+// Submit via Apps Script
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyKpa9yn4Lt3e9NABPcygx6wgFDMn5C-8SJhFG9myLfjF5kmQ8isNxA0JfAOiOVloKFA/exec';
+
 async function submitCandidate() {
-  const sheetId = sheetIdEl.value.trim();
-  const sheetTab = sheetTabEl.value.trim();
-  const apiKey = apiKeyEl.value.trim();
-
-  if (!sheetId || !apiKey) {
-    showToast('Enter Sheet ID and API Key above', 'warn');
-    return;
-  }
-
   const name = document.getElementById('f_name').value.trim();
   if (!name) { showToast('Full name is required', 'warn'); return; }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Adding...';
+  btn.textContent = 'Saving...';
 
   const now = new Date();
   const timestamp = now.toLocaleDateString('en-PH', {
@@ -632,49 +601,39 @@ async function submitCandidate() {
     hour: '2-digit', minute: '2-digit'
   });
 
-  // Match your exact column order:
-  // ID | Timestamp | Full Name | Facebook Name | Age | Contact Number | Email |
-  // Preferred Job Type | Skills/Qualifications | Preferred Location |
-  // Expected Pay | Gender | Past Jobs | Resume | Civil Status | When can you start | Status | Internal Notes
-
-  const row = [
-    genId(),
-    timestamp,
-    name,
-    document.getElementById('f_facebook').value.trim(),
-    document.getElementById('f_age').value.trim(),
-    document.getElementById('f_contact').value.trim(),
-    document.getElementById('f_email').value.trim(),
-    document.getElementById('f_jobtype').value.trim(),
-    document.getElementById('f_skills').value.trim(),
-    document.getElementById('f_location').value.trim(),
-    document.getElementById('f_salary').value.trim(),
-    document.getElementById('f_gender').value.trim(),
-    document.getElementById('f_experience').value.trim(),
-    document.getElementById('f_resume').value.trim(),
-    document.getElementById('f_civil').value.trim(),
-    document.getElementById('f_available').value.trim(),
-    document.getElementById('f_status').value.trim(),
-    document.getElementById('f_notes').value.trim(),
-  ];
-
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(sheetTab)}:append?valueInputOption=USER_ENTERED&key=${apiKey}`;
+  const payload = {
+    id:         genId(),
+    timestamp:  timestamp,
+    name:       name,
+    facebook:   document.getElementById('f_facebook').value.trim(),
+    age:        document.getElementById('f_age').value.trim(),
+    contact:    document.getElementById('f_contact').value.trim(),
+    email:      document.getElementById('f_email').value.trim(),
+    jobtype:    document.getElementById('f_jobtype').value.trim(),
+    skills:     document.getElementById('f_skills').value.trim(),
+    location:   document.getElementById('f_location').value.trim(),
+    salary:     document.getElementById('f_salary').value.trim(),
+    gender:     document.getElementById('f_gender').value.trim(),
+    experience: document.getElementById('f_experience').value.trim(),
+    resume:     document.getElementById('f_resume').value.trim(),
+    civil:      document.getElementById('f_civil').value.trim(),
+    available:  document.getElementById('f_available').value.trim(),
+    status:     document.getElementById('f_status').value.trim(),
+    notes:      document.getElementById('f_notes').value.trim(),
+  };
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [row] })
+      body: JSON.stringify(payload)
     });
-
-    if (res.ok) {
-      showToast(`✓ ${name} added to Sheet!`, 'success');
+    const data = await res.json();
+    if (data.success) {
+      showToast(`✓ ${name} saved to Google Sheet!`, 'success');
       clearForm();
       document.getElementById('statusDot').className = 'status-dot';
     } else {
-      const err = await res.json();
-      console.error(err);
-      showToast('Sheet error — check ID, tab name, and API key', 'error');
+      showToast('Error: ' + (data.error || 'Unknown error'), 'error');
     }
   } catch (e) {
     showToast('Network error — check connection', 'error');
