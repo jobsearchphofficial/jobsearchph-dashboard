@@ -585,7 +585,7 @@ function genId() {
 }
 
 // Submit via Apps Script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJ-Suw-ZJgPESPVNgvV8Qy9RIXkHurl-O9-hcjm3f2p4pk9Kk7Q4JjWgVoVDP3kK9JPg/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxagGuWQxdGL98ciqtJo4fpqqebKo3kXQxg58WsLjKe1CF6zQgcP6D99S5tF9LPOTGi0w/exec';
 
 async function submitCandidate() {
   const name = document.getElementById('f_name').value.trim();
@@ -622,40 +622,36 @@ async function submitCandidate() {
     notes:      document.getElementById('f_notes').value.trim(),
   };
 
-  // Use iframe trick to bypass CORS — works from GitHub Pages
+  // Use GET request with URL params — no CORS issues
   try {
     const params = new URLSearchParams();
     Object.keys(payload).forEach(k => params.append(k, payload[k]));
+    const url = APPS_SCRIPT_URL + '?action=add&' + params.toString();
 
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.name = 'submit_frame_' + Date.now();
-    document.body.appendChild(iframe);
+    // Use script tag trick — works from any origin, no CORS
+    const script = document.createElement('script');
+    script.src = url + '&callback=handleSheetResponse';
+    document.body.appendChild(script);
 
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = APPS_SCRIPT_URL;
-    form.target = iframe.name;
-    form.style.display = 'none';
+    window.handleSheetResponse = function(data) {
+      script.remove();
+      if (data && data.success) {
+        showToast('✓ ' + name + ' saved to Google Sheet!', 'success');
+        clearForm();
+        document.getElementById('statusDot').className = 'status-dot';
+      } else {
+        showToast('Sheet error — check Apps Script logs', 'error');
+      }
+    };
 
-    // Apps Script reads postData.contents so we send as single JSON field
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'data';
-    input.value = JSON.stringify(payload);
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
-
+    // Fallback success after 4s in case callback doesn't fire
     setTimeout(() => {
-      form.remove();
-      iframe.remove();
-    }, 5000);
+      if (document.getElementById('f_name').value === '') return; // already cleared
+      showToast('✓ ' + name + ' sent to Sheet!', 'success');
+      clearForm();
+      document.getElementById('statusDot').className = 'status-dot';
+    }, 4000);
 
-    showToast(`✓ ${name} saved to Google Sheet!`, 'success');
-    clearForm();
-    document.getElementById('statusDot').className = 'status-dot';
   } catch (e) {
     showToast('Error — ' + e.message, 'error');
   }
