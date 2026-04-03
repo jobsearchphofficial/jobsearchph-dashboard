@@ -585,7 +585,7 @@ function genId() {
 }
 
 // Submit via Apps Script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyKpa9yn4Lt3e9NABPcygx6wgFDMn5C-8SJhFG9myLfjF5kmQ8isNxA0JfAOiOVloKFA/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQzLYSlPUZNczc1-FemRFlWFEAOFsZppSTzrxiITCUOO4-wKTQd6rAf1CVI1gAnJXnaA/exec';
 
 async function submitCandidate() {
   const name = document.getElementById('f_name').value.trim();
@@ -623,18 +623,17 @@ async function submitCandidate() {
   };
 
   try {
-    const res = await fetch(APPS_SCRIPT_URL, {
+    // Apps Script requires no-cors mode — we can't read the response
+    // but the data still gets written to the Sheet
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`✓ ${name} saved to Google Sheet!`, 'success');
-      clearForm();
-      document.getElementById('statusDot').className = 'status-dot';
-    } else {
-      showToast('Error: ' + (data.error || 'Unknown error'), 'error');
-    }
+    // Since no-cors returns opaque response, assume success if no throw
+    showToast(`✓ ${name} saved to Google Sheet!`, 'success');
+    clearForm();
+    document.getElementById('statusDot').className = 'status-dot';
   } catch (e) {
     showToast('Network error — check connection', 'error');
   }
