@@ -372,9 +372,8 @@
           <label>Gender</label>
           <select id="f_gender">
             <option value="">— select —</option>
-            <option>Female</option>
             <option>Male</option>
-            <option>Other</option>
+            <option>Female</option>
           </select>
         </div>
         <div class="field">
@@ -395,16 +394,34 @@
           <label>Preferred Job Type <span class="req">*</span></label>
           <select id="f_jobtype">
             <option value="">— select —</option>
-            <option>Kasambahay</option>
-            <option>Yaya / Babysitter</option>
-            <option>Househelper (All-around)</option>
-            <option>Driver</option>
-            <option>Laborer / Warehouse</option>
-            <option>Admin / Office</option>
-            <option>Sales / Retail</option>
+            <option>Accounting / Bookkeeper</option>
+            <option>Barista / Barman</option>
+            <option>Carpenter / Mason</option>
+            <option>Carwash Boy / Detailer</option>
+            <option>Cashier / Retail Staff</option>
+            <option>Construction Laborer</option>
             <option>Cook / Kitchen Staff</option>
+            <option>Delivery Rider</option>
+            <option>Dishwasher / Kitchen Helper</option>
+            <option>Driver (Personal / Company)</option>
+            <option>Electrician / Plumber</option>
+            <option>Encoder / Data Entry</option>
+            <option>Forklift Operator</option>
+            <option>Housekeeper / Household Helper</option>
+            <option>Janitor / Cleaner</option>
+            <option>Laundry / Cleaning Staff</option>
+            <option>Machine Operator</option>
+            <option>Mechanic / Auto Technician</option>
+            <option>Office Admin / Secretary</option>
+            <option>Packer / Sorter / Labeler</option>
+            <option>Production Worker</option>
+            <option>Sales Agent / Promodiser</option>
             <option>Security Guard</option>
-            <option>Construction</option>
+            <option>Server / Waiter / Waitress</option>
+            <option>Technician (Electronics / AC / Appliance)</option>
+            <option>Warehouse Staff</option>
+            <option>Welder</option>
+            <option>Yaya / Babysitter</option>
             <option>Other</option>
           </select>
         </div>
@@ -419,7 +436,17 @@
         </div>
         <div class="field">
           <label>Preferred Location</label>
-          <input type="text" id="f_location" placeholder="Bacolod, Talisay..." />
+          <select id="f_location">
+            <option value="">— select —</option>
+            <option>Bacolod City Proper</option>
+            <option>Talisay</option>
+            <option>Silay</option>
+            <option>Bago City</option>
+            <option>Murcia</option>
+            <option>Kabankalan</option>
+            <option>Anywhere in Neg. Occ.</option>
+            <option>Other</option>
+          </select>
         </div>
         <div class="field">
           <label>Expected Salary (monthly)</label>
@@ -433,6 +460,7 @@
             <option>Married</option>
             <option>Separated</option>
             <option>Widowed</option>
+            <option>Single Parent</option>
           </select>
         </div>
         <div class="field">
@@ -524,11 +552,51 @@ function parseBlock() {
     el.classList.add('filled');
   };
 
+  // Job type aliases from bot → Google Form values
+  const jobAliases = {
+    'yaya': 'Yaya / Babysitter',
+    'babysitter': 'Yaya / Babysitter',
+    'kasambahay': 'Housekeeper / Household Helper',
+    'househelper': 'Housekeeper / Household Helper',
+    'housekeeper': 'Housekeeper / Household Helper',
+    'all-around': 'Housekeeper / Household Helper',
+    'driver': 'Driver (Personal / Company)',
+    'cook': 'Cook / Kitchen Staff',
+    'kitchen': 'Cook / Kitchen Staff',
+    'dishwasher': 'Dishwasher / Kitchen Helper',
+    'laborer': 'Construction Laborer',
+    'construction': 'Construction Laborer',
+    'admin': 'Office Admin / Secretary',
+    'secretary': 'Office Admin / Secretary',
+    'sales': 'Sales Agent / Promodiser',
+    'security': 'Security Guard',
+    'guard': 'Security Guard',
+    'warehouse': 'Warehouse Staff',
+    'laundry': 'Laundry / Cleaning Staff',
+    'janitor': 'Janitor / Cleaner',
+    'cleaner': 'Janitor / Cleaner',
+    'encoder': 'Encoder / Data Entry',
+    'cashier': 'Cashier / Retail Staff',
+    'welder': 'Welder',
+    'mechanic': 'Mechanic / Auto Technician',
+  };
+
   const setSelect = (id, val) => {
     if (!val) return;
     const el = document.getElementById(id);
     if (!el) return;
-    const lower = val.toLowerCase();
+    const lower = val.toLowerCase().trim();
+
+    // Check aliases first
+    for (const [alias, mapped] of Object.entries(jobAliases)) {
+      if (lower.includes(alias)) {
+        el.value = mapped;
+        el.classList.add('filled');
+        return;
+      }
+    }
+
+    // Then try direct match
     for (const opt of el.options) {
       if (opt.value.toLowerCase().includes(lower) || lower.includes(opt.value.toLowerCase())) {
         el.value = opt.value;
@@ -536,7 +604,8 @@ function parseBlock() {
         return;
       }
     }
-    // If no match, just set value directly
+
+    // Fallback: set directly
     el.value = val;
     el.classList.add('filled');
   };
