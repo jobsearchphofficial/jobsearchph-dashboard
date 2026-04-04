@@ -584,8 +584,8 @@ function genId() {
   return 'JSP-' + Date.now().toString(36).toUpperCase();
 }
 
-// Submit via Apps Script
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxagGuWQxdGL98ciqtJo4fpqqebKo3kXQxg58WsLjKe1CF6zQgcP6D99S5tF9LPOTGi0w/exec';
+// Submit directly to Google Form — goes into Form Responses → Jobseekers tab → Dashboard
+const FORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSdOLkZmlQTG_jlHz1d9Kggs-nB9U0z2tsK2U4qVGfEv0Y2iwA/formResponse';
 
 async function submitCandidate() {
   const name = document.getElementById('f_name').value.trim();
@@ -595,66 +595,57 @@ async function submitCandidate() {
   btn.disabled = true;
   btn.textContent = 'Saving...';
 
-  const now = new Date();
-  const timestamp = now.toLocaleDateString('en-PH', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
-  });
+  // Build form data matching Google Form field IDs exactly
+  const fd = new FormData();
+  fd.append('entry.1163063502', name);
+  fd.append('entry.746295938',  document.getElementById('f_facebook').value.trim());
+  fd.append('entry.1093612604', document.getElementById('f_age').value.trim());
+  fd.append('entry.675411365',  document.getElementById('f_contact').value.trim());
+  fd.append('entry.1345355032', document.getElementById('f_email').value.trim());
+  fd.append('entry.1296369222', document.getElementById('f_jobtype').value.trim());
+  fd.append('entry.664293303',  document.getElementById('f_skills').value.trim());
+  fd.append('entry.547447539',  document.getElementById('f_location').value.trim());
+  fd.append('entry.1516079030', document.getElementById('f_salary').value.trim());
+  fd.append('entry.1970809014', document.getElementById('f_gender').value.trim());
+  fd.append('entry.35722816',   document.getElementById('f_experience').value.trim());
+  fd.append('entry.1119101128', document.getElementById('f_available').value.trim());
+  fd.append('entry.941768457',  document.getElementById('f_civil').value.trim());
+  fd.append('entry.1199976305', 'I agree that my information can be shared with verified employers for hiring purposes. I understand that I am free to accept or reject any job opportunity and that providing this information does not guarantee employment.');
 
-  const payload = {
-    id:         genId(),
-    timestamp:  timestamp,
-    name:       name,
-    facebook:   document.getElementById('f_facebook').value.trim(),
-    age:        document.getElementById('f_age').value.trim(),
-    contact:    document.getElementById('f_contact').value.trim(),
-    email:      document.getElementById('f_email').value.trim(),
-    jobtype:    document.getElementById('f_jobtype').value.trim(),
-    skills:     document.getElementById('f_skills').value.trim(),
-    location:   document.getElementById('f_location').value.trim(),
-    salary:     document.getElementById('f_salary').value.trim(),
-    gender:     document.getElementById('f_gender').value.trim(),
-    experience: document.getElementById('f_experience').value.trim(),
-    resume:     document.getElementById('f_resume').value.trim(),
-    civil:      document.getElementById('f_civil').value.trim(),
-    available:  document.getElementById('f_available').value.trim(),
-    status:     document.getElementById('f_status').value.trim(),
-    notes:      document.getElementById('f_notes').value.trim(),
-  };
+  // Use hidden iframe to submit — no CORS issues with Google Forms
+  const iframeName = 'gform_iframe_' + Date.now();
+  const iframe = document.createElement('iframe');
+  iframe.name = iframeName;
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
 
-  // Use GET request with URL params — no CORS issues
-  try {
-    const params = new URLSearchParams();
-    Object.keys(payload).forEach(k => params.append(k, payload[k]));
-    const url = APPS_SCRIPT_URL + '?action=add&' + params.toString();
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = FORM_ACTION;
+  form.target = iframeName;
+  form.style.display = 'none';
 
-    // Use script tag trick — works from any origin, no CORS
-    const script = document.createElement('script');
-    script.src = url + '&callback=handleSheetResponse';
-    document.body.appendChild(script);
-
-    window.handleSheetResponse = function(data) {
-      script.remove();
-      if (data && data.success) {
-        showToast('✓ ' + name + ' saved to Google Sheet!', 'success');
-        clearForm();
-        document.getElementById('statusDot').className = 'status-dot';
-      } else {
-        showToast('Sheet error — check Apps Script logs', 'error');
-      }
-    };
-
-    // Fallback success after 4s in case callback doesn't fire
-    setTimeout(() => {
-      if (document.getElementById('f_name').value === '') return; // already cleared
-      showToast('✓ ' + name + ' sent to Sheet!', 'success');
-      clearForm();
-      document.getElementById('statusDot').className = 'status-dot';
-    }, 4000);
-
-  } catch (e) {
-    showToast('Error — ' + e.message, 'error');
+  for (const [key, val] of fd.entries()) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = key;
+    input.value = val;
+    form.appendChild(input);
   }
+
+  document.body.appendChild(form);
+  form.submit();
+
+  // Google Forms doesn't return a readable response — wait briefly then confirm
+  setTimeout(() => {
+    form.remove();
+    iframe.remove();
+    showToast('✓ ' + name + ' submitted to Google Form!', 'success');
+    clearForm();
+    document.getElementById('statusDot').className = 'status-dot';
+    btn.disabled = false;
+    btn.innerHTML = '✚ Add to Google Sheet';
+  }, 2000);
 
   btn.disabled = false;
   btn.innerHTML = '✚ Add to Google Sheet';
