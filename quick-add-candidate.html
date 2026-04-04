@@ -340,7 +340,7 @@
   <!-- Config -->
   <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#15803d;display:flex;align-items:center;gap:10px;">
     <span style="font-size:18px;">&#x2705;</span>
-    <span><strong>Connected</strong> &mdash; data saves directly to Job Search PH Google Sheet</span>
+    <span><strong>Connected to Google Form</strong> &mdash; fills and opens the form for you, one click to submit</span>
   </div>
 
   <!-- Paste Zone -->
@@ -483,7 +483,7 @@
     <div class="submit-bar">
       <div class="status-dot" id="statusDot"></div>
       <button class="btn-submit" id="submitBtn" onclick="submitCandidate()">
-        ✚ Add to Google Sheet
+        ✚ Open Prefilled Form
       </button>
       <button class="btn-clear" onclick="clearForm()">Clear</button>
     </div>
@@ -612,43 +612,36 @@ async function submitCandidate() {
   fd.append('entry.941768457',  document.getElementById('f_civil').value.trim());
   fd.append('entry.1199976305', 'I agree that my information can be shared with verified employers for hiring purposes. I understand that I am free to accept or reject any job opportunity and that providing this information does not guarantee employment.');
 
-  // Use hidden iframe to submit — no CORS issues with Google Forms
-  const iframeName = 'gform_iframe_' + Date.now();
-  const iframe = document.createElement('iframe');
-  iframe.name = iframeName;
-  iframe.style.display = 'none';
-  document.body.appendChild(iframe);
+  // Build prefilled Google Form URL and open in new tab to submit
+  const params = new URLSearchParams();
+  params.append('entry.1163063502', name);
+  params.append('entry.746295938',  document.getElementById('f_facebook').value.trim());
+  params.append('entry.1093612604', document.getElementById('f_age').value.trim());
+  params.append('entry.675411365',  document.getElementById('f_contact').value.trim());
+  params.append('entry.1345355032', document.getElementById('f_email').value.trim());
+  params.append('entry.1296369222', document.getElementById('f_jobtype').value.trim());
+  params.append('entry.664293303',  document.getElementById('f_skills').value.trim());
+  params.append('entry.547447539',  document.getElementById('f_location').value.trim());
+  params.append('entry.1516079030', document.getElementById('f_salary').value.trim());
+  params.append('entry.1970809014', document.getElementById('f_gender').value.trim());
+  params.append('entry.35722816',   document.getElementById('f_experience').value.trim());
+  params.append('entry.1119101128', document.getElementById('f_available').value.trim());
+  params.append('entry.941768457',  document.getElementById('f_civil').value.trim());
+  params.append('entry.1199976305', 'I agree that my information can be shared with verified employers for hiring purposes. I understand that I am free to accept or reject any job opportunity and that providing this information does not guarantee employment.');
 
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = FORM_ACTION;
-  form.target = iframeName;
-  form.style.display = 'none';
+  const prefilledUrl = FORM_ACTION.replace('formResponse', 'viewform') + '?' + params.toString();
 
-  for (const [key, val] of fd.entries()) {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = key;
-    input.value = val;
-    form.appendChild(input);
-  }
+  // Open prefilled form in new tab — user clicks Submit once
+  const win = window.open(prefilledUrl, '_blank');
 
-  document.body.appendChild(form);
-  form.submit();
-
-  // Google Forms doesn't return a readable response — wait briefly then confirm
-  setTimeout(() => {
-    form.remove();
-    iframe.remove();
-    showToast('✓ ' + name + ' submitted to Google Form!', 'success');
-    clearForm();
-    document.getElementById('statusDot').className = 'status-dot';
-    btn.disabled = false;
-    btn.innerHTML = '✚ Add to Google Sheet';
-  }, 2000);
+  showToast('✓ Form opened — click Submit in the new tab', 'warn');
+  clearForm();
+  document.getElementById('statusDot').className = 'status-dot';
+  btn.disabled = false;
+  btn.innerHTML = '✚ Open Prefilled Form';
 
   btn.disabled = false;
-  btn.innerHTML = '✚ Add to Google Sheet';
+  btn.innerHTML = '✚ Open Prefilled Form';
 }
 </script>
 </body>
