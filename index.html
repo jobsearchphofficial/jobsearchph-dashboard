@@ -1192,6 +1192,100 @@
   .flag-pts   { font-size: 10px; font-weight: 700; grid-row: 2; }
   .flag-check { font-size: 16px; color: var(--accent); grid-row: 1/3; }
 
+  /* ═══ ERA SCORING SYSTEM ═══ */
+  .era-hero {
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(135deg, var(--accent-dim) 0%, var(--card2) 100%);
+    border: 1px solid var(--border2); border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .era-circle {
+    width: 76px; height: 76px; border-radius: 50%; border: 3px solid;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex-shrink: 0;
+    background: white; box-shadow: 0 2px 12px rgba(23,85,237,0.12);
+  }
+  .era-score-num { font-size: 26px; font-weight: 800; font-family: var(--mono); line-height: 1; }
+  .era-score-sub { font-size: 9px; font-weight: 700; letter-spacing: 1px; opacity: 0.7; margin-top: 1px; }
+  .era-label-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 99px; border: 1px solid; margin-bottom: 6px; }
+  .era-stars { font-size: 15px; color: var(--gold); letter-spacing: 2px; }
+  .era-pillars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .era-pillar { background: var(--card2); border: 1px solid var(--border); border-radius: 11px; padding: 11px 14px; }
+  .era-pillar-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .era-pillar-key { font-size: 14px; font-weight: 800; font-family: var(--mono); width: 20px; flex-shrink: 0; }
+  .era-pillar-name { flex: 1; font-size: 12px; font-weight: 600; color: var(--text2); }
+  .era-pillar-val { font-size: 14px; font-weight: 800; font-family: var(--mono); }
+  .era-pillar-bar-bg { height: 5px; background: var(--border2); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+  .era-pillar-bar-fill { height: 100%; border-radius: 99px; transition: width .5s ease; opacity: 0.8; }
+  .era-pillar-breakdown { display: flex; flex-direction: column; gap: 3px; }
+  .era-bd-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .era-bd-sign { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 800; flex-shrink: 0; }
+  .era-plus  { background: rgba(5,150,105,.15); color: #059669; }
+  .era-minus { background: rgba(220,38,38,.12); color: #dc2626; }
+  .era-bd-label { flex: 1; color: var(--text2); }
+  .era-bd-val { font-family: var(--mono); font-size: 10px; font-weight: 700; }
+  .era-bonus-row { display: flex; align-items: center; gap: 8px; background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2); border-radius: 9px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; }
+  .era-bonus-label { font-weight: 700; color: var(--gold2); }
+  .era-bonus-val { font-weight: 800; color: var(--gold2); font-family: var(--mono); }
+  .era-bonus-items { color: var(--text3); font-size: 11px; flex: 1; }
+  .era-total-row { display: flex; align-items: center; justify-content: space-between; background: var(--card2); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 14px; font-size: 11px; color: var(--text3); margin-bottom: 14px; }
+  .era-total-score { font-size: 20px; font-weight: 800; font-family: var(--mono); }
+  .era-flags-section { margin-top: 8px; }
+  .era-flags-group-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; margin-top: 4px; }
+
+  /* ═══ QUALITY FLAGS ═══ */
+  .quality-flags-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .quality-flag-chip { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; border: 1px solid; white-space: nowrap; }
+
+  /* ═══ REFLECTION TIMELINE ═══ */
+  .refl-timeline { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: 20px; }
+  .refl-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border2); border-radius: 99px; }
+  .refl-item { display: flex; gap: 12px; padding: 8px 0; position: relative; }
+  .refl-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; position: absolute; left: -20px; border: 2px solid white; box-shadow: 0 0 0 1px var(--border2); }
+  .refl-content { flex: 1; min-width: 0; }
+  .refl-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+  .refl-result { font-size: 12px; font-weight: 700; }
+  .refl-jo { font-size: 10px; color: var(--accent); font-family: var(--mono); background: var(--accent-dim); padding: 1px 6px; border-radius: 4px; }
+  .refl-date { font-size: 10px; color: var(--text3); margin-left: auto; }
+  .refl-employer { font-size: 11px; color: var(--text2); }
+  .refl-notes { font-size: 11px; color: var(--text3); margin-top: 3px; background: var(--card2); border-radius: 6px; padding: 4px 8px; }
+  .refl-add-form { margin-top: 6px; }
+
+  /* ─── MESSAGE TEMPLATES ─── */
+  .tmpl-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  .tmpl-cat-pill { padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border2); background: var(--card); color: var(--text2); font-family: var(--sans); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .18s; }
+  .tmpl-cat-pill:hover, .tmpl-cat-pill.tmpl-active { background: var(--accent-dim2); color: var(--accent); border-color: rgba(23,85,237,.3); }
+  .tmpl-channel-filter { margin-left: auto; background: var(--card); border: 1px solid var(--border2); color: var(--text); padding: 6px 12px; border-radius: 9px; font-family: var(--sans); font-size: 12px; font-weight: 600; outline: none; }
+  .tmpl-channel-filter:focus { border-color: var(--accent); }
+  .tmpl-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap: 16px; }
+  .tmpl-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow-card); transition: border-color .2s, transform .15s; display: flex; flex-direction: column; gap: 10px; }
+  .tmpl-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .tmpl-card-top { display: flex; align-items: center; gap: 8px; }
+  .tmpl-channel-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid; white-space: nowrap; flex-shrink: 0; }
+  .ch-sms     { background: rgba(5,150,105,.1);   border-color: rgba(5,150,105,.3);  color: var(--green); }
+  .ch-fb      { background: rgba(23,85,237,.10);  border-color: rgba(23,85,237,.3);  color: var(--accent); }
+  .ch-viber   { background: rgba(124,58,237,.10); border-color: rgba(124,58,237,.3); color: var(--purple); }
+  .ch-general { background: var(--card2); border-color: var(--border2); color: var(--text3); }
+  .tmpl-title { font-size: 13px; font-weight: 700; flex: 1; letter-spacing: -.2px; }
+  .tmpl-cat-label { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .tmpl-body-preview { background: var(--card2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; font-size: 12px; color: var(--text2); line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
+  .tmpl-var { color: var(--accent); font-weight: 700; }
+  .tmpl-card-footer { display: flex; gap: 6px; align-items: center; }
+  .tmpl-copy-btn { flex: 1; background: var(--accent-dim2); border: 1px solid rgba(23,85,237,.3); color: var(--accent); border-radius: 8px; padding: 7px 14px; font-family: var(--sans); font-size: 11px; font-weight: 700; cursor: pointer; transition: all .18s; }
+  .tmpl-copy-btn:hover { background: rgba(23,85,237,.2); }
+  .tmpl-copy-btn.copied { background: var(--green-dim); border-color: rgba(5,150,105,.3); color: var(--green); }
+  .tmpl-picker-overlay { position: fixed; inset: 0; z-index: 1010; background: rgba(15,23,42,.45); backdrop-filter: blur(10px); display: grid; place-items: center; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .tmpl-picker-overlay.open { opacity: 1; pointer-events: all; }
+  .tmpl-picker-modal { background: var(--card); border: 1px solid var(--border2); border-radius: 20px; width: 92%; max-width: 600px; max-height: 84vh; overflow-y: auto; transform: translateY(20px) scale(.97); transition: transform .3s cubic-bezier(.34,1.56,.64,1); box-shadow: 0 24px 64px rgba(23,85,237,.18); }
+  .tmpl-picker-overlay.open .tmpl-picker-modal { transform: translateY(0) scale(1); }
+  .tmpl-picker-header { padding: 20px 22px 14px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 2; }
+  .tmpl-picker-title { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+  .tmpl-picker-context { font-size: 12px; color: var(--accent); background: var(--accent-dim); padding: 5px 10px; border-radius: 7px; border: 1px solid rgba(23,85,237,.2); margin-bottom: 10px; display: none; }
+  .tmpl-picker-context.visible { display: block; }
+  .tmpl-picker-body { padding: 16px 22px 22px; }
+  .tmpl-picker-close { position: absolute; top: 14px; right: 16px; background: var(--card2); border: 1px solid var(--border2); color: var(--text2); width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; font-size: 15px; transition: all .18s; }
+  .tmpl-picker-close:hover { color: var(--text); background: var(--card3); }
+
 </style>
 </head>
 <body>
@@ -1256,6 +1350,7 @@
     <button class="tab" onclick="switchTab('candidates')">👥 Candidates</button>
     <button class="tab" onclick="switchTab('hired')">✅ Hired</button>
     <button class="tab" onclick="switchTab('matcher')">🤖 AI Matcher</button>
+    <button class="tab" onclick="switchTab('templates')">📝 Templates</button>
   </div>
 </header>
 
@@ -1357,6 +1452,15 @@
       </div>
       <div id="matcher-results" class="ai-results"></div>
     </div>
+  </div>
+
+  <!-- ═══ TAB: TEMPLATES ═══ -->
+  <div class="tab-content" id="tab-templates">
+    <div class="section-header">
+      <div class="section-title">Message Templates</div>
+      <div class="badge" id="tmpl-count">0</div>
+    </div>
+    <div id="templates-container"></div>
   </div>
 
 </main>
@@ -3074,13 +3178,13 @@ function openCandModal(candId) {
         </div>
       </div>
 
-      ${contactBtns.length ? `
       <div class="cand-modal-section">
         <div class="cand-modal-section-title">Contact</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${contactBtns.join('')}
-        </div>
-      </div>` : ''}
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:8px;justify-content:center;gap:8px" onclick="openTmplPickerForCand('${escAttr(c.id)}','${escAttr(c.name)}')">
+          📋 Copy Message Template
+        </button>
+        ${contactBtns.length ? `<div style="display:flex;flex-direction:column;gap:8px">${contactBtns.join('')}</div>` : ''}
+      </div>
 
       ${buildCandNotesSection(c.id)}
 
@@ -3641,10 +3745,11 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
-  const tabs = ['jobs','candidates','hired','matcher'];
+  const tabs = ['jobs','candidates','hired','matcher','templates'];
   const idx = tabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
   if (tab === 'hired') renderHiredTab();
+  if (tab === 'templates') renderTemplatesTab();
 }
 
 // ═══════════════════════════════════════════════
@@ -3668,18 +3773,321 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // REFRESH
 // ═══════════════════════════════════════════════
 async function refreshAll() {
-  await // Show API key status on load
-(function() {
+  // Update API key button appearance
   const btn = document.getElementById('api-key-btn');
   if (btn) {
     const hasKey = !!localStorage.getItem('anthropic_api_key');
-    btn.title = hasKey ? '✅ API Key is set — click to update' : '⚠️ No API Key — click to add';
+    btn.title = hasKey ? 'API Key is set — click to update' : 'No API Key — click to add';
     btn.style.borderColor = hasKey ? 'var(--green)' : 'var(--orange)';
     btn.style.color = hasKey ? 'var(--green)' : 'var(--orange)';
   }
-})();
+  await loadAll();
+}
 
-loadAll();
+// ═══════════════════════════════════════════════
+// MESSAGE TEMPLATES
+// ═══════════════════════════════════════════════
+const TMPL_STORAGE_KEY = 'message_templates_v1';
+
+const DEFAULT_TEMPLATES = [
+  // ── Initial Outreach ──
+  {
+    id: 'init_sms_1',
+    category: 'Initial Outreach',
+    channel: 'SMS',
+    title: 'First Contact — Short',
+    body: `Hi {name}! Good day po! Si Job Search PH ito, placement agency sa Bacolod City. May open po kaming {position} sa {company} with salary na {salary}. Interested ka pa rin ba maghanap ng work? Reply lang po. Salamat!`
+  },
+  {
+    id: 'init_fb_1',
+    category: 'Initial Outreach',
+    channel: 'Facebook',
+    title: 'First Message — Formal',
+    body: `Hi {name}! Good day! I am from Job Search PH, a job placement agency in Bacolod City. We currently have an opening for {position} at {company} with a salary of {salary}. Are you still looking for work? Please let us know if you are interested. Thank you!`
+  },
+  {
+    id: 'init_viber_1',
+    category: 'Initial Outreach',
+    channel: 'Viber',
+    title: 'First Contact — Viber',
+    body: `Hi {name}! Magandang araw po! Ito po si Job Search PH mula Bacolod City. Naghahanap po kami ng {position} para sa {company} — salary po ay {salary}/month. Interested ka po ba? Pwede ka po mag-reply dito. Salamat po!`
+  },
+  // ── Follow-up ──
+  {
+    id: 'followup_sms_1',
+    category: 'Follow-up',
+    channel: 'SMS',
+    title: 'Follow-up #1 — No Response',
+    body: `Hi {name}, this is Job Search PH. Just checking in about the {position} position we messaged you about. The slot is still open! Interested ka pa rin po ba? Please reply. Salamat!`
+  },
+  {
+    id: 'followup_fb_1',
+    category: 'Follow-up',
+    channel: 'Facebook',
+    title: 'Follow-up #1 — Friendly',
+    body: `Hi {name}! Just following up about the {position} opening at {company}. The position is still available and we think you are a great fit. Let us know if you are still interested!`
+  },
+  {
+    id: 'followup_sms_2',
+    category: 'Follow-up',
+    channel: 'SMS',
+    title: 'Follow-up #2 — Last Attempt',
+    body: `Hi {name}, Job Search PH ulit ito. Last follow-up na lang po kami para sa {position} slot sa {company}. Kung interested ka pa, please reply po ngayon. Maraming salamat!`
+  },
+  // ── Interview ──
+  {
+    id: 'intv_sms_1',
+    category: 'Interview',
+    channel: 'SMS',
+    title: 'Interview Invite — SMS',
+    body: `Hi {name}! Good news! Pasahan na po kayo ng interview para sa {position} sa {company}. Date: {date}, Time: {time}. Please confirm your attendance by replying YES. Job Search PH`
+  },
+  {
+    id: 'intv_fb_1',
+    category: 'Interview',
+    channel: 'Facebook',
+    title: 'Interview Invite — Facebook',
+    body: `Hi {name}! We are pleased to invite you for an interview for the {position} position at {company}. Interview is scheduled on {date} at {time}. Please confirm if you can attend. Looking forward to seeing you!`
+  },
+  {
+    id: 'intv_remind_sms',
+    category: 'Interview',
+    channel: 'SMS',
+    title: 'Interview Reminder — Day Before',
+    body: `Hi {name}! Reminder lang po na bukas ang inyong interview para sa {position} sa {company} — {date} at {time}. Please be on time and bring 1 valid ID. See you! - Job Search PH`
+  },
+  {
+    id: 'intv_noshow_fb',
+    category: 'Interview',
+    channel: 'Facebook',
+    title: 'No-Show Follow-up',
+    body: `Hi {name}! We noticed you were not able to make it to the interview today for {position}. That is okay — is everything alright? If you are still interested and want to reschedule, please let us know. Thank you!`
+  },
+  // ── Job Offer / Hired ──
+  {
+    id: 'hired_sms_1',
+    category: 'Job Offer',
+    channel: 'SMS',
+    title: 'Congratulations — Hired!',
+    body: `Congratulations {name}! You are now hired as {position} at {company}! Please coordinate with us for your start date and requirements. Thank you for trusting Job Search PH!`
+  },
+  {
+    id: 'hired_fb_1',
+    category: 'Job Offer',
+    channel: 'Facebook',
+    title: 'Job Offer — Facebook',
+    body: `Hi {name}! Great news! You have been selected for the {position} position at {company}. Congratulations! We will be in touch regarding your start date and the documents you need to bring. Welcome to the team!`
+  },
+  // ── Documents ──
+  {
+    id: 'docs_sms_1',
+    category: 'Documents',
+    channel: 'SMS',
+    title: 'Document Requirements — SMS',
+    body: `Hi {name}, Job Search PH here. Please prepare the following for your {position} application: (1) Barangay Clearance, (2) Police Clearance, (3) NBI Clearance, (4) Valid ID, (5) Resume. Bring originals + 1 photocopy each. Salamat!`
+  },
+  {
+    id: 'docs_fb_1',
+    category: 'Documents',
+    channel: 'Facebook',
+    title: 'Document Requirements — Facebook',
+    body: `Hi {name}! For your application as {position} at {company}, please prepare the following documents:\n\n1. Barangay Clearance\n2. Police Clearance\n3. NBI Clearance\n4. 1 Valid Government ID\n5. Resume (if available)\n\nPlease bring originals and 1 photocopy of each. Let us know if you have questions. Thank you!`
+  },
+  // ── General ──
+  {
+    id: 'gen_notqual_fb',
+    category: 'General',
+    channel: 'Facebook',
+    title: 'Gentle Decline',
+    body: `Hi {name}! Thank you for your interest in the {position} position. Unfortunately, the slot has already been filled. We will keep your profile on file and reach out when a new opening matches your qualifications. Thank you for trusting Job Search PH!`
+  },
+  {
+    id: 'gen_intro_fb',
+    category: 'General',
+    channel: 'Facebook',
+    title: 'Agency Introduction',
+    body: `Hi {name}! Good day! I am from Job Search PH, a DOLE-compliant job placement agency based in Bacolod City. We specialize in placing household workers (Yaya, Kasambahay, All-around helpers). Our service is FREE for job seekers — no placement, no fee. Interested po ba kayo? Feel free to message us!`
+  },
+];
+
+function getTemplates() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TMPL_STORAGE_KEY) || 'null');
+    return saved || DEFAULT_TEMPLATES;
+  } catch(e) { return DEFAULT_TEMPLATES; }
+}
+
+function saveTemplates(tmpls) {
+  localStorage.setItem(TMPL_STORAGE_KEY, JSON.stringify(tmpls));
+}
+
+function fillTemplateVars(body, vars) {
+  if (!vars) return body;
+  return body
+    .replace(/\{name\}/g,     vars.name     || '{name}')
+    .replace(/\{position\}/g, vars.position || '{position}')
+    .replace(/\{company\}/g,  vars.company  || '{company}')
+    .replace(/\{salary\}/g,   vars.salary   || '{salary}')
+    .replace(/\{date\}/g,     vars.date     || '{date}')
+    .replace(/\{time\}/g,     vars.time     || '{time}');
+}
+
+function highlightVars(text) {
+  return escHtml(text).replace(
+    /\{(name|position|company|salary|date|time)\}/g,
+    '<span class="tmpl-var">{$1}</span>'
+  );
+}
+
+function copyTemplateText(text, btnEl) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (btnEl) {
+      btnEl.textContent = '✅ Copied!';
+      btnEl.classList.add('copied');
+      setTimeout(() => { btnEl.textContent = '📋 Copy'; btnEl.classList.remove('copied'); }, 2000);
+    }
+    showToast('Message copied to clipboard!', 'green');
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    if (btnEl) {
+      btnEl.textContent = '✅ Copied!';
+      btnEl.classList.add('copied');
+      setTimeout(() => { btnEl.textContent = '📋 Copy'; btnEl.classList.remove('copied'); }, 2000);
+    }
+    showToast('Message copied!', 'green');
+  });
+}
+
+// ── Render full Templates tab ──
+let _tmplActiveCat = 'All';
+let _tmplActiveCh = '';
+
+function renderTemplatesTab() {
+  const container = document.getElementById('templates-container');
+  if (!container) return;
+  const tmpls = getTemplates();
+  const cats = ['All', ...new Set(tmpls.map(t => t.category))];
+  document.getElementById('tmpl-count').textContent = tmpls.length;
+
+  const filtered = tmpls.filter(t => {
+    if (_tmplActiveCat !== 'All' && t.category !== _tmplActiveCat) return false;
+    if (_tmplActiveCh && t.channel !== _tmplActiveCh) return false;
+    return true;
+  });
+
+  const catPills = cats.map(cat =>
+    `<button class="tmpl-cat-pill${cat === _tmplActiveCat ? ' tmpl-active' : ''}" onclick="_tmplActiveCat='${escAttr(cat)}';renderTemplatesTab()">${escHtml(cat)}</button>`
+  ).join('');
+
+  const channels = ['All Channels','SMS','Facebook','Viber','General'];
+  const chSelect = `<select class="tmpl-channel-filter" onchange="_tmplActiveCh=this.value==='All Channels'?'':this.value;renderTemplatesTab()">
+    ${channels.map(ch => `<option${(_tmplActiveCh === ch || (!_tmplActiveCh && ch === 'All Channels')) ? ' selected' : ''}>${ch}</option>`).join('')}
+  </select>`;
+
+  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb','Viber':'ch-viber' }[ch] || 'ch-general');
+
+  const cards = filtered.map((t, i) => `
+    <div class="tmpl-card">
+      <div class="tmpl-cat-label">${escHtml(t.category)}</div>
+      <div class="tmpl-card-top">
+        <span class="tmpl-channel-badge ${chClass(t.channel)}">${escHtml(t.channel)}</span>
+        <span class="tmpl-title">${escHtml(t.title)}</span>
+      </div>
+      <div class="tmpl-body-preview">${highlightVars(t.body)}</div>
+      <div class="tmpl-card-footer">
+        <button class="tmpl-copy-btn" id="tmpl-copy-tab-${escAttr(t.id)}" onclick="copyTemplateText(${JSON.stringify(t.body)},this)">📋 Copy</button>
+      </div>
+    </div>`).join('');
+
+  container.innerHTML = `
+    <div class="tmpl-filter-bar">
+      ${catPills}
+      ${chSelect}
+    </div>
+    ${filtered.length
+      ? `<div class="tmpl-grid">${cards}</div>`
+      : `<div class="empty-state"><div class="empty-icon">📝</div>No templates in this category.</div>`}
+  `;
+}
+
+// ── Template Picker (from candidate modal) ──
+let _tmplPickerVars = null;
+let _tmplPickerCat = 'All';
+
+function openTmplPickerForCand(candId, candName) {
+  const c = candidates.find(x => x.id === candId);
+  // Try to find the most recent active placement for this candidate
+  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
+  let position = '', company = '', salary = '';
+  if (allP.length) {
+    const latest = allP[allP.length - 1];
+    position = latest.position || '';
+    company  = latest.company  || '';
+    const jo = jobOrders.find(j => j.id === latest.jobOrderId);
+    if (jo) {
+      position = position || jo.position || '';
+      company  = company  || jo.company  || '';
+      salary   = jo.salary || '';
+    }
+  }
+  _tmplPickerVars = { name: candName, position, company, salary, date: '{date}', time: '{time}' };
+  _tmplPickerCat = 'All';
+  _renderTmplPicker();
+  document.getElementById('tmpl-picker-overlay').classList.add('open');
+}
+
+function closeTmplPicker() {
+  document.getElementById('tmpl-picker-overlay').classList.remove('open');
+  _tmplPickerVars = null;
+}
+
+function _renderTmplPicker() {
+  const tmpls = getTemplates();
+  const cats = ['All', ...new Set(tmpls.map(t => t.category))];
+
+  // Context bar
+  const ctxEl = document.getElementById('tmpl-picker-context');
+  if (_tmplPickerVars && ctxEl) {
+    const parts = [_tmplPickerVars.name, _tmplPickerVars.position, _tmplPickerVars.company].filter(Boolean);
+    ctxEl.textContent = 'For: ' + parts.join(' — ');
+    ctxEl.classList.add('visible');
+  }
+
+  // Category pills
+  const catBar = document.getElementById('tmpl-picker-cat-bar');
+  if (catBar) {
+    catBar.innerHTML = cats.map(cat =>
+      `<button class="tmpl-cat-pill${cat === _tmplPickerCat ? ' tmpl-active' : ''}" onclick="_tmplPickerCat='${escAttr(cat)}';_renderTmplPicker()">${escHtml(cat)}</button>`
+    ).join('');
+  }
+
+  const filtered = tmpls.filter(t => _tmplPickerCat === 'All' || t.category === _tmplPickerCat);
+  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb','Viber':'ch-viber' }[ch] || 'ch-general');
+
+  const body = document.getElementById('tmpl-picker-body');
+  if (!body) return;
+  body.innerHTML = filtered.map(t => {
+    const filled = _tmplPickerVars ? fillTemplateVars(t.body, _tmplPickerVars) : t.body;
+    return `
+      <div class="tmpl-card" style="margin-bottom:12px">
+        <div class="tmpl-cat-label">${escHtml(t.category)}</div>
+        <div class="tmpl-card-top">
+          <span class="tmpl-channel-badge ${chClass(t.channel)}">${escHtml(t.channel)}</span>
+          <span class="tmpl-title">${escHtml(t.title)}</span>
+        </div>
+        <div class="tmpl-body-preview">${_tmplPickerVars ? escHtml(filled) : highlightVars(t.body)}</div>
+        <div class="tmpl-card-footer">
+          <button class="tmpl-copy-btn" onclick="copyTemplateText(${JSON.stringify(filled)},this)">📋 Copy</button>
+        </div>
+      </div>`;
+  }).join('') || '<div class="empty-state" style="padding:20px 0"><div class="empty-icon">📝</div>No templates here.</div>';
 }
 
 // ═══════════════════════════════════════════════
@@ -3697,6 +4105,19 @@ function escAttr(str) {
 // ═══════════════════════════════════════════════
 loadAll();
 </script>
+
+<!-- ─── TEMPLATE PICKER MODAL ─── -->
+<div class="tmpl-picker-overlay" id="tmpl-picker-overlay" onclick="if(event.target===this)closeTmplPicker()">
+  <div class="tmpl-picker-modal">
+    <div class="tmpl-picker-header">
+      <button class="tmpl-picker-close" onclick="closeTmplPicker()">✕</button>
+      <div class="tmpl-picker-title">📋 Copy Message Template</div>
+      <div class="tmpl-picker-context" id="tmpl-picker-context"></div>
+      <div class="tmpl-filter-bar" id="tmpl-picker-cat-bar" style="margin-bottom:0"></div>
+    </div>
+    <div class="tmpl-picker-body" id="tmpl-picker-body"></div>
+  </div>
+</div>
 
 <!-- ─── CANDIDATE PROFILE MODAL ─── -->
 <div class="cand-modal-overlay" id="modal-cand-profile" onclick="if(event.target===this)closeCandModal()">
