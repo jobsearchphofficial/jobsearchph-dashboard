@@ -3158,6 +3158,9 @@ function addFromMatcher(joId, candId, candName) {
 // CANDIDATE PROFILE MODAL
 // ═══════════════════════════════════════════════
 function openCandModal(candId) {
+  try { _openCandModalInner(candId); } catch(err) { alert('Profile error: ' + err.message); console.error(err); }
+}
+function _openCandModalInner(candId) {
   const c = candidates.find(x => x.id === candId);
   if (!c) {
     // Candidate from placement may not be in sheet — show basic info
