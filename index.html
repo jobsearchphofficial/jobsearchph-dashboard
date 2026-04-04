@@ -2287,7 +2287,7 @@ function createPlacementRow(p, idx, joId) {
         <div class="prow-field">
           <div class="prow-field-label">📱 Contacted Via</div>
           <select onchange="saveProwExtra('${escAttr(pid)}','contactVia',this.value);updateViaDisplay(this,'${escAttr(pid)}')">
-            ${['','💬 SMS/Text','📞 Phone Call','💙 Facebook Messenger','✉️ Gmail','📲 Viber'].map(v=>`<option${v===contactVia?' selected':''}>${v}</option>`).join('')}
+            ${['','📞 Phone Call','💬 SMS/Text','💙 Facebook Messenger','✉️ Gmail'].map(v=>`<option${v===contactVia?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
@@ -2763,6 +2763,7 @@ function createCandCard(c) {
     ? `<span class="cand-badge badge-blacklisted">⛔ Blacklisted: ${escHtml(bl.reason||'')}</span>`
     : '';
 
+  const cardReadiness = getCandReadiness(c.id);
   card.style.cursor = 'pointer';
   card.onclick = (e) => { if (!e.target.closest('.btn')) openCandModal(c.id); };
   card.innerHTML = `
@@ -2771,7 +2772,7 @@ function createCandCard(c) {
       <div style="flex:1">
         <div class="cand-name">${escHtml(c.name)}</div>
         <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
-        <div class="cand-badges">${verifiedBadge}${blBadge}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}<span class="cand-badge" style="background:${cardReadiness.color}18;color:${cardReadiness.color};border-color:${cardReadiness.color}40">${cardReadiness.icon} ${cardReadiness.level}</span></div>
       </div>
       <div style="color:var(--text3);font-size:11px;padding-top:2px">👁 View</div>
     </div>
@@ -3017,6 +3018,15 @@ async function runMatcher() {
   // Top 30 only for token efficiency
   const eligibleSorted = scoredEligible.slice(0, 30).map(x => x.c);
 
+  // Deprioritize Unproven candidates — push to end of list
+  eligibleSorted.sort((a, b) => {
+    const ra = getCandReadiness(a.id).level;
+    const rb = getCandReadiness(b.id).level;
+    const order = { Ready: 0, Partial: 1, Unproven: 2 };
+    if (order[ra] !== order[rb]) return order[ra] - order[rb];
+    return calcERA(b.id, joId).score - calcERA(a.id, joId).score;
+  });
+
   const candSummaries = eligibleSorted.map(c => {
     const era = calcERA(c.id, joId);
     const docs = (candidateRatings[c.id]?.docs)||{};
@@ -3024,7 +3034,8 @@ async function runMatcher() {
     const effVer = getEffectiveVerified(c);
     const rLabel = getRatingLabel(era.score).label;
     const qf = era.qualityFlags || {};
-    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job: ${c.jobTypeFormatted||c.jobType} | City: ${c.cityFormatted||c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr||'none'} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'}`;
+    const readiness = getCandReadiness(c.id);
+    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job: ${c.jobTypeFormatted||c.jobType} | City: ${c.cityFormatted||c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr||'none'} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'}`;
   }).join('\n');
 
   const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
@@ -3042,7 +3053,9 @@ ${candSummaries}
 Rank the TOP 3 best-fit candidates for this job order based on ERA score, job match, and location match. 
 
 RULES:
-- Prioritize Verified candidates
+- Prioritize Ready candidates (verified + has engagement data) over Partial and Unproven
+- Never rank an Unproven candidate #1 unless there are no better options
+- Prefer candidates with actual calls, replies, or interviews on record
 - Consider job type match, location, expected pay vs salary, skills, past jobs
 - Return ONLY valid JSON array, no markdown, no preamble
 
@@ -3168,12 +3181,10 @@ function openCandModal(candId) {
 
   const contactBtns = [];
   if (c.phone) {
+    contactBtns.push(`<a class="cand-modal-contact-btn" href="tel:${encodeURIComponent(c.phone)}" style="border-color:rgba(5,150,105,.3);background:rgba(5,150,105,.06)">
+      <span class="icon">📞</span><div><div class="label" style="color:var(--green)">Phone Call</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
     contactBtns.push(`<a class="cand-modal-contact-btn" href="sms:${encodeURIComponent(c.phone)}">
       <span class="icon">💬</span><div><div class="label">SMS / Text</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
-    contactBtns.push(`<a class="cand-modal-contact-btn" href="tel:${encodeURIComponent(c.phone)}">
-      <span class="icon">📞</span><div><div class="label">Phone Call</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
-    contactBtns.push(`<a class="cand-modal-contact-btn" href="viber://chat?number=${encodeURIComponent(c.phone)}" target="_blank">
-      <span class="icon">📲</span><div><div class="label">Viber</div><div class="sub">${escHtml(c.phone)}</div></div></a>`);
   }
   if (c.facebook) {
     const fbSearch = `https://www.facebook.com/search/people/?q=${encodeURIComponent(c.facebook)}`;
@@ -3195,6 +3206,18 @@ function openCandModal(candId) {
   const activeJOs = getCandidateActiveJOs(c.id);
   const highDemand = activeJOs.length >= 2;
 
+  // Readiness + placement history data
+  const readiness = getCandReadiness(c.id);
+  const candAllPlacements = [...placements, ...manualPlacements].filter(p => p.candidateId === c.id);
+  const candPlacExtras = candAllPlacements.map(p => {
+    const pid = p.placementId || p.candidateId;
+    let ex = {};
+    try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e){}
+    return { p, ex };
+  });
+  const allLastContacts = candPlacExtras.map(({p, ex}) => ex.lastContacted || p.date || '').filter(Boolean);
+  const lastContactedOverall = allLastContacts.sort().pop() || '';
+
   const inner = document.getElementById('cand-modal-inner');
   inner.innerHTML = `
     <div class="cand-modal-hero">
@@ -3202,7 +3225,7 @@ function openCandModal(candId) {
       <div style="flex:1">
         <div class="cand-modal-name">${escHtml(c.name)}</div>
         <div class="cand-modal-id">${escHtml(c.id)} · Registered ${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</div>
-        <div class="cand-badges">${verifiedBadge}${blBadge}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}<span class="cand-badge" style="background:${readiness.color}18;color:${readiness.color};border-color:${readiness.color}40">${readiness.icon} ${readiness.level}</span></div>
       </div>
       <button class="cand-modal-close" onclick="closeCandModal()">✕</button>
     </div>
@@ -3370,6 +3393,7 @@ function openCandModal(candId) {
           ${field('Expected Pay', c.expectedPay)}
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
+          ${field('Last Contacted', lastContactedOverall ? fmtDate(lastContactedOverall) : '')}
         </div>
       </div>
 
@@ -3388,6 +3412,34 @@ function openCandModal(candId) {
         </button>
         ${contactBtns.length ? `<div style="display:flex;flex-direction:column;gap:8px">${contactBtns.join('')}</div>` : ''}
       </div>
+
+      ${candPlacExtras.length ? `
+      <div class="cand-modal-section">
+        <div class="cand-modal-section-title">Job Order Activity</div>
+        ${candPlacExtras.map(({p, ex}) => {
+          const jo = allJobOrders.get(p.jobOrderId);
+          const joLabel = jo ? escHtml(jo.jobTitle || jo.position || p.jobOrderId) : escHtml(p.jobOrderId);
+          const joComp  = jo ? escHtml(jo.company || '') : '';
+          const status  = ex.status || p.status || 'Messaged';
+          const notes   = ex.notes || '';
+          const lc      = ex.lastContacted || p.date || '';
+          const dotCls  = getStatusDotClass(status, ex.response || p.response || '');
+          return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span class="status-dot ${dotCls}"></span>
+              <span style="font-weight:600;color:var(--text)">${joLabel}</span>
+              ${joComp ? `<span style="color:var(--text3)">· ${joComp}</span>` : ''}
+              <span style="margin-left:auto;font-size:11px;color:var(--text3)">${escHtml(p.jobOrderId)}</span>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin-bottom:${notes?'6px':'0'}">
+              <span>Status: <strong>${escHtml(status)}</strong></span>
+              ${lc ? `<span>Last contacted: <strong>${escHtml(fmtDate(lc))}</strong></span>` : ''}
+              ${ex.contactVia ? `<span>Via: <strong>${escHtml(ex.contactVia)}</strong></span>` : ''}
+            </div>
+            ${notes ? `<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:6px;margin-top:2px">${escHtml(notes)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>` : ''}
 
       ${buildReflectionLog(c.id)}
 
@@ -3632,20 +3684,24 @@ function calcERA(candId, joId) {
   // ── R: RESPONSIVENESS (cap +3.0) ──
   let R = 0;
   const rBreakdown = [];
+  const hasRActivity = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv || scores.lateReply || scores.noShow);
 
   if (scores.repliedFast)   { R += 0.5; rBreakdown.push({ label: 'Replied within 24hrs', val: 0.5, sign: '+' }); }
   if (scores.answeredCall)  { R += 0.5; rBreakdown.push({ label: 'Answered call',         val: 0.5, sign: '+' }); }
   if (scores.confirmedIntv) { R += 1.0; rBreakdown.push({ label: 'Confirmed interview',   val: 1.0, sign: '+' }); }
   if (scores.lateReply)     { R -= 1.0; rBreakdown.push({ label: 'Late reply (3+ days)',  val: 1.0, sign: '-' }); }
   if (scores.noShow)        { R -= 2.5; rBreakdown.push({ label: 'No-show',               val: 2.5, sign: '-' }); }
+  // Penalty: no engagement data at all — unproven responsiveness
+  if (!hasRActivity) { R -= 0.5; rBreakdown.push({ label: 'No engagement data yet', val: 0.5, sign: '-' }); }
 
   R = Math.min(3.0, R);
 
   // ── A: ATTITUDE (cap +3.0) ──
   let A = 0;
   const aBreakdown = [];
-
   const att = parseInt(scores.callAttitude) || 0;
+  const hasAActivity = !!(att > 0 || scores.showedUp || scores.polite || scores.backedOut);
+
   if (att > 0) {
     const attPts = att === 5 ? 1.0 : att === 4 ? 0.5 : att === 3 ? 0 : att === 2 ? -0.5 : -1.5;
     A += attPts;
@@ -3655,22 +3711,24 @@ function calcERA(candId, joId) {
   if (scores.showedUp)  { A += 2.0; aBreakdown.push({ label: 'Showed up to interview', val: 2.0, sign: '+' }); }
   if (scores.polite)    { A += 0.5; aBreakdown.push({ label: 'Positive communication', val: 0.5, sign: '+' }); }
   if (scores.backedOut) { A -= 2.0; aBreakdown.push({ label: 'Backed out after accepting', val: 2.0, sign: '-' }); }
+  // Penalty: no attitude observations — cannot verify professionalism
+  if (!hasAActivity) { A -= 0.3; aBreakdown.push({ label: 'No attitude data yet', val: 0.3, sign: '-' }); }
 
   A = Math.min(3.0, A);
 
-  // ── BONUSES (capped at +1.0 total) ──
+  // ── BONUSES / PENALTIES ──
   let bonus = 0;
   const bonusBreakdown = [];
 
   if (scores.completedJob) { bonus += 2.0; bonusBreakdown.push({ label: 'Completed a job', val: 2.0, sign: '+' }); }
   // Doc bonuses capped at 1.0 total
   let docBonus = 0;
-  if (docs.validId && docBonus < 1.0)        { const add = Math.min(0.5, 1.0-docBonus); docBonus += add; bonusBreakdown.push({ label: 'Valid ID', val: add, sign: '+' }); }
+  if (docs.validId && docBonus < 1.0)            { const add = Math.min(0.5, 1.0-docBonus); docBonus += add; bonusBreakdown.push({ label: 'Valid ID', val: add, sign: '+' }); }
   if (getEffectiveVerified(c) && docBonus < 1.0) { const add = Math.min(0.5, 1.0-docBonus); docBonus += add; bonusBreakdown.push({ label: 'Verified status', val: add, sign: '+' }); }
   bonus += docBonus;
-
-  // ── PENALTIES ──
-  // (already in R and A — noShow, backedOut, lateReply handled above)
+  // Penalty: no documents submitted at all
+  const hasDocs = Object.values(docs).some(Boolean);
+  if (!hasDocs) { bonus -= 0.3; bonusBreakdown.push({ label: 'No documents submitted', val: 0.3, sign: '-' }); }
 
   // ── FINAL ──
   let total = 3.0 + E + R + A + bonus;
@@ -3686,7 +3744,8 @@ function calcERA(candId, joId) {
     A: Math.round(A * 10) / 10,
     bonus: Math.round(bonus * 10) / 10,
     eBreakdown, rBreakdown, aBreakdown, bonusBreakdown,
-    isBlacklisted, qualityFlags
+    isBlacklisted, qualityFlags,
+    hasRActivity, hasAActivity, hasDocs
   };
 }
 
@@ -3706,6 +3765,21 @@ function calcCandRatingFull(candId, joId) {
 
 function calcCandRating(candId) {
   return calcERA(candId).score;
+}
+
+// ── Readiness Indicator ──
+// Ready   = verified + has R data + has A data
+// Partial = some data (docs, or 1 of R/A)
+// Unproven= brand new, no engagement data at all
+function getCandReadiness(candId) {
+  const era = calcERA(candId);
+  const c   = candidates.find(x => x.id === candId);
+  const effVer = getEffectiveVerified(c);
+  if (effVer && era.hasRActivity && era.hasAActivity)
+    return { level: 'Ready',   color: 'var(--green)',  icon: '✅' };
+  if (era.hasRActivity || era.hasAActivity || era.hasDocs || effVer)
+    return { level: 'Partial', color: 'var(--orange)', icon: '⚡' };
+  return   { level: 'Unproven', color: 'var(--text3)', icon: '○' };
 }
 
 function getRatingLabel(r) {
@@ -4181,7 +4255,7 @@ async function refreshAll() {
 // ═══════════════════════════════════════════════
 // MESSAGE TEMPLATES
 // ═══════════════════════════════════════════════
-const TMPL_STORAGE_KEY = 'message_templates_v2';
+const TMPL_STORAGE_KEY = 'message_templates_v3';
 
 const DEFAULT_TEMPLATES = [
   // ── Initial Outreach ──
@@ -4198,13 +4272,6 @@ const DEFAULT_TEMPLATES = [
     channel: 'Facebook',
     title: 'First Message',
     body: `Hi {name}! 😊\n\nGood day! This is Job Search PH from Bacolod City.\n\nWe currently have an opening for {position} with salary na {salary} 👍\n\nAre you still looking for work? Let us know if interested 😊`
-  },
-  {
-    id: 'init_viber_1',
-    category: 'Initial Outreach',
-    channel: 'Viber',
-    title: 'First Contact',
-    body: `Hi {name}! 😊\n\nJob Search PH ni from Bacolod 👍\n\nMay opening kami na {position} with salary na {salary}/month\n\nAvailable ka pa for work? Reply lang YES 😊`
   },
   // ── Follow-up ──
   {
@@ -4380,12 +4447,12 @@ function renderTemplatesTab() {
     `<button class="tmpl-cat-pill${cat === _tmplActiveCat ? ' tmpl-active' : ''}" onclick="_tmplActiveCat='${escAttr(cat)}';renderTemplatesTab()">${escHtml(cat)}</button>`
   ).join('');
 
-  const channels = ['All Channels','SMS','Facebook','Viber','General'];
+  const channels = ['All Channels','SMS','Facebook','General'];
   const chSelect = `<select class="tmpl-channel-filter" onchange="_tmplActiveCh=this.value==='All Channels'?'':this.value;renderTemplatesTab()">
     ${channels.map(ch => `<option${(_tmplActiveCh === ch || (!_tmplActiveCh && ch === 'All Channels')) ? ' selected' : ''}>${ch}</option>`).join('')}
   </select>`;
 
-  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb','Viber':'ch-viber' }[ch] || 'ch-general');
+  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb' }[ch] || 'ch-general');
 
   const cards = filtered.map((t, i) => `
     <div class="tmpl-card">
@@ -4463,7 +4530,7 @@ function _renderTmplPicker() {
   }
 
   const filtered = tmpls.filter(t => _tmplPickerCat === 'All' || t.category === _tmplPickerCat);
-  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb','Viber':'ch-viber' }[ch] || 'ch-general');
+  const chClass = ch => ({ 'SMS':'ch-sms','Facebook':'ch-fb' }[ch] || 'ch-general');
 
   const body = document.getElementById('tmpl-picker-body');
   if (!body) return;
