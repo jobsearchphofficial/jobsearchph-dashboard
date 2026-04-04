@@ -4181,7 +4181,7 @@ async function refreshAll() {
 // ═══════════════════════════════════════════════
 // MESSAGE TEMPLATES
 // ═══════════════════════════════════════════════
-const TMPL_STORAGE_KEY = 'message_templates_v1';
+const TMPL_STORAGE_KEY = 'message_templates_v2';
 
 const DEFAULT_TEMPLATES = [
   // ── Initial Outreach ──
@@ -4189,118 +4189,118 @@ const DEFAULT_TEMPLATES = [
     id: 'init_sms_1',
     category: 'Initial Outreach',
     channel: 'SMS',
-    title: 'First Contact — Short',
-    body: `Hi {name}! Good day po! Si Job Search PH ito, placement agency sa Bacolod City. May open po kaming {position} sa {company} with salary na {salary}. Interested ka pa rin ba maghanap ng work? Reply lang po. Salamat!`
+    title: 'First Contact',
+    body: `Hi {name} 😊\n\nThis is Job Search PH. May available kami na {position} in Bacolod with salary na {salary} 👍\n\nStill looking ka pa for work? Reply YES po 😊`
   },
   {
     id: 'init_fb_1',
     category: 'Initial Outreach',
     channel: 'Facebook',
-    title: 'First Message — Formal',
-    body: `Hi {name}! Good day! I am from Job Search PH, a job placement agency in Bacolod City. We currently have an opening for {position} at {company} with a salary of {salary}. Are you still looking for work? Please let us know if you are interested. Thank you!`
+    title: 'First Message',
+    body: `Hi {name}! 😊\n\nGood day! This is Job Search PH from Bacolod City.\n\nWe currently have an opening for {position} with salary na {salary} 👍\n\nAre you still looking for work? Let us know if interested 😊`
   },
   {
     id: 'init_viber_1',
     category: 'Initial Outreach',
     channel: 'Viber',
-    title: 'First Contact — Viber',
-    body: `Hi {name}! Magandang araw po! Ito po si Job Search PH mula Bacolod City. Naghahanap po kami ng {position} para sa {company} — salary po ay {salary}/month. Interested ka po ba? Pwede ka po mag-reply dito. Salamat po!`
+    title: 'First Contact',
+    body: `Hi {name}! 😊\n\nJob Search PH ni from Bacolod 👍\n\nMay opening kami na {position} with salary na {salary}/month\n\nAvailable ka pa for work? Reply lang YES 😊`
   },
   // ── Follow-up ──
   {
     id: 'followup_sms_1',
     category: 'Follow-up',
     channel: 'SMS',
-    title: 'Follow-up #1 — No Response',
-    body: `Hi {name}, this is Job Search PH. Just checking in about the {position} position we messaged you about. The slot is still open! Interested ka pa rin po ba? Please reply. Salamat!`
+    title: 'Follow-up #1',
+    body: `Hi {name} 😊\n\nJust checking lang po 👍\n\nAvailable pa ang {position}. Interested ka pa ba? Reply YES 😊`
   },
   {
     id: 'followup_fb_1',
     category: 'Follow-up',
     channel: 'Facebook',
-    title: 'Follow-up #1 — Friendly',
-    body: `Hi {name}! Just following up about the {position} opening at {company}. The position is still available and we think you are a great fit. Let us know if you are still interested!`
+    title: 'Follow-up',
+    body: `Hi {name}! 😊\n\nJust following up 👍\n\nStill available ang {position} and we think bagay ka for this role 😊\n\nLet us know if interested ka 👍`
   },
   {
     id: 'followup_sms_2',
     category: 'Follow-up',
     channel: 'SMS',
-    title: 'Follow-up #2 — Last Attempt',
-    body: `Hi {name}, Job Search PH ulit ito. Last follow-up na lang po kami para sa {position} slot sa {company}. Kung interested ka pa, please reply po ngayon. Maraming salamat!`
+    title: 'Follow-up #2 (Last Push)',
+    body: `Hi {name} 😊\n\nLast follow-up na lang po 👍\n\nAvailable pa ang {position}. If interested ka, please reply YES now 😊`
   },
   // ── Interview ──
   {
     id: 'intv_sms_1',
     category: 'Interview',
     channel: 'SMS',
-    title: 'Interview Invite — SMS',
-    body: `Hi {name}! Good news! Pasahan na po kayo ng interview para sa {position} sa {company}. Date: {date}, Time: {time}. Please confirm your attendance by replying YES. Job Search PH`
+    title: 'Interview Invite',
+    body: `Hi {name}! 😊\n\nGood news 👍 You are scheduled for interview for {position}\n\n📅 {date}\n⏰ {time}\n\nPlease reply YES to confirm 😊`
   },
   {
     id: 'intv_fb_1',
     category: 'Interview',
     channel: 'Facebook',
-    title: 'Interview Invite — Facebook',
-    body: `Hi {name}! We are pleased to invite you for an interview for the {position} position at {company}. Interview is scheduled on {date} at {time}. Please confirm if you can attend. Looking forward to seeing you!`
+    title: 'Interview Invite',
+    body: `Hi {name}! 😊\n\nYou are invited for an interview for {position} 👍\n\n📅 {date}\n⏰ {time}\n\nPlease confirm if available ka 😊`
   },
   {
     id: 'intv_remind_sms',
     category: 'Interview',
     channel: 'SMS',
-    title: 'Interview Reminder — Day Before',
-    body: `Hi {name}! Reminder lang po na bukas ang inyong interview para sa {position} sa {company} — {date} at {time}. Please be on time and bring 1 valid ID. See you! - Job Search PH`
+    title: 'Interview Reminder',
+    body: `Hi {name} 😊\n\nReminder lang for your interview tomorrow 👍\n\nPlease be ready and keep your phone open 😊`
   },
   {
     id: 'intv_noshow_fb',
     category: 'Interview',
     channel: 'Facebook',
     title: 'No-Show Follow-up',
-    body: `Hi {name}! We noticed you were not able to make it to the interview today for {position}. That is okay — is everything alright? If you are still interested and want to reschedule, please let us know. Thank you!`
+    body: `Hi {name} 😊\n\nWe noticed you weren't able to attend your interview today 👍\n\nAre you still interested? We can reschedule if okay sa imo 😊`
   },
-  // ── Job Offer / Hired ──
+  // ── Job Offer ──
   {
     id: 'hired_sms_1',
     category: 'Job Offer',
     channel: 'SMS',
-    title: 'Congratulations — Hired!',
-    body: `Congratulations {name}! You are now hired as {position} at {company}! Please coordinate with us for your start date and requirements. Thank you for trusting Job Search PH!`
+    title: 'Congratulations — SMS',
+    body: `Hi {name}! 😊\n\nCongratulations 👍 You are selected as {position}\n\nWe will update you for your start date 😊`
   },
   {
     id: 'hired_fb_1',
     category: 'Job Offer',
     channel: 'Facebook',
-    title: 'Job Offer — Facebook',
-    body: `Hi {name}! Great news! You have been selected for the {position} position at {company}. Congratulations! We will be in touch regarding your start date and the documents you need to bring. Welcome to the team!`
+    title: 'Congratulations — Facebook',
+    body: `Hi {name}! 😊\n\nGood news 👍 You have been selected for the {position}\n\nWe'll guide you on the next steps and requirements 😊`
   },
   // ── Documents ──
   {
     id: 'docs_sms_1',
     category: 'Documents',
     channel: 'SMS',
-    title: 'Document Requirements — SMS',
-    body: `Hi {name}, Job Search PH here. Please prepare the following for your {position} application: (1) Barangay Clearance, (2) Police Clearance, (3) NBI Clearance, (4) Valid ID, (5) Resume. Bring originals + 1 photocopy each. Salamat!`
+    title: 'Document Requirements',
+    body: `Hi {name} 😊\n\nPlease prepare:\n• Barangay Clearance\n• Police Clearance\n• NBI Clearance\n• Valid ID\n• Resume (if available)\n\nBring original + photocopy 👍`
   },
   {
     id: 'docs_fb_1',
     category: 'Documents',
     channel: 'Facebook',
-    title: 'Document Requirements — Facebook',
-    body: `Hi {name}! For your application as {position} at {company}, please prepare the following documents:\n\n1. Barangay Clearance\n2. Police Clearance\n3. NBI Clearance\n4. 1 Valid Government ID\n5. Resume (if available)\n\nPlease bring originals and 1 photocopy of each. Let us know if you have questions. Thank you!`
+    title: 'Document Requirements',
+    body: `Hi {name}! 😊\n\nFor your application, please prepare:\n\n✔ Barangay Clearance\n✔ Police Clearance\n✔ NBI Clearance\n✔ Valid ID\n✔ Resume (if available)\n\nLet us know if may questions 😊`
   },
   // ── General ──
   {
-    id: 'gen_notqual_fb',
+    id: 'gen_decline',
     category: 'General',
     channel: 'Facebook',
-    title: 'Gentle Decline',
-    body: `Hi {name}! Thank you for your interest in the {position} position. Unfortunately, the slot has already been filled. We will keep your profile on file and reach out when a new opening matches your qualifications. Thank you for trusting Job Search PH!`
+    title: 'Decline Message',
+    body: `Hi {name} 😊\n\nThank you for your interest 👍\n\nThe position has already been filled, but we'll contact you once may available na bagay sa imo 😊`
   },
   {
-    id: 'gen_intro_fb',
+    id: 'gen_intro',
     category: 'General',
     channel: 'Facebook',
-    title: 'Agency Introduction',
-    body: `Hi {name}! Good day! I am from Job Search PH, a DOLE-compliant job placement agency based in Bacolod City. We specialize in placing household workers (Yaya, Kasambahay, All-around helpers). Our service is FREE for job seekers — no placement, no fee. Interested po ba kayo? Feel free to message us!`
+    title: 'Agency Intro',
+    body: `Hi {name}! 😊\n\nThis is Job Search PH 👍\n\nWe help match jobseekers with employers here in Bacolod (Yaya, Kasambahay, Helpers)\n\n✔ Libre apply\n✔ No placement fee\n✔ Fast matching\n\nInterested ka? Message lang 😊`
   },
 ];
 
