@@ -3417,7 +3417,7 @@ function openCandModal(candId) {
       <div class="cand-modal-section">
         <div class="cand-modal-section-title">Job Order Activity</div>
         ${candPlacExtras.map(({p, ex}) => {
-          const jo = allJobOrders.get(p.jobOrderId);
+          const jo = jobOrders.find(j => j.id === p.jobOrderId);
           const joLabel = jo ? escHtml(jo.jobTitle || jo.position || p.jobOrderId) : escHtml(p.jobOrderId);
           const joComp  = jo ? escHtml(jo.company || '') : '';
           const status  = ex.status || p.status || 'Messaged';
