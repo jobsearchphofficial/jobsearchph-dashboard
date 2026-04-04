@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Add Candidate — Job Search PH</title>
+<style>
+  :root {
+    --accent: #1755ed;
+    --accent-light: #e8effe;
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    --danger: #dc2626;
+    --danger-light: #fee2e2;
+    --warn: #d97706;
+    --warn-light: #fef3c7;
+    --bg: #f8f9fc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --border-focus: #1755ed;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-hint: #94a3b8;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .header-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--accent);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* Paste Zone */
+  .paste-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .paste-zone:focus-within {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .paste-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .paste-label span { font-size: 14px; }
+
+  textarea#pasteBox {
+    width: 100%;
+    height: 120px;
+    border: none;
+    background: transparent;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+  }
+
+  textarea#pasteBox::placeholder { color: var(--text-hint); }
+
+  .parse-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .parse-btn:hover { opacity: 0.9; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: var(--success-light); color: var(--success); }
+  .toast.error { background: var(--danger-light); color: var(--danger); }
+  .toast.warn { background: var(--warn-light); color: var(--warn); }
+
+  /* Form */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .form-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .form-section:last-child { border-bottom: none; }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .field-grid.single { grid-template-columns: 1fr; }
+  .field-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.span2 { grid-column: span 2; }
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  label .req { color: var(--danger); margin-left: 2px; }
+
+  input, select, textarea {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    font-family: inherit;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(23, 85, 237, 0.1);
+    background: white;
+  }
+
+  textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+  select { cursor: pointer; }
+
+  .filled {
+    border-color: var(--accent) !important;
+    background: white !important;
+  }
+
+  /* Config */
+  .config-bar {
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  .config-bar .field { flex: 1; }
+
+  .config-bar label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .config-bar input {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+  }
+
+  /* Submit */
+  .submit-bar {
+    padding: 16px 20px;
+    background: #f8faff;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn-submit {
+    flex: 1;
+    padding: 11px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-submit:hover { opacity: 0.9; }
+  .btn-submit:active { transform: scale(0.99); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-clear {
+    padding: 11px 16px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-clear:hover { background: var(--border); }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .status-dot.ready { background: var(--success); }
+
+  @media (max-width: 540px) {
+    .field-grid { grid-template-columns: 1fr; }
+    .field-grid.triple { grid-template-columns: 1fr 1fr; }
+    .field.span2 { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <div class="header-icon">➕</div>
+    <div>
+      <h1>Quick Add Candidate</h1>
+      <p>Paste the 📋 NEW CANDIDATE block from Botcake — fields auto-fill instantly</p>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#15803d;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:18px;">&#x2705;</span>
+    <span><strong>Connected to Google Form</strong> &mdash; fills and opens the form for you, one click to submit</span>
+  </div>
+
+  <!-- Paste Zone -->
+  <div class="paste-zone">
+    <div class="paste-label"><span>📋</span> Paste NEW CANDIDATE block here</div>
+    <textarea id="pasteBox" placeholder="📋 NEW CANDIDATE&#10;Name: Maria Santos&#10;Age: 28&#10;Location: Talisay&#10;Job: Kasambahay&#10;Experience: 2 years yaya&#10;Available: ASAP&#10;Salary: ₱7,000&#10;Contact: 09xxxxxxxxx&#10;Facebook: Maria Santos&#10;Setup: Stay-in"></textarea>
+    <button class="parse-btn" onclick="parseBlock()">⚡ Auto-fill fields from block</button>
+  </div>
+
+  <!-- Form -->
+  <div class="form-card">
+
+    <div class="form-section">
+      <div class="section-title">Basic Info</div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Full Name <span class="req">*</span></label>
+          <input type="text" id="f_name" placeholder="Maria Santos" />
+        </div>
+        <div class="field">
+          <label>Facebook Name</label>
+          <input type="text" id="f_facebook" placeholder="Maria Santos" />
+        </div>
+        <div class="field">
+          <label>Age</label>
+          <input type="text" id="f_age" placeholder="28" />
+        </div>
+        <div class="field">
+          <label>Gender</label>
+          <select id="f_gender">
+            <option value="">— select —</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Contact Number</label>
+          <input type="text" id="f_contact" placeholder="09xxxxxxxxx" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="f_email" placeholder="optional" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Job Preferences</div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Preferred Job Type <span class="req">*</span></label>
+          <select id="f_jobtype">
+            <option value="">— select —</option>
+            <option>Accounting / Bookkeeper</option>
+            <option>Barista / Barman</option>
+            <option>Carpenter / Mason</option>
+            <option>Carwash Boy / Detailer</option>
+            <option>Cashier / Retail Staff</option>
+            <option>Construction Laborer</option>
+            <option>Cook / Kitchen Staff</option>
+            <option>Delivery Rider</option>
+            <option>Dishwasher / Kitchen Helper</option>
+            <option>Driver (Personal / Company)</option>
+            <option>Electrician / Plumber</option>
+            <option>Encoder / Data Entry</option>
+            <option>Forklift Operator</option>
+            <option>Housekeeper / Household Helper</option>
+            <option>Janitor / Cleaner</option>
+            <option>Laundry / Cleaning Staff</option>
+            <option>Machine Operator</option>
+            <option>Mechanic / Auto Technician</option>
+            <option>Office Admin / Secretary</option>
+            <option>Packer / Sorter / Labeler</option>
+            <option>Production Worker</option>
+            <option>Sales Agent / Promodiser</option>
+            <option>Security Guard</option>
+            <option>Server / Waiter / Waitress</option>
+            <option>Technician (Electronics / AC / Appliance)</option>
+            <option>Warehouse Staff</option>
+            <option>Welder</option>
+            <option>Yaya / Babysitter</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Setup</label>
+          <select id="f_setup">
+            <option value="">— select —</option>
+            <option>Stay-in</option>
+            <option>Stay-out</option>
+            <option>Either</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Preferred Location</label>
+          <select id="f_location">
+            <option value="">— select —</option>
+            <option>Bacolod City Proper</option>
+            <option>Talisay</option>
+            <option>Silay</option>
+            <option>Bago City</option>
+            <option>Murcia</option>
+            <option>Kabankalan</option>
+            <option>Anywhere in Neg. Occ.</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Expected Salary (monthly)</label>
+          <input type="text" id="f_salary" placeholder="7000" />
+        </div>
+        <div class="field">
+          <label>Civil Status</label>
+          <select id="f_civil">
+            <option value="">— select —</option>
+            <option>Single</option>
+            <option>Married</option>
+            <option>Separated</option>
+            <option>Widowed</option>
+            <option>Single Parent</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>When can you start?</label>
+          <input type="text" id="f_available" placeholder="ASAP / April 15..." />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Qualifications</div>
+      <div class="field-grid single">
+        <div class="field">
+          <label>Skills / Qualifications</label>
+          <textarea id="f_skills" placeholder="e.g. Experienced yaya, marunong mag-luto, may sariling ID..."></textarea>
+        </div>
+        <div class="field">
+          <label>Past Jobs / Work Experience</label>
+          <textarea id="f_experience" placeholder="e.g. Yaya, Santos Family, 2 years&#10;Kasambahay, Reyes Household, 1 year"></textarea>
+        </div>
+        <div class="field">
+          <label>Resume / GDrive Link</label>
+          <input type="text" id="f_resume" placeholder="https://drive.google.com/..." />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Internal</div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Status</label>
+          <select id="f_status">
+            <option value="New">New</option>
+            <option value="Available">Available</option>
+            <option value="For Interview">For Interview</option>
+            <option value="Placed">Placed</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="field span2">
+          <label>Internal Notes</label>
+          <input type="text" id="f_notes" placeholder="HOT — available ASAP, 2 years exp, fast replies" />
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <button class="btn-submit" id="submitBtn" onclick="submitCandidate()">
+        ✚ Open Prefilled Form
+      </button>
+      <button class="btn-clear" onclick="clearForm()">Clear</button>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Toast
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Parse the 📋 NEW CANDIDATE block
+function parseBlock() {
+  const raw = document.getElementById('pasteBox').value.trim();
+  if (!raw) { showToast('Paste a candidate block first', 'warn'); return; }
+
+  const get = (keys) => {
+    for (const key of keys) {
+      const regex = new RegExp(`(?:^|\\n)${key}\\s*:\\s*(.+)`, 'i');
+      const match = raw.match(regex);
+      if (match) return match[1].trim();
+    }
+    return '';
+  };
+
+  const setField = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el || !val) return;
+    el.value = val;
+    el.classList.add('filled');
+  };
+
+  // Job type aliases from bot → Google Form values
+  const jobAliases = {
+    'yaya': 'Yaya / Babysitter',
+    'babysitter': 'Yaya / Babysitter',
+    'kasambahay': 'Housekeeper / Household Helper',
+    'househelper': 'Housekeeper / Household Helper',
+    'housekeeper': 'Housekeeper / Household Helper',
+    'all-around': 'Housekeeper / Household Helper',
+    'driver': 'Driver (Personal / Company)',
+    'cook': 'Cook / Kitchen Staff',
+    'kitchen': 'Cook / Kitchen Staff',
+    'dishwasher': 'Dishwasher / Kitchen Helper',
+    'laborer': 'Construction Laborer',
+    'construction': 'Construction Laborer',
+    'admin': 'Office Admin / Secretary',
+    'secretary': 'Office Admin / Secretary',
+    'sales': 'Sales Agent / Promodiser',
+    'security': 'Security Guard',
+    'guard': 'Security Guard',
+    'warehouse': 'Warehouse Staff',
+    'laundry': 'Laundry / Cleaning Staff',
+    'janitor': 'Janitor / Cleaner',
+    'cleaner': 'Janitor / Cleaner',
+    'encoder': 'Encoder / Data Entry',
+    'cashier': 'Cashier / Retail Staff',
+    'welder': 'Welder',
+    'mechanic': 'Mechanic / Auto Technician',
+  };
+
+  const setSelect = (id, val) => {
+    if (!val) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const lower = val.toLowerCase().trim();
+
+    // Check aliases first
+    for (const [alias, mapped] of Object.entries(jobAliases)) {
+      if (lower.includes(alias)) {
+        el.value = mapped;
+        el.classList.add('filled');
+        return;
+      }
+    }
+
+    // Then try direct match
+    for (const opt of el.options) {
+      if (opt.value.toLowerCase().includes(lower) || lower.includes(opt.value.toLowerCase())) {
+        el.value = opt.value;
+        el.classList.add('filled');
+        return;
+      }
+    }
+
+    // Fallback: set directly
+    el.value = val;
+    el.classList.add('filled');
+  };
+
+  setField('f_name', get(['Name', 'Full Name', 'Full name']));
+  setField('f_facebook', get(['Facebook', 'FB', 'Facebook name', 'Facebook Name']));
+  setField('f_age', get(['Age']));
+  setField('f_contact', get(['Contact', 'Contact #', 'Contact Number', 'Phone', 'Number']));
+  setField('f_email', get(['Email']));
+  setField('f_location', get(['Location', 'Area', 'Address']));
+  setField('f_salary', get(['Salary', 'Expected Salary', 'Pay', 'Rate']).replace(/[₱,]/g, ''));
+  setField('f_available', get(['Available', 'Start', 'Start date', 'When can you start']));
+  setField('f_experience', get(['Experience', 'Past Jobs', 'Work Experience']));
+  setField('f_skills', get(['Skills', 'Qualifications']));
+  setField('f_resume', get(['Resume', 'GDrive', 'Drive']));
+  setField('f_notes', get(['Tags', 'TAGS', 'Notes', '⚡']));
+
+  setSelect('f_jobtype', get(['Job', 'Job Type', 'Preferred Job', 'Position']));
+  setSelect('f_setup', get(['Setup', 'Stay-in', 'Stay-out']));
+  setSelect('f_gender', get(['Gender']));
+  setSelect('f_civil', get(['Civil Status', 'Civil', 'Status']));
+
+  document.getElementById('statusDot').className = 'status-dot ready';
+  showToast('Fields filled — review and submit', 'success');
+}
+
+// Clear form
+function clearForm() {
+  const fields = ['f_name','f_facebook','f_age','f_contact','f_email','f_location',
+    'f_salary','f_available','f_experience','f_skills','f_resume','f_notes'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('filled'); }
+  });
+  ['f_gender','f_jobtype','f_setup','f_civil','f_status'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.selectedIndex = 0; el.classList.remove('filled'); }
+  });
+  document.getElementById('pasteBox').value = '';
+  document.getElementById('statusDot').className = 'status-dot';
+}
+
+// Generate ID
+function genId() {
+  return 'JSP-' + Date.now().toString(36).toUpperCase();
+}
+
+// Submit directly to Google Form — goes into Form Responses → Jobseekers tab → Dashboard
+const FORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSdOLkZmlQTG_jlHz1d9Kggs-nB9U0z2tsK2U4qVGfEv0Y2iwA/formResponse';
+
+async function submitCandidate() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { showToast('Full name is required', 'warn'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // Build form data matching Google Form field IDs exactly
+  const fd = new FormData();
+  fd.append('entry.1163063502', name);
+  fd.append('entry.746295938',  document.getElementById('f_facebook').value.trim());
+  fd.append('entry.1093612604', document.getElementById('f_age').value.trim());
+  fd.append('entry.675411365',  document.getElementById('f_contact').value.trim());
+  fd.append('entry.1345355032', document.getElementById('f_email').value.trim());
+  fd.append('entry.1296369222', document.getElementById('f_jobtype').value.trim());
+  fd.append('entry.664293303',  document.getElementById('f_skills').value.trim());
+  fd.append('entry.547447539',  document.getElementById('f_location').value.trim());
+  fd.append('entry.1516079030', document.getElementById('f_salary').value.trim());
+  fd.append('entry.1970809014', document.getElementById('f_gender').value.trim());
+  fd.append('entry.35722816',   document.getElementById('f_experience').value.trim());
+  fd.append('entry.1119101128', document.getElementById('f_available').value.trim());
+  fd.append('entry.941768457',  document.getElementById('f_civil').value.trim());
+  fd.append('entry.1199976305', 'I agree that my information can be shared with verified employers for hiring purposes. I understand that I am free to accept or reject any job opportunity and that providing this information does not guarantee employment.');
+
+  // Build prefilled Google Form URL and open in new tab to submit
+  const params = new URLSearchParams();
+  params.append('entry.1163063502', name);
+  params.append('entry.746295938',  document.getElementById('f_facebook').value.trim());
+  params.append('entry.1093612604', document.getElementById('f_age').value.trim());
+  params.append('entry.675411365',  document.getElementById('f_contact').value.trim());
+  params.append('entry.1345355032', document.getElementById('f_email').value.trim());
+  params.append('entry.1296369222', document.getElementById('f_jobtype').value.trim());
+  params.append('entry.664293303',  document.getElementById('f_skills').value.trim());
+  params.append('entry.547447539',  document.getElementById('f_location').value.trim());
+  params.append('entry.1516079030', document.getElementById('f_salary').value.trim());
+  params.append('entry.1970809014', document.getElementById('f_gender').value.trim());
+  params.append('entry.35722816',   document.getElementById('f_experience').value.trim());
+  params.append('entry.1119101128', document.getElementById('f_available').value.trim());
+  params.append('entry.941768457',  document.getElementById('f_civil').value.trim());
+  params.append('entry.1199976305', 'I agree that my information can be shared with verified employers for hiring purposes. I understand that I am free to accept or reject any job opportunity and that providing this information does not guarantee employment.');
+
+  const prefilledUrl = FORM_ACTION.replace('formResponse', 'viewform') + '?' + params.toString();
+
+  // Open prefilled form in new tab — user clicks Submit once
+  const win = window.open(prefilledUrl, '_blank');
+
+  showToast('✓ Form opened — click Submit in the new tab', 'warn');
+  clearForm();
+  document.getElementById('statusDot').className = 'status-dot';
+  btn.disabled = false;
+  btn.innerHTML = '✚ Open Prefilled Form';
+
+  btn.disabled = false;
+  btn.innerHTML = '✚ Open Prefilled Form';
+}
+</script>
+</body>
+</html>
