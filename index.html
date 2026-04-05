@@ -1285,6 +1285,27 @@
   .tmpl-picker-body { padding: 16px 22px 22px; }
   .tmpl-picker-close { position: absolute; top: 14px; right: 16px; background: var(--card2); border: 1px solid var(--border2); color: var(--text2); width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; font-size: 15px; transition: all .18s; }
   .tmpl-picker-close:hover { color: var(--text); background: var(--card3); }
+
+  /* ── Cloud Sync ── */
+  #sync-btn { gap: 5px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background .3s; }
+  .sync-dot.synced  { background: var(--green); }
+  .sync-dot.syncing { background: var(--orange); animation: sync-pulse 1s infinite; }
+  .sync-dot.error   { background: var(--red); }
+  @keyframes sync-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  .sync-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); backdrop-filter: blur(4px); z-index: 9998; display: none; align-items: center; justify-content: center; }
+  .sync-modal-overlay.open { display: flex; }
+  .sync-modal { background: var(--card); border-radius: 16px; padding: 28px; width: min(440px,92vw); box-shadow: 0 20px 60px rgba(0,0,0,.2); border: 1px solid var(--border); }
+  .sync-modal h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
+  .sync-modal .sync-modal-sub { font-size: 13px; color: var(--text2); margin: 0 0 20px; line-height: 1.55; }
+  .sync-modal label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 4px; }
+  .sync-modal label span { font-weight: 400; color: var(--text3); }
+  .sync-modal input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--mono); background: var(--bg); color: var(--text); margin-bottom: 14px; }
+  .sync-modal input:focus { outline: none; border-color: var(--accent); }
+  .sync-instructions { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 12px; color: var(--text2); line-height: 1.7; }
+  .sync-instructions strong { color: var(--text); }
+  .sync-instructions ol { margin: 6px 0 0 16px; padding: 0; }
 </style>
 </head>
 <body>
@@ -1309,6 +1330,9 @@
       </button>
       <button class="btn-refresh" onclick="promptApiKey()" id="api-key-btn" title="Set Anthropic API Key">
         🔑 API Key
+      </button>
+      <button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
+        <span class="sync-dot" id="sync-dot"></span><span id="sync-label">☁ Sync</span>
       </button>
       <button class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
         ➕ Quick Add
@@ -1659,11 +1683,11 @@ function loadLocal() {
   try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
 }
 
-function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); }
-function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); }
-function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); }
-function saveJOStatusOverrides() { localStorage.setItem('jo_status_overrides', JSON.stringify(joStatusOverrides)); }
-function saveCandidateRatings() { localStorage.setItem('candidate_ratings', JSON.stringify(candidateRatings)); }
+function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
+function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); fbSync('manual_placements', manualPlacements); }
+function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); fbSync('candidate_notes', candidateNotes); }
+function saveJOStatusOverrides() { localStorage.setItem('jo_status_overrides', JSON.stringify(joStatusOverrides)); fbSync('jo_status_overrides', joStatusOverrides); }
+function saveCandidateRatings() { localStorage.setItem('candidate_ratings', JSON.stringify(candidateRatings)); fbSyncDebounced('candidate_ratings', candidateRatings); }
 
 // ═══════════════════════════════════════════════
 // CSV PARSER
@@ -2248,6 +2272,7 @@ function createPlacementRow(p, idx, joId) {
       extra.autoMarkedNoResp = true;
       extra.response = 'No Response';
       localStorage.setItem(`prow_extra_${pid}`, JSON.stringify(extra));
+      fbSync('prow_extras/' + pid, extra);
     }
   }
 
@@ -2357,6 +2382,7 @@ function saveProwExtra(pid, field, value) {
   try { extra = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e){}
   extra[field] = value;
   localStorage.setItem(key, JSON.stringify(extra));
+  fbSyncDebounced('prow_extras/' + pid, extra);
 }
 
 function autoSuggestFollowup(pid, lastContactedVal) {
@@ -3552,7 +3578,9 @@ function confirmFulfill(joId) {
 
   // Save fulfillment data
   const key = `jo_fulfill_${joId}`;
-  localStorage.setItem(key, JSON.stringify({ remarks, payment, closeOpt, date: new Date().toISOString() }));
+  const fulfillData = { remarks, payment, closeOpt, date: new Date().toISOString() };
+  localStorage.setItem(key, JSON.stringify(fulfillData));
+  fbSync('jo_fulfill/' + joId, fulfillData);
 
   document.getElementById('fulfill-modal-overlay')?.remove();
 
@@ -3568,6 +3596,7 @@ function confirmFulfill(joId) {
     const days = parseInt(closeOpt);
     const closeDate = new Date(); closeDate.setDate(closeDate.getDate() + days);
     localStorage.setItem(`jo_delayed_close_${joId}`, closeDate.toISOString());
+    fbSync('jo_delayed_close/' + joId, closeDate.toISOString());
     showToast(`Order will auto-close in ${days} days`, 'green');
   }
 }
@@ -4068,6 +4097,7 @@ function saveHireData(pid, field, value) {
   try { d = JSON.parse(localStorage.getItem(key)||'{}'); } catch(e){}
   d[field] = value;
   localStorage.setItem(key, JSON.stringify(d));
+  fbSyncDebounced('hire_data/' + pid, d);
 }
 
 function reportGuaranteeIssue(pid) {
@@ -4090,7 +4120,9 @@ function saveCandNote(candId, text) {
   if (!text.trim()) return;
   const notes = getCandNotes(candId);
   notes.unshift({ text: text.trim(), ts: new Date().toISOString() });
-  localStorage.setItem(`cand_notes_${candId}`, JSON.stringify(notes.slice(0, 50)));
+  const trimmed = notes.slice(0, 50);
+  localStorage.setItem(`cand_notes_${candId}`, JSON.stringify(trimmed));
+  fbSync('cand_notes/' + candId, trimmed);
   openCandModal(candId); // re-render modal
 }
 
@@ -4098,6 +4130,7 @@ function deleteCandNote(candId, idx) {
   const notes = getCandNotes(candId);
   notes.splice(idx, 1);
   localStorage.setItem(`cand_notes_${candId}`, JSON.stringify(notes));
+  fbSync('cand_notes/' + candId, notes);
   openCandModal(candId);
 }
 
@@ -4163,6 +4196,7 @@ function addReflection(candId) {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(`reflection_${candId}`) || '[]'); } catch(e) { return []; } })();
   saved.unshift({ joId, employer: jobOrders.find(j=>j.id===joId)?.company||'Manual entry', position: '', result, date: new Date().toISOString().split('T')[0], notes, manual: true });
   localStorage.setItem(`reflection_${candId}`, JSON.stringify(saved));
+  fbSync('reflections/' + candId, saved);
   openCandModal(candId);
 }
 
@@ -4253,6 +4287,7 @@ async function refreshAll() {
     btn.style.color = hasKey ? 'var(--green)' : 'var(--orange)';
   }
   await loadAll();
+  await loadFromFirebase();
 }
 
 // ═══════════════════════════════════════════════
@@ -4383,6 +4418,7 @@ function getTemplates() {
 
 function saveTemplates(tmpls) {
   localStorage.setItem(TMPL_STORAGE_KEY, JSON.stringify(tmpls));
+  fbSync('templates', tmpls);
 }
 
 function fillTemplateVars(body, vars) {
@@ -4565,9 +4601,173 @@ function escAttr(str) {
 }
 
 // ═══════════════════════════════════════════════
+// FIREBASE CLOUD SYNC
+// ═══════════════════════════════════════════════
+
+function getFirebaseUrl(path) {
+  const dbUrl = localStorage.getItem('firebase_db_url');
+  if (!dbUrl) return null;
+  const secret = localStorage.getItem('firebase_secret');
+  const auth = secret ? '?auth=' + encodeURIComponent(secret) : '';
+  const base = dbUrl.replace(/\/$/, '');
+  return base + '/jobsearchph' + (path ? '/' + path : '') + '.json' + auth;
+}
+
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (!dot) return;
+  dot.className = 'sync-dot ' + status;
+  if (status === 'synced')  lbl.textContent = '☁ Synced';
+  else if (status === 'syncing') lbl.textContent = '☁ Syncing…';
+  else if (status === 'error')   lbl.textContent = '☁ Error';
+  else lbl.textContent = '☁ Sync';
+}
+
+async function fbSync(path, data) {
+  const url = getFirebaseUrl(path);
+  if (!url) return;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data === undefined ? null : data) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setSyncStatus('synced');
+  } catch(e) {
+    setSyncStatus('error');
+    console.error('Firebase sync error [' + path + ']:', e.message);
+  }
+}
+
+const _fbDebounceTimers = {};
+function fbSyncDebounced(path, data, delay) {
+  delay = delay || 900;
+  clearTimeout(_fbDebounceTimers[path]);
+  _fbDebounceTimers[path] = setTimeout(() => fbSync(path, data), delay);
+}
+
+async function loadFromFirebase() {
+  const url = getFirebaseUrl('');
+  if (!url) return;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data) { setSyncStatus('synced'); return; }
+
+    if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
+    if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
+    if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
+    if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
+    if (data.candidate_ratings)   localStorage.setItem('candidate_ratings',   JSON.stringify(data.candidate_ratings));
+    if (data.templates)           localStorage.setItem(TMPL_STORAGE_KEY,      JSON.stringify(data.templates));
+    if (data.prow_extras)
+      Object.entries(data.prow_extras).forEach(function(e) { localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
+    if (data.hire_data)
+      Object.entries(data.hire_data).forEach(function(e) { localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
+    if (data.cand_notes)
+      Object.entries(data.cand_notes).forEach(function(e) { localStorage.setItem('cand_notes_' + e[0], JSON.stringify(e[1])); });
+    if (data.jo_fulfill)
+      Object.entries(data.jo_fulfill).forEach(function(e) { localStorage.setItem('jo_fulfill_' + e[0], JSON.stringify(e[1])); });
+    if (data.jo_delayed_close)
+      Object.entries(data.jo_delayed_close).forEach(function(e) { localStorage.setItem('jo_delayed_close_' + e[0], e[1]); });
+    if (data.reflections)
+      Object.entries(data.reflections).forEach(function(e) { localStorage.setItem('reflection_' + e[0], JSON.stringify(e[1])); });
+
+    loadLocal();
+    const allP = [...placements, ...manualPlacements];
+    updateStats();
+    renderJobOrders(allP);
+    renderHiredTab();
+    renderCandidates();
+    setSyncStatus('synced');
+  } catch(e) {
+    setSyncStatus('error');
+    console.error('Firebase load error:', e.message);
+  }
+}
+
+async function pushAllToFirebase() {
+  const url = getFirebaseUrl('');
+  if (!url) return;
+  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    try {
+      if (k.startsWith('prow_extra_'))      prowExtras[k.slice(11)]     = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('hire_data_'))  hireData[k.slice(10)]       = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('cand_notes_')) candNotesMap[k.slice(11)]   = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('jo_fulfill_')) joFulfill[k.slice(11)]      = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('jo_delayed_close_')) joDelayedClose[k.slice(17)] = localStorage.getItem(k);
+      else if (k.startsWith('reflection_')) reflections[k.slice(11)]   = JSON.parse(localStorage.getItem(k));
+    } catch(e2) {}
+  }
+  const payload = {
+    blacklist:           blacklist           || {},
+    manual_placements:   manualPlacements    || [],
+    candidate_notes:     candidateNotes      || {},
+    jo_status_overrides: joStatusOverrides   || {},
+    candidate_ratings:   candidateRatings    || {},
+    templates:           getTemplates(),
+    prow_extras:         prowExtras,
+    hire_data:           hireData,
+    cand_notes:          candNotesMap,
+    jo_fulfill:          joFulfill,
+    jo_delayed_close:    joDelayedClose,
+    reflections:         reflections
+  };
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setSyncStatus('synced');
+  } catch(e) {
+    setSyncStatus('error');
+    console.error('Firebase push error:', e.message);
+  }
+}
+
+function openSyncModal() {
+  document.getElementById('sync-db-url').value  = localStorage.getItem('firebase_db_url')  || '';
+  document.getElementById('sync-secret').value  = localStorage.getItem('firebase_secret')  || '';
+  document.getElementById('sync-test-result').textContent = '';
+  document.getElementById('sync-setup-modal').classList.add('open');
+}
+
+function closeSyncModal() {
+  document.getElementById('sync-setup-modal').classList.remove('open');
+}
+
+async function saveSyncConfig() {
+  const dbUrl  = document.getElementById('sync-db-url').value.trim();
+  const secret = document.getElementById('sync-secret').value.trim();
+  const result = document.getElementById('sync-test-result');
+  if (!dbUrl) { result.style.color = 'var(--orange)'; result.textContent = 'Please enter your Firebase Database URL.'; return; }
+  localStorage.setItem('firebase_db_url', dbUrl);
+  if (secret) localStorage.setItem('firebase_secret', secret);
+  result.style.color = 'var(--text3)';
+  result.textContent = 'Testing connection…';
+  try {
+    const base = dbUrl.replace(/\/$/, '');
+    const auth = secret ? '?auth=' + encodeURIComponent(secret) : '';
+    const res = await fetch(base + '/jobsearchph.json' + auth);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    await res.json();
+    result.style.color = 'var(--green)';
+    result.textContent = 'Connected! Uploading your data…';
+    await pushAllToFirebase();
+    result.textContent = 'All done! Your data is now in the cloud.';
+    setTimeout(closeSyncModal, 1800);
+  } catch(e) {
+    result.style.color = 'var(--red)';
+    result.textContent = 'Error: ' + e.message + '. Double-check your URL and secret.';
+  }
+}
+
+// ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-loadAll();
+loadAll().then(() => loadFromFirebase());
 </script>
 
 <!-- ─── TEMPLATE PICKER MODAL ─── -->
@@ -4587,6 +4787,34 @@ loadAll();
 <div class="cand-modal-overlay" id="modal-cand-profile" onclick="if(event.target===this)closeCandModal()">
   <div class="cand-modal" id="cand-modal-inner">
     <!-- filled by JS -->
+  </div>
+</div>
+
+<!-- ─── CLOUD SYNC SETUP MODAL ─── -->
+<div class="sync-modal-overlay" id="sync-setup-modal" onclick="if(event.target===this)closeSyncModal()">
+  <div class="sync-modal">
+    <h3>☁️ Cloud Sync Setup</h3>
+    <p class="sync-modal-sub">Syncs all data (ratings, notes, placements, blacklist) to Firebase so you can open the dashboard on your phone or another device and see everything.</p>
+    <div class="sync-instructions">
+      <strong>One-time setup (free, ~3 min):</strong>
+      <ol>
+        <li>Go to <strong>console.firebase.google.com</strong> → sign in with Google</li>
+        <li>Click <strong>Create a project</strong> → give it any name → Continue</li>
+        <li>Left menu: <strong>Build → Realtime Database → Create Database</strong></li>
+        <li>Choose any location → select <strong>Start in test mode</strong> → Enable</li>
+        <li>Copy the URL shown (looks like <em>https://your-project-default-rtdb.firebaseio.com</em>)</li>
+        <li>Left menu: ⚙ <strong>Project settings → Service accounts → Database secrets → Show → Copy</strong></li>
+      </ol>
+    </div>
+    <label>Firebase Database URL</label>
+    <input type="url" id="sync-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com" autocomplete="off" />
+    <label>Database Secret <span>(from Project Settings → Service Accounts → Database secrets)</span></label>
+    <input type="password" id="sync-secret" placeholder="Your database secret key" autocomplete="off" />
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-blue" style="flex:1" onclick="saveSyncConfig()">💾 Save & Connect</button>
+      <button class="btn btn-ghost" onclick="closeSyncModal()">Cancel</button>
+    </div>
+    <div id="sync-test-result" style="margin-top:12px;font-size:12px;min-height:18px"></div>
   </div>
 </div>
 
