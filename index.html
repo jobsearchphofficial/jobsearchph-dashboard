@@ -1039,6 +1039,35 @@
   .hired-guarantee-fill {
     height: 100%; border-radius: 99px; transition: width .5s;
   }
+  /* ── Hired card expanded details ── */
+  .hired-expand-btn { width:100%;text-align:center;padding:9px 0 0;font-size:12px;color:var(--accent);cursor:pointer;border:none;background:none;border-top:1px solid var(--border);margin-top:12px;font-weight:600;letter-spacing:.2px;transition:opacity .2s; }
+  .hired-expand-btn:hover { opacity:.7; }
+  .hired-details { display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:12px; }
+  .hired-details.open { display:block; }
+  .hired-section-label { font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px; }
+  .hired-summary-pills { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px; }
+  .hired-pill { flex:1;min-width:70px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 10px;text-align:center; }
+  .hired-pill-val { font-size:18px;font-weight:800;color:var(--accent); }
+  .hired-pill-lbl { font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px; }
+  .hired-tl { border-left:2px solid var(--border2);margin:0 0 16px 6px;padding-left:16px; }
+  .hired-tl-item { position:relative;padding-bottom:14px; }
+  .hired-tl-item:last-child { padding-bottom:0; }
+  .hired-tl-dot { position:absolute;left:-22px;top:3px;width:10px;height:10px;border-radius:50%;border:2px solid var(--border3);background:var(--card); }
+  .tl-reg     { background:#94a3b8!important;border-color:#94a3b8!important; }
+  .tl-added   { background:var(--accent)!important;border-color:var(--accent)!important; }
+  .tl-contact { background:var(--orange)!important;border-color:var(--orange)!important; }
+  .tl-intv    { background:#a855f7!important;border-color:#a855f7!important; }
+  .tl-hired   { background:var(--green)!important;border-color:var(--green)!important; }
+  .hired-tl-date { font-size:10px;color:var(--text3);margin-bottom:2px;font-family:var(--mono); }
+  .hired-tl-label { font-size:13px;font-weight:600;color:var(--text); }
+  .hired-tl-sub { font-size:11px;color:var(--text2);margin-top:2px; }
+  .activity-item { padding:9px 0;border-bottom:1px solid var(--border); }
+  .activity-item:last-child { border-bottom:none; }
+  .activity-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px; }
+  .activity-source { font-size:9px;font-weight:700;background:var(--accent-dim);color:var(--accent);padding:1px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.4px; }
+  .activity-date { font-size:10px;color:var(--text3);font-family:var(--mono); }
+  .activity-text { font-size:12px;color:var(--text);line-height:1.5; }
+
   .hired-issue-badge {
     flex: 1; background: var(--orange-dim); border: 1px solid rgba(234,88,12,.3);
     color: var(--orange); border-radius: 8px; padding: 6px 12px;
@@ -3948,6 +3977,100 @@ function selectAutofillCand(id, name, phone) {
 // ═══════════════════════════════════════════════
 // HIRED TAB
 // ═══════════════════════════════════════════════
+
+function toggleHiredDetails(pid) {
+  const el  = document.getElementById('hd-' + pid);
+  const btn = document.getElementById('hdb-' + pid);
+  if (!el) return;
+  const open = el.classList.toggle('open');
+  if (btn) btn.textContent = open ? '▲ Hide Timeline & Notes' : '▼ View Timeline & Notes';
+}
+
+function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
+  // ── Position in shortlist ──
+  const joAll = allPlacements.filter(function(pl){ return pl.jobOrderId === p.jobOrderId; });
+  joAll.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  const myKey = p.placementId || p.candidateId;
+  const pos   = joAll.findIndex(function(pl){ return (pl.placementId||pl.candidateId) === myKey; }) + 1;
+  const total = joAll.length;
+
+  // ── Days calculations ──
+  const addedDate   = p.date || '';
+  const contactDate = ex.lastContacted || '';
+  const hiredDate   = hireData.hireDate || '';
+  function daysBetween(d1, d2) {
+    if (!d1 || !d2) return null;
+    var diff = Math.round((new Date(d2) - new Date(d1)) / 86400000);
+    return diff >= 0 ? diff : null;
+  }
+  const daysToContact = daysBetween(addedDate, contactDate);
+  const daysToHireFull = daysBetween(addedDate, hiredDate);
+  const daysContactHire = daysBetween(contactDate || addedDate, hiredDate);
+
+  const pillsHTML = '<div class="hired-summary-pills">' +
+    '<div class="hired-pill"><div class="hired-pill-val">' + (pos > 0 ? '#' + pos : '—') + '</div><div class="hired-pill-lbl">of ' + total + ' sent</div></div>' +
+    '<div class="hired-pill"><div class="hired-pill-val">' + (daysToContact !== null ? daysToContact : '—') + '</div><div class="hired-pill-lbl">Days to Contact</div></div>' +
+    '<div class="hired-pill"><div class="hired-pill-val">' + (daysContactHire !== null ? daysContactHire : '—') + '</div><div class="hired-pill-lbl">Contact to Hire</div></div>' +
+    '<div class="hired-pill"><div class="hired-pill-val">' + (daysToHireFull !== null ? daysToHireFull : '—') + '</div><div class="hired-pill-lbl">Total Days</div></div>' +
+    '</div>';
+
+  const metaRows = [];
+  if (c && c.timestamp) metaRows.push('<span style="color:var(--text3)">Registered:</span> ' + fmtDate(c.timestamp.split(' ')[0]));
+  if (addedDate) metaRows.push('<span style="color:var(--text3)">Added to JO:</span> ' + fmtDate(addedDate));
+  if (contactDate) metaRows.push('<span style="color:var(--text3)">Last Contact:</span> ' + fmtDate(contactDate));
+  if (ex.interviewDate) metaRows.push('<span style="color:var(--text3)">Interview:</span> ' + fmtDate(ex.interviewDate));
+  if (hiredDate) metaRows.push('<span style="color:var(--text3)">Hired:</span> ' + fmtDate(hiredDate));
+  if (ex.contactVia) metaRows.push('<span style="color:var(--text3)">Via:</span> ' + escHtml(ex.contactVia));
+  const metaHTML = metaRows.length ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px;color:var(--text2);margin-bottom:14px">' + metaRows.map(function(r){ return '<div>' + r + '</div>'; }).join('') + '</div>' : '';
+
+  // ── Timeline ──
+  var events = [];
+  if (c && c.timestamp) events.push({ date: c.timestamp.split(' ')[0], label: 'Registered as candidate', sub: '', cls: 'tl-reg' });
+  if (addedDate) events.push({ date: addedDate, label: 'Added to Job Order ' + escHtml(p.jobOrderId), sub: jo ? escHtml(jo.company||'') : '', cls: 'tl-added' });
+  if (contactDate) events.push({ date: contactDate, label: 'Contacted', sub: ex.contactVia ? 'Via ' + escHtml(ex.contactVia) : '', cls: 'tl-contact' });
+  if (ex.followupDate) events.push({ date: ex.followupDate, label: 'Follow-up #1', sub: '', cls: 'tl-contact' });
+  if (ex.followup2Date) events.push({ date: ex.followup2Date, label: 'Follow-up #2', sub: '', cls: 'tl-contact' });
+  if (ex.interviewDate) events.push({ date: ex.interviewDate, label: 'Interview scheduled', sub: '', cls: 'tl-intv' });
+  if (ex.status === 'Interviewed' || ex.status === 'Hired') {
+    var intResult = ex.status === 'Hired' ? 'Passed' : 'Completed';
+    events.push({ date: ex.interviewDate || contactDate || '', label: 'Interview completed', sub: intResult, cls: 'tl-intv' });
+  }
+  if (hiredDate) events.push({ date: hiredDate, label: 'Hired', sub: escHtml(jo ? (jo.company||'') : (p.company||'')), cls: 'tl-hired' });
+  events.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var tlHTML = events.length ? '<div class="hired-section-label">Timeline</div><div class="hired-tl">' +
+    events.map(function(ev){
+      return '<div class="hired-tl-item">' +
+        '<div class="hired-tl-dot ' + ev.cls + '"></div>' +
+        '<div class="hired-tl-date">' + (ev.date ? fmtDate(ev.date) : 'Date unknown') + '</div>' +
+        '<div class="hired-tl-label">' + ev.label + '</div>' +
+        (ev.sub ? '<div class="hired-tl-sub">' + ev.sub + '</div>' : '') +
+        '</div>';
+    }).join('') + '</div>' : '';
+
+  // ── Activity & Notes ──
+  var activities = [];
+  try {
+    var cn = JSON.parse(localStorage.getItem('cand_notes_' + p.candidateId) || '[]');
+    cn.forEach(function(n){ activities.push({ ts: n.ts||'', text: n.text, src: 'Profile Note' }); });
+  } catch(e2) {}
+  if (ex.notes) activities.push({ ts: ex.lastContacted || addedDate || '', text: ex.notes, src: 'Placement (' + p.jobOrderId + ')' });
+  if (hireData.notes) activities.push({ ts: hiredDate || '', text: hireData.notes, src: 'Hire Note' });
+  if (jo && jo.otherNotes) activities.push({ ts: '', text: jo.otherNotes, src: 'JO Notes' });
+  activities.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
+  var actHTML = activities.length ? '<div class="hired-section-label">Activity &amp; Notes</div>' +
+    activities.map(function(a){
+      return '<div class="activity-item">' +
+        '<div class="activity-header">' +
+          '<span class="activity-source">' + escHtml(a.src) + '</span>' +
+          '<span class="activity-date">' + (a.ts ? fmtDate(a.ts.split('T')[0]) : '') + '</span>' +
+        '</div>' +
+        '<div class="activity-text">' + escHtml(a.text) + '</div>' +
+        '</div>';
+    }).join('') : '';
+
+  return '<div class="hired-section-label">Placement Summary</div>' + pillsHTML + metaHTML + tlHTML + actHTML;
+}
+
 function renderHiredTab() {
   const container = document.getElementById('hired-container');
   if (!container) return;
@@ -4012,9 +4135,40 @@ function renderHiredTab() {
     return db.localeCompare(da);
   });
 
-  container.innerHTML = '';
+  // Summary stats
+  const daysToHireArr = filtered.map(({ p, ex, hireData }) => {
+    const added = p.date || ex.lastContacted || '';
+    const hired = hireData.hireDate || '';
+    if (!added || !hired) return null;
+    const d = Math.round((new Date(hired) - new Date(added)) / 86400000);
+    return d >= 0 ? d : null;
+  }).filter(d => d !== null);
+  const avgDays = daysToHireArr.length ? Math.round(daysToHireArr.reduce((a,b)=>a+b,0) / daysToHireArr.length) : null;
+  const fastestDays = daysToHireArr.length ? Math.min(...daysToHireArr) : null;
+  const paidFees = filtered.filter(r=>(r.hireData.feeStatus||'Pending')==='Paid').reduce((s,r)=>s+(parseFloat(String(r.hireData.feeAmount||'').replace(/[^\d.]/g,''))||0),0);
+  const pendingFees = filtered.filter(r=>(r.hireData.feeStatus||'Pending')==='Pending').reduce((s,r)=>s+(parseFloat(String(r.hireData.feeAmount||'').replace(/[^\d.]/g,''))||0),0);
+
+  const summaryHTML = `
+    <div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+      <div style="flex:1;min-width:120px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Total Hired</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${filtered.length}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Avg Days to Hire</div>
+        <div style="font-size:22px;font-weight:800;color:var(--text)">${avgDays !== null ? avgDays + ' days' : '—'}</div>
+        ${fastestDays !== null ? `<div style="font-size:10px;color:var(--green)">Fastest: ${fastestDays} days</div>` : ''}
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Fees Collected</div>
+        <div style="font-size:22px;font-weight:800;color:var(--green)">₱${paidFees.toLocaleString()}</div>
+        ${pendingFees > 0 ? `<div style="font-size:10px;color:var(--orange)">₱${pendingFees.toLocaleString()} pending</div>` : ''}
+      </div>
+    </div>`;
+
+  container.innerHTML = summaryHTML;
   filtered.forEach(({ p, ex, jo, hireData, pid }) => {
-    const card = buildHiredCard(p, ex, jo, hireData, pid);
+    const card = buildHiredCard(p, ex, jo, hireData, pid, allP);
     container.appendChild(card);
   });
 }
@@ -4029,7 +4183,7 @@ function getGuaranteeStatus({ hireData, pid }) {
   return { key:'active', label:`🛡 ${remaining} days remaining`, color:'var(--accent)' };
 }
 
-function buildHiredCard(p, ex, jo, hireData, pid) {
+function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
   const card = document.createElement('div');
   card.className = 'hired-card';
 
@@ -4039,6 +4193,12 @@ function buildHiredCard(p, ex, jo, hireData, pid) {
   const hireDate = hireData.hireDate || '';
   const feeAmount = hireData.feeAmount || '';
   const c = candidates.find(x => x.id === p.candidateId);
+
+  // Days to hire
+  const addedDate = p.date || ex.lastContacted || '';
+  const daysToHire = (hireDate && addedDate)
+    ? Math.round((new Date(hireDate) - new Date(addedDate)) / 86400000)
+    : null;
 
   card.innerHTML = `
     <div class="hired-card-header">
@@ -4057,12 +4217,18 @@ function buildHiredCard(p, ex, jo, hireData, pid) {
 
     <div class="hired-card-meta">
       <div class="hired-meta-item"><span class="hm-label">Position</span><span>${escHtml(p.position || jo?.position || '—')}</span></div>
+      <div class="hired-meta-item"><span class="hm-label">Job Order</span><span style="font-family:var(--mono);font-size:11px">${escHtml(p.jobOrderId)}</span></div>
       <div class="hired-meta-item"><span class="hm-label">Hire Date</span>
         <input type="date" value="${escAttr(hireDate)}" class="hired-inline-input"
-          onchange="saveHireData('${escAttr(pid)}','hireDate',this.value)">
+          onchange="saveHireData('${escAttr(pid)}','hireDate',this.value);renderHiredTab()">
+      </div>
+      <div class="hired-meta-item"><span class="hm-label">Days to Hire</span>
+        <span style="font-weight:700;color:${daysToHire !== null && daysToHire <= 7 ? 'var(--green)' : daysToHire !== null && daysToHire <= 14 ? 'var(--accent)' : 'var(--text2)'}">
+          ${daysToHire !== null && daysToHire >= 0 ? daysToHire + ' days' : '—'}
+        </span>
       </div>
       <div class="hired-meta-item"><span class="hm-label">Fee Amount</span>
-        <input type="text" value="${escAttr(feeAmount)}" placeholder="e.g. ₱1,400" class="hired-inline-input"
+        <input type="text" value="${escAttr(feeAmount)}" placeholder="e.g. 1400" class="hired-inline-input"
           onchange="saveHireData('${escAttr(pid)}','feeAmount',this.value)">
       </div>
       <div class="hired-meta-item"><span class="hm-label">Fee Status</span>
@@ -4072,20 +4238,38 @@ function buildHiredCard(p, ex, jo, hireData, pid) {
       </div>
     </div>
 
+    ${jo?.workSchedule || jo?.salary || jo?.skillsNeeded ? `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px">
+      ${jo.workSchedule ? `<span>🕐 <strong>Schedule:</strong> ${escHtml(jo.workSchedule)}</span>` : ''}
+      ${jo.salary ? `<span>💰 <strong>Salary:</strong> ${escHtml(jo.salary)}</span>` : ''}
+      ${jo.skillsNeeded ? `<span>🛠 <strong>Skills:</strong> ${escHtml(jo.skillsNeeded)}</span>` : ''}
+    </div>` : ''}
+
     <div class="hired-guarantee-bar">
       <div class="hired-guarantee-fill" style="width:${Math.min(100,Math.max(0,hireDate?Math.round(Math.min(daysDiff(hireDate),30)/30*100):0))}%;background:${gStatus.key==='expired'?'var(--green)':gStatus.key==='issue'?'var(--orange)':'var(--accent)'}"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px;padding:0 2px">
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px;padding:0 2px;margin-bottom:10px">
       <span>Hire date</span>
       <span style="color:${gStatus.color};font-weight:600">${gStatus.label}</span>
       <span>Day 30</span>
     </div>
 
-    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+    <div class="hired-meta-item" style="margin-bottom:10px">
+      <span class="hm-label">Notes</span>
+      <input type="text" value="${escAttr(hireData.notes||'')}" placeholder="Add notes about this placement…" class="hired-inline-input"
+        onchange="saveHireData('${escAttr(pid)}','notes',this.value)">
+    </div>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${!hireData.issueReported
         ? `<button class="btn btn-ghost" style="flex:1" onclick="reportGuaranteeIssue('${escAttr(pid)}')">⚠️ Report Issue</button>`
         : `<div class="hired-issue-badge">⚠️ Issue: ${escHtml(hireData.issueNote||'Reported')}</div>`}
       <button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
+    </div>
+
+    <button class="hired-expand-btn" id="hdb-${escAttr(pid)}" onclick="toggleHiredDetails('${escAttr(pid)}')">▼ View Timeline &amp; Notes</button>
+    <div class="hired-details" id="hd-${escAttr(pid)}">
+      ${buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements || [])}
     </div>
   `;
   return card;
