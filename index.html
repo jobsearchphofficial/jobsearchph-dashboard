@@ -4717,14 +4717,9 @@ async function pushAllToFirebase() {
     reflections:         reflections
   };
   setSyncStatus('syncing');
-  try {
-    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    setSyncStatus('synced');
-  } catch(e) {
-    setSyncStatus('error');
-    console.error('Firebase push error:', e.message);
-  }
+  const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  setSyncStatus('synced');
 }
 
 function openSyncModal() {
@@ -4751,16 +4746,28 @@ async function saveSyncConfig() {
     const base = dbUrl.replace(/\/$/, '');
     const auth = secret ? '?auth=' + encodeURIComponent(secret) : '';
     const res = await fetch(base + '/jobsearchph.json' + auth);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    await res.json();
-    result.style.color = 'var(--green)';
-    result.textContent = 'Connected! Uploading your data…';
-    await pushAllToFirebase();
-    result.textContent = 'All done! Your data is now in the cloud.';
-    setTimeout(closeSyncModal, 1800);
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — check your URL and secret');
+    const existing = await res.json();
+
+    // If Firebase already has data → pull to this device (phone, new browser, etc.)
+    // If Firebase is empty → this is first setup, push local data up
+    const hasCloudData = existing && typeof existing === 'object' && Object.keys(existing).length > 0;
+    if (hasCloudData) {
+      result.style.color = 'var(--green)';
+      result.textContent = 'Connected! Loading data from cloud…';
+      await loadFromFirebase();
+      result.textContent = 'Done! Data loaded from cloud onto this device.';
+    } else {
+      result.style.color = 'var(--green)';
+      result.textContent = 'Connected! Uploading your data to cloud…';
+      await pushAllToFirebase();
+      result.textContent = 'Done! All data uploaded to cloud.';
+    }
+    setTimeout(closeSyncModal, 2000);
   } catch(e) {
     result.style.color = 'var(--red)';
     result.textContent = 'Error: ' + e.message + '. Double-check your URL and secret.';
+    console.error('Sync setup error:', e);
   }
 }
 
