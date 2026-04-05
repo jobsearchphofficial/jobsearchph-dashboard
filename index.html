@@ -4025,18 +4025,22 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
 
   // ── Timeline ──
   var events = [];
-  if (c && c.timestamp) events.push({ date: c.timestamp.split(' ')[0], label: 'Registered as candidate', sub: '', cls: 'tl-reg' });
-  if (addedDate) events.push({ date: addedDate, label: 'Added to Job Order ' + escHtml(p.jobOrderId), sub: jo ? escHtml(jo.company||'') : '', cls: 'tl-added' });
-  if (contactDate) events.push({ date: contactDate, label: 'Contacted', sub: ex.contactVia ? 'Via ' + escHtml(ex.contactVia) : '', cls: 'tl-contact' });
-  if (ex.followupDate) events.push({ date: ex.followupDate, label: 'Follow-up #1', sub: '', cls: 'tl-contact' });
-  if (ex.followup2Date) events.push({ date: ex.followup2Date, label: 'Follow-up #2', sub: '', cls: 'tl-contact' });
-  if (ex.interviewDate) events.push({ date: ex.interviewDate, label: 'Interview scheduled', sub: '', cls: 'tl-intv' });
+  if (c && c.timestamp) events.push({ date: c.timestamp.split(' ')[0], label: 'Registered as candidate', sub: '', cls: 'tl-reg', pri: 0 });
+  if (addedDate) events.push({ date: addedDate, label: 'Added to Job Order ' + escHtml(p.jobOrderId), sub: jo ? escHtml(jo.company||'') : '', cls: 'tl-added', pri: 1 });
+  if (contactDate) events.push({ date: contactDate, label: 'Contacted', sub: ex.contactVia ? 'Via ' + escHtml(ex.contactVia) : '', cls: 'tl-contact', pri: 2 });
+  if (ex.followupDate) events.push({ date: ex.followupDate, label: 'Follow-up #1', sub: '', cls: 'tl-contact', pri: 3 });
+  if (ex.followup2Date) events.push({ date: ex.followup2Date, label: 'Follow-up #2', sub: '', cls: 'tl-contact', pri: 3 });
+  if (ex.interviewDate) events.push({ date: ex.interviewDate, label: 'Interview scheduled', sub: '', cls: 'tl-intv', pri: 4 });
   if (ex.status === 'Interviewed' || ex.status === 'Hired') {
     var intResult = ex.status === 'Hired' ? 'Passed' : 'Completed';
-    events.push({ date: ex.interviewDate || contactDate || '', label: 'Interview completed', sub: intResult, cls: 'tl-intv' });
+    events.push({ date: ex.interviewDate || contactDate || '', label: 'Interview completed', sub: intResult, cls: 'tl-intv', pri: 5 });
   }
-  if (hiredDate) events.push({ date: hiredDate, label: 'Hired', sub: escHtml(jo ? (jo.company||'') : (p.company||'')), cls: 'tl-hired' });
-  events.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if (hiredDate) events.push({ date: hiredDate, label: 'Hired', sub: escHtml(jo ? (jo.company||'') : (p.company||'')), cls: 'tl-hired', pri: 6 });
+  // Sort oldest→newest; same-day events use logical priority as tiebreaker
+  events.sort(function(a,b){
+    var dc = (a.date||'').localeCompare(b.date||'');
+    return dc !== 0 ? dc : (a.pri||0) - (b.pri||0);
+  });
   var tlHTML = events.length ? '<div class="hired-section-label">Timeline</div><div class="hired-tl">' +
     events.map(function(ev){
       return '<div class="hired-tl-item">' +
@@ -4056,7 +4060,7 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
   if (ex.notes) activities.push({ ts: ex.lastContacted || addedDate || '', text: ex.notes, src: 'Placement (' + p.jobOrderId + ')' });
   if (hireData.notes) activities.push({ ts: hiredDate || '', text: hireData.notes, src: 'Hire Note' });
   if (jo && jo.otherNotes) activities.push({ ts: '', text: jo.otherNotes, src: 'JO Notes' });
-  activities.sort(function(a,b){ return (b.ts||'').localeCompare(a.ts||''); });
+  activities.sort(function(a,b){ return (a.ts||'').localeCompare(b.ts||''); });
   var actHTML = activities.length ? '<div class="hired-section-label">Activity &amp; Notes</div>' +
     activities.map(function(a){
       return '<div class="activity-item">' +
