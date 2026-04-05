@@ -4733,41 +4733,73 @@ function closeSyncModal() {
   document.getElementById('sync-setup-modal').classList.remove('open');
 }
 
-async function saveSyncConfig() {
+function _syncSaveInputs() {
   const dbUrl  = document.getElementById('sync-db-url').value.trim();
   const secret = document.getElementById('sync-secret').value.trim();
-  const result = document.getElementById('sync-test-result');
-  if (!dbUrl) { result.style.color = 'var(--orange)'; result.textContent = 'Please enter your Firebase Database URL.'; return; }
-  localStorage.setItem('firebase_db_url', dbUrl);
+  if (dbUrl) localStorage.setItem('firebase_db_url', dbUrl);
   if (secret) localStorage.setItem('firebase_secret', secret);
-  result.style.color = 'var(--text3)';
-  result.textContent = 'Testing connection…';
-  try {
-    const base = dbUrl.replace(/\/$/, '');
-    const auth = secret ? '?auth=' + encodeURIComponent(secret) : '';
-    const res = await fetch(base + '/jobsearchph.json' + auth);
-    if (!res.ok) throw new Error('HTTP ' + res.status + ' — check your URL and secret');
-    const existing = await res.json();
+  else localStorage.removeItem('firebase_secret');
+}
 
-    // If Firebase already has data → pull to this device (phone, new browser, etc.)
-    // If Firebase is empty → this is first setup, push local data up
+function _syncResult(msg, color) {
+  const el = document.getElementById('sync-test-result');
+  if (!el) return;
+  el.style.color = color || 'var(--text2)';
+  el.textContent = msg;
+}
+
+async function saveSyncConfig() {
+  _syncSaveInputs();
+  const dbUrl = localStorage.getItem('firebase_db_url');
+  if (!dbUrl) { _syncResult('Please enter your Firebase Database URL.', 'var(--orange)'); return; }
+  const url = getFirebaseUrl('');
+  _syncResult('Connecting to:\n' + url.replace(/\?auth=.*/, '?auth=***'), 'var(--text3)');
+  try {
+    const res = await fetch(url);
+    const body = await res.text();
+    if (!res.ok) {
+      _syncResult('❌ HTTP ' + res.status + '\n' + body, 'var(--red)');
+      return;
+    }
+    let existing = null;
+    try { existing = JSON.parse(body); } catch(e) {}
     const hasCloudData = existing && typeof existing === 'object' && Object.keys(existing).length > 0;
     if (hasCloudData) {
-      result.style.color = 'var(--green)';
-      result.textContent = 'Connected! Loading data from cloud…';
+      _syncResult('✅ Connected — found cloud data. Downloading now…', 'var(--green)');
       await loadFromFirebase();
-      result.textContent = 'Done! Data loaded from cloud onto this device.';
+      _syncResult('✅ Done! Data downloaded to this device.', 'var(--green)');
     } else {
-      result.style.color = 'var(--green)';
-      result.textContent = 'Connected! Uploading your data to cloud…';
+      _syncResult('✅ Connected — cloud is empty. Uploading local data…', 'var(--green)');
       await pushAllToFirebase();
-      result.textContent = 'Done! All data uploaded to cloud.';
+      _syncResult('✅ Done! Data uploaded to cloud.', 'var(--green)');
     }
-    setTimeout(closeSyncModal, 2000);
   } catch(e) {
-    result.style.color = 'var(--red)';
-    result.textContent = 'Error: ' + e.message + '. Double-check your URL and secret.';
-    console.error('Sync setup error:', e);
+    _syncResult('❌ ' + e.message, 'var(--red)');
+    console.error('Sync connect error:', e);
+  }
+}
+
+async function syncForcePush() {
+  _syncSaveInputs();
+  if (!localStorage.getItem('firebase_db_url')) { _syncResult('Enter your Firebase URL first.', 'var(--orange)'); return; }
+  _syncResult('Uploading all local data to cloud…', 'var(--text3)');
+  try {
+    await pushAllToFirebase();
+    _syncResult('✅ Upload complete!', 'var(--green)');
+  } catch(e) {
+    _syncResult('❌ Upload failed: ' + e.message, 'var(--red)');
+  }
+}
+
+async function syncForcePull() {
+  _syncSaveInputs();
+  if (!localStorage.getItem('firebase_db_url')) { _syncResult('Enter your Firebase URL first.', 'var(--orange)'); return; }
+  _syncResult('Downloading data from cloud…', 'var(--text3)');
+  try {
+    await loadFromFirebase();
+    _syncResult('✅ Download complete! Data refreshed.', 'var(--green)');
+  } catch(e) {
+    _syncResult('❌ Download failed: ' + e.message, 'var(--red)');
   }
 }
 
@@ -4800,28 +4832,19 @@ loadAll().then(() => loadFromFirebase());
 <!-- ─── CLOUD SYNC SETUP MODAL ─── -->
 <div class="sync-modal-overlay" id="sync-setup-modal" onclick="if(event.target===this)closeSyncModal()">
   <div class="sync-modal">
-    <h3>☁️ Cloud Sync Setup</h3>
-    <p class="sync-modal-sub">Syncs all data (ratings, notes, placements, blacklist) to Firebase so you can open the dashboard on your phone or another device and see everything.</p>
-    <div class="sync-instructions">
-      <strong>One-time setup (free, ~3 min):</strong>
-      <ol>
-        <li>Go to <strong>console.firebase.google.com</strong> → sign in with Google</li>
-        <li>Click <strong>Create a project</strong> → give it any name → Continue</li>
-        <li>Left menu: <strong>Build → Realtime Database → Create Database</strong></li>
-        <li>Choose any location → select <strong>Start in test mode</strong> → Enable</li>
-        <li>Copy the URL shown (looks like <em>https://your-project-default-rtdb.firebaseio.com</em>)</li>
-        <li>Left menu: ⚙ <strong>Project settings → Service accounts → Database secrets → Show → Copy</strong></li>
-      </ol>
-    </div>
+    <h3>☁️ Cloud Sync</h3>
+    <p class="sync-modal-sub">Enter your Firebase Realtime Database URL. Leave the secret blank if your database is in test mode.</p>
     <label>Firebase Database URL</label>
     <input type="url" id="sync-db-url" placeholder="https://your-project-default-rtdb.firebaseio.com" autocomplete="off" />
-    <label>Database Secret <span>(from Project Settings → Service Accounts → Database secrets)</span></label>
-    <input type="password" id="sync-secret" placeholder="Your database secret key" autocomplete="off" />
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-blue" style="flex:1" onclick="saveSyncConfig()">💾 Save & Connect</button>
-      <button class="btn btn-ghost" onclick="closeSyncModal()">Cancel</button>
+    <label>Database Secret <span>(optional — only if rules require auth)</span></label>
+    <input type="password" id="sync-secret" placeholder="Leave blank if using test mode" autocomplete="off" />
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+      <button class="btn btn-blue" style="flex:1;min-width:120px" onclick="saveSyncConfig()">🔗 Connect</button>
+      <button class="btn" style="flex:1;min-width:100px;background:var(--green);color:#fff;border-color:var(--green)" onclick="syncForcePush()">⬆ Upload</button>
+      <button class="btn" style="flex:1;min-width:100px;background:var(--accent);color:#fff;border-color:var(--accent)" onclick="syncForcePull()">⬇ Download</button>
+      <button class="btn btn-ghost" onclick="closeSyncModal()">✕</button>
     </div>
-    <div id="sync-test-result" style="margin-top:12px;font-size:12px;min-height:18px"></div>
+    <div id="sync-test-result" style="margin-top:12px;font-size:12px;min-height:18px;line-height:1.5;word-break:break-all;white-space:pre-wrap"></div>
   </div>
 </div>
 
