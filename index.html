@@ -213,7 +213,7 @@
 
   /* ─── FILTER BAR ─── */
   .filter-bar {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-start;
   }
 
   .filter-bar input, .filter-bar select {
@@ -235,6 +235,69 @@
   }
 
   .filter-bar select option { background: var(--card2); }
+  .candidate-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.35fr) minmax(240px, 1.6fr) repeat(4, minmax(150px, .9fr));
+    gap: 12px;
+    align-items: start;
+  }
+  .candidate-filter-bar .filter-control {
+    min-width: 0;
+  }
+  .candidate-filter-bar .filter-control-search {
+    grid-column: span 1;
+  }
+  .candidate-filter-bar .filter-control-types {
+    grid-column: span 1;
+  }
+  .candidate-filter-bar .filter-control select,
+  .candidate-filter-bar .filter-control input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .candidate-filter-bar .filter-control-types select[multiple] {
+    min-height: 152px;
+  }
+  .filter-help {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--text3);
+    line-height: 1.4;
+    padding-left: 2px;
+  }
+  .candidate-filter-secondary {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: -6px 0 20px;
+  }
+  .candidate-filter-summary {
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 600;
+  }
+  @media (max-width: 1180px) {
+    .candidate-filter-bar {
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+    }
+    .candidate-filter-bar .filter-control-search,
+    .candidate-filter-bar .filter-control-types {
+      grid-column: span 3;
+    }
+  }
+  @media (max-width: 760px) {
+    .candidate-filter-bar {
+      grid-template-columns: 1fr;
+    }
+    .candidate-filter-bar .filter-control-search,
+    .candidate-filter-bar .filter-control-types {
+      grid-column: span 1;
+    }
+    .candidate-filter-secondary {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
 
   /* ─── CARDS GRID ─── */
   .cards-grid {
@@ -1491,12 +1554,11 @@
     <div class="updates-bar" onclick="toggleUpdatesPanel()">
       <div class="updates-bar-dot"></div>
       <div class="updates-bar-label">Updates</div>
-      <div class="updates-bar-latest" id="updates-bar-latest">ERA Pre-Match Filter · Emoji-free UI · Active JO default view · Days to Hire from JO date</div>
-      <div class="updates-bar-date">Apr 2026</div>
+      <div class="updates-bar-latest" id="updates-bar-latest">Loading latest updates…</div>
+      <div class="updates-bar-date" id="updates-bar-date">—</div>
       <div class="updates-bar-chevron" id="updates-chevron">▾</div>
     </div>
     <div class="updates-body" id="updates-body">
-      <div class="updates-section-label">Past Updates</div>
       <div class="updates-timeline" id="updates-timeline"></div>
     </div>
   </div>
@@ -1522,33 +1584,49 @@
       <div class="section-title">Candidate Pool</div>
       <div class="badge" id="cand-count">0</div>
     </div>
-    <div class="filter-bar">
-      <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
-      <select id="cand-filter-type" multiple size="5" onchange="renderCandidates()" title="Select one or more job types. Leave empty to show all."></select>
-      <select id="cand-filter-location" onchange="renderCandidates()">
-        <option value="">All Locations</option>
-      </select>
-      <select id="cand-filter-status" onchange="renderCandidates()">
-        <option value="">All Statuses</option>
-        <option value="Verified">Verified</option>
-        <option value="Unverified">Unverified</option>
-      </select>
-      <select id="cand-filter-gender" onchange="renderCandidates()">
-        <option value="">All Genders</option>
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-      </select>
-      <select id="cand-filter-blacklist" onchange="renderCandidates()">
-        <option value="hide">Hide Blacklisted</option>
-        <option value="show">Show All</option>
-        <option value="only">Blacklisted Only</option>
-      </select>
+    <div class="filter-bar candidate-filter-bar">
+      <div class="filter-control filter-control-search">
+        <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
+      </div>
+      <div class="filter-control filter-control-types">
+        <select id="cand-filter-type" multiple size="5" onchange="renderCandidates()" title="Select one or more job types. Leave empty to show all."></select>
+        <div class="filter-help">Job Type: hold Cmd to pick multiple options.</div>
+      </div>
+      <div class="filter-control">
+        <select id="cand-filter-location" onchange="renderCandidates()">
+          <option value="">All Locations</option>
+        </select>
+      </div>
+      <div class="filter-control">
+        <select id="cand-filter-status" onchange="renderCandidates()">
+          <option value="">All Statuses</option>
+          <option value="Verified">Verified</option>
+          <option value="Unverified">Unverified</option>
+        </select>
+      </div>
+      <div class="filter-control">
+        <select id="cand-filter-gender" onchange="renderCandidates()">
+          <option value="">All Genders</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </div>
+      <div class="filter-control">
+        <select id="cand-filter-blacklist" onchange="renderCandidates()">
+          <option value="hide">Hide Blacklisted</option>
+          <option value="show">Show All</option>
+          <option value="only">Blacklisted Only</option>
+        </select>
+      </div>
+    </div>
+    <div class="candidate-filter-secondary">
       <select id="cand-filter-readiness" onchange="renderCandidates()">
         <option value="">All Readiness</option>
         <option value="ready">Ready to Send</option>
         <option value="needs_verification">Needs Verification</option>
         <option value="not_ready">Not Ready</option>
       </select>
+      <div class="candidate-filter-summary" id="cand-filter-summary">Showing active candidates only</div>
     </div>
     <div id="cand-error" class="error-msg hidden"></div>
     <div id="cand-container" class="cards-grid">
@@ -2867,8 +2945,11 @@ function renderCandidates() {
   const filterGender = document.getElementById('cand-filter-gender').value;
   const filterBl = document.getElementById('cand-filter-blacklist').value;
   const filterReadiness = document.getElementById('cand-filter-readiness').value;
+  const summaryEl = document.getElementById('cand-filter-summary');
+  const hiredIds = new Set(candidates.filter(c => isCandidateHired(c.id)).map(c => c.id));
 
   let filtered = candidates.filter(c => {
+    if (hiredIds.has(c.id)) return false;
     if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
     const candJobTypes = c.jobTypes?.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
     if (filterTypes.length && !filterTypes.some(type => candJobTypes.includes(type))) return false;
@@ -2891,6 +2972,11 @@ function renderCandidates() {
 
   document.getElementById('cand-count').textContent = filtered.length;
   const container = document.getElementById('cand-container');
+  if (summaryEl) {
+    const hiddenHired = hiredIds.size;
+    const selectedJobs = filterTypes.length ? `${filterTypes.length} job type${filterTypes.length > 1 ? 's' : ''}` : 'all job types';
+    summaryEl.textContent = `Showing ${filtered.length} active candidates · ${hiddenHired} hired hidden · Sorted highest rating first · ${selectedJobs}`;
+  }
 
   if (!filtered.length) {
     container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No candidates match your filters.</div>`;
@@ -2899,29 +2985,18 @@ function renderCandidates() {
 
   container.innerHTML = '';
 
-  if (filterReadiness === 'ready') {
-    // Sort by highest ERA, then most recently active
-    filtered.sort((a, b) => {
-      const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
-      if (scoreDiff !== 0) return scoreDiff;
-      const allP = [...placements, ...manualPlacements];
-      const getLastActive = id => {
-        const dates = allP.filter(p => p.candidateId === id).map(p => {
-          let ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId||p.candidateId)) || '{}'); } catch(e){}
-          return ex.lastContacted || p.date || '';
-        }).filter(Boolean);
-        return dates.sort().pop() || '';
-      };
-      return getLastActive(b.id).localeCompare(getLastActive(a.id));
-    });
-  } else {
-    // Default sort: Verified first, then by name
-    filtered.sort((a,b) => {
-      if (a.status === 'Verified' && b.status !== 'Verified') return -1;
-      if (b.status === 'Verified' && a.status !== 'Verified') return 1;
-      return a.name.localeCompare(b.name);
-    });
-  }
+  filtered.sort((a, b) => {
+    const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
+    if (scoreDiff !== 0) return scoreDiff;
+    const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
+    const readinessDiff = (readinessOrder[getCandReadiness(a.id).level] ?? 9) - (readinessOrder[getCandReadiness(b.id).level] ?? 9);
+    if (readinessDiff !== 0) return readinessDiff;
+    const verifiedDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
+    if (verifiedDiff !== 0) return verifiedDiff;
+    const lastActiveDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
+    if (lastActiveDiff !== 0) return lastActiveDiff;
+    return a.name.localeCompare(b.name);
+  });
 
   filtered.forEach(c => {
     container.appendChild(createCandCard(c));
@@ -3814,6 +3889,26 @@ function getEffectiveVerified(c) {
   return c.status === 'Verified' || isAutoVerified(c.id);
 }
 
+function isCandidateHired(candId) {
+  return [...placements, ...manualPlacements].some(p => {
+    if (p.candidateId !== candId) return false;
+    const ex = getExtra(p.placementId || p.candidateId);
+    return (ex.status || p.status) === 'Hired';
+  });
+}
+
+function getCandidateLastActive(candId) {
+  const dates = [...placements, ...manualPlacements]
+    .filter(p => p.candidateId === candId)
+    .map(p => {
+      const ex = getExtra(p.placementId || p.candidateId);
+      return ex.lastContacted || p.date || '';
+    })
+    .filter(Boolean)
+    .sort();
+  return dates.pop() || '';
+}
+
 // ═══════════════════════════════════════════════
 // ERA SCORING SYSTEM
 // Eligibility + Responsiveness + Attitude
@@ -4674,7 +4769,7 @@ const CHANGELOG = [
   },
   // ── LATEST ──
   {
-    type: 'latest', date: 'Apr 8 2026',
+    type: 'past', date: 'Apr 8 2026',
     title: 'ERA Pre-Match Filter + UI Overhaul',
     items: [
       'ERA rebuilt as Pre-Match Readiness Filter — no more job/location matching in ERA',
@@ -4689,6 +4784,17 @@ const CHANGELOG = [
       'Stat bar icons replaced with color-coded letter badges',
       'Job Orders tab defaults to Active — fulfilled/cancelled hidden by default',
       'Days to Hire now measures JO placement date to fulfillment date',
+    ]
+  },
+  {
+    type: 'latest', date: 'Apr 8 2026',
+    title: 'Candidate Pool Cleanup + Live Update Feed',
+    items: [
+      'Candidates filter bar cleaned up for a more organized layout',
+      'Hired candidates are now hidden from the Candidates tab and kept in the Hired tab',
+      'Candidate cards now sort highest ERA score first, with stronger candidates at the top',
+      'Multi-job-type filtering stays active without stretching the whole filter row',
+      'Updates bar and release panel now read automatically from the newest changelog entry',
     ]
   },
   // ── UPCOMING ──
@@ -4727,19 +4833,22 @@ const CHANGELOG = [
 function buildUpdatesTimeline() {
   const tl = document.getElementById('updates-timeline');
   if (!tl) return;
-  const past   = CHANGELOG.filter(e => e.type === 'past');
-  const latest = CHANGELOG.filter(e => e.type === 'latest');
+  const past   = CHANGELOG.filter(e => e.type === 'past').sort(sortUpdatesDesc);
+  const latest = CHANGELOG.filter(e => e.type === 'latest').sort(sortUpdatesDesc);
   const future = CHANGELOG.filter(e => e.type === 'future');
 
   let html = '';
 
-  past.forEach(e => {
-    html += renderUpdateEntry(e);
-  });
-
   if (latest.length) {
-    html += `<div class="updates-section-label" style="margin-top:18px">Latest Release</div>`;
+    html += `<div class="updates-section-label">Latest Release</div>`;
     latest.forEach(e => { html += renderUpdateEntry(e); });
+  }
+
+  if (past.length) {
+    html += `<div class="updates-section-label" style="margin-top:18px">Past Updates</div>`;
+    past.forEach(e => {
+      html += renderUpdateEntry(e);
+    });
   }
 
   if (future.length) {
@@ -4748,6 +4857,33 @@ function buildUpdatesTimeline() {
   }
 
   tl.innerHTML = html;
+}
+
+function parseUpdateDate(dateStr) {
+  const parsed = Date.parse(dateStr || '');
+  if (!Number.isNaN(parsed)) return parsed;
+  const monthOnly = Date.parse(`${dateStr || ''} 1`);
+  if (!Number.isNaN(monthOnly)) return monthOnly;
+  return 0;
+}
+
+function sortUpdatesDesc(a, b) {
+  return parseUpdateDate(b.date) - parseUpdateDate(a.date);
+}
+
+function getLatestUpdateEntry() {
+  return [...CHANGELOG]
+    .filter(e => e.type !== 'future')
+    .sort(sortUpdatesDesc)[0] || null;
+}
+
+function refreshUpdatesBar() {
+  const latest = getLatestUpdateEntry();
+  const latestEl = document.getElementById('updates-bar-latest');
+  const dateEl = document.getElementById('updates-bar-date');
+  if (!latestEl || !dateEl || !latest) return;
+  latestEl.textContent = latest.items.slice(0, 4).join(' · ');
+  dateEl.textContent = latest.date || '—';
 }
 
 function renderUpdateEntry(e) {
@@ -4772,6 +4908,7 @@ function toggleUpdatesPanel() {
 }
 
 function initUpdatesPanel() {
+  refreshUpdatesBar();
   const wasOpen = localStorage.getItem('updates_panel_open') === '1';
   if (wasOpen) {
     document.getElementById('updates-body').classList.add('open');
