@@ -1885,18 +1885,37 @@ async function loadAll() {
       if (l.includes('iloilo')) return 'Iloilo City';
       if (l.includes('cebu')) return 'Cebu City';
       if (l.includes('manila') || l.includes('metro')) return 'Metro Manila';
-      return loc.trim().split(',')[0].trim(); // take first part before comma
+      // Location cleanup: case + variant merges
+      if (l.includes('anywhere') || l === 'anywhere po') return 'Anywhere in Negros Occidental';
+      if (l.includes('within negros')) return 'Within Negros';
+      if (l.includes('murcia')) return 'Murcia';
+      return loc.trim().split(',')[0].trim();
+    };
+
+    // Shared job-type normalizer (applied after splitting by comma)
+    const normJobTypeValue = val => {
+      if (!val) return '';
+      const v = val.trim();
+      const vl = v.toLowerCase();
+      // Employment-type entries → unified label
+      if (vl.includes('full time') || vl.includes('fulltime') || vl.includes('part time') ||
+          vl.includes('partime') || vl.includes('kahit ano')) return 'Full Time / Part Time';
+      // Role merges
+      if (vl === 'housekeeping' || vl === 'sulod balay') return 'Housekeeper / Household Helper';
+      if (vl.includes('housekeeper') || vl.includes('household helper')) return 'Housekeeper / Household Helper';
+      if (vl === 'kitchen staff') return 'Cook / Kitchen Staff';
+      if (vl.includes('cook') || vl.includes('kitchen')) return 'Cook / Kitchen Staff';
+      if (vl === 'sales lady' || vl === 'saleslady') return 'Sales Agent / Promodiser';
+      // Preferences entered as job type — not a valid job type, drop
+      if (vl.startsWith('if may') || vl.startsWith('kung may') || vl.includes('overtime ok')) return '';
+      return v;
     };
 
     // Job type normalization: take first type if multiple listed
     const normJobType = jt => {
       if (!jt) return '';
-      // Take first meaningful option before comma
       const first = jt.split(',')[0].trim();
-      // Clean up common duplicates/noise
-      if (first.toLowerCase().includes('full time') || first.toLowerCase() === 'full time') return 'Full Time';
-      if (first.toLowerCase().includes('part time') || first.toLowerCase() === 'part time') return 'Part Time';
-      return first;
+      return normJobTypeValue(first);
     };
 
     // Enhanced normLoc: strip "Anywhere", "Negros Occidental", raw barangays
