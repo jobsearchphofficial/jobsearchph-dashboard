@@ -227,6 +227,12 @@
     border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,0.10);
   }
   .filter-bar input { flex: 1; min-width: 200px; }
+  .filter-bar select[multiple] {
+    min-width: 200px; min-height: 112px; padding: 10px 12px;
+  }
+  .filter-bar select[multiple] option {
+    padding: 6px 8px; border-radius: 6px;
+  }
 
   .filter-bar select option { background: var(--card2); }
 
@@ -1518,9 +1524,7 @@
     </div>
     <div class="filter-bar">
       <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
-      <select id="cand-filter-type" onchange="renderCandidates()">
-        <option value="">All Job Types</option>
-      </select>
+      <select id="cand-filter-type" multiple size="5" onchange="renderCandidates()" title="Select one or more job types. Leave empty to show all."></select>
       <select id="cand-filter-location" onchange="renderCandidates()">
         <option value="">All Locations</option>
       </select>
@@ -1911,12 +1915,18 @@ async function loadAll() {
       return v;
     };
 
-    // Job type normalization: take first type if multiple listed
-    const normJobType = jt => {
-      if (!jt) return '';
-      const first = jt.split(',')[0].trim();
-      return normJobTypeValue(first);
+    const normJobTypeValues = jt => {
+      if (!jt) return [];
+      return [...new Set(
+        jt.split(',')
+          .map(s => normJobTypeValue(s))
+          .map(s => s.trim())
+          .filter(Boolean)
+      )];
     };
+
+    // Keep a single primary job type for legacy UI paths
+    const normJobType = jt => normJobTypeValues(jt)[0] || '';
 
     // Enhanced normLoc: strip "Anywhere", "Negros Occidental", raw barangays
     const normLocCity = loc => {
@@ -1943,23 +1953,14 @@ async function loadAll() {
       return firstPart;
     };
 
-    // Single job type: take latest (last) if multiple
-    const normJobTypeSingle = jt => {
-      if (!jt) return '';
-      const parts = jt.split(',').map(s => s.trim()).filter(Boolean);
-      const last = parts[parts.length - 1] || '';
-      if (last.toLowerCase() === 'full time' || last.toLowerCase().includes('full time')) return 'Full Time';
-      if (last.toLowerCase() === 'part time' || last.toLowerCase().includes('part time')) return 'Part Time';
-      return last;
-    };
-
     candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => {
       const ageRaw = r[4] || '';
       const ageInt = parseInt(ageRaw) || 0;
       const pastJobs = r[12] || '';
       const experienceFlag = pastJobs.length > 10 ? 'yes' : 'no';
       const cityFormatted = normLocCity(r[9] || '');
-      const jobTypeFormatted = normJobTypeSingle(r[7] || '');
+      const jobTypes = normJobTypeValues(r[7] || '');
+      const jobTypeFormatted = jobTypes.join(', ');
       return {
         id: r[0].trim() || '',
         timestamp: r[1] || '',
@@ -1969,7 +1970,8 @@ async function loadAll() {
         ageInt,
         phone: r[5] || '',
         email: r[6] || '',
-        jobType: normJobType(r[7] || ''),
+        jobType: jobTypes[0] || '',
+        jobTypes,
         jobTypeFormatted,
         jobTypeRaw: r[7] || '',
         skills: r[8] || '',
@@ -2845,21 +2847,21 @@ function saveNote(key, val) {
 // CANDIDATES
 // ═══════════════════════════════════════════════
 function populateFilterDropdowns() {
-  const types = [...new Set(candidates.map(c=>c.jobType).filter(Boolean))].sort();
+  const types = [...new Set(candidates.flatMap(c => c.jobTypes?.length ? c.jobTypes : (c.jobType ? [c.jobType] : [])).filter(Boolean))].sort();
   const locs = [...new Set(candidates.map(c=>c.location).filter(Boolean))].sort();
 
   const typeEl = document.getElementById('cand-filter-type');
   const locEl = document.getElementById('cand-filter-location');
-  const curType = typeEl.value;
+  const curTypes = Array.from(typeEl.selectedOptions).map(opt => opt.value);
   const curLoc = locEl.value;
 
-  typeEl.innerHTML = '<option value="">All Job Types</option>' + types.map(t=>`<option${t===curType?' selected':''}>${t}</option>`).join('');
+  typeEl.innerHTML = types.map(t=>`<option value="${escAttr(t)}"${curTypes.includes(t)?' selected':''}>${escHtml(t)}</option>`).join('');
   locEl.innerHTML = '<option value="">All Locations</option>' + locs.map(l=>`<option${l===curLoc?' selected':''}>${l}</option>`).join('');
 }
 
 function renderCandidates() {
   const search = document.getElementById('cand-search').value.toLowerCase();
-  const filterType = document.getElementById('cand-filter-type').value;
+  const filterTypes = Array.from(document.getElementById('cand-filter-type').selectedOptions).map(opt => opt.value).filter(Boolean);
   const filterLoc = document.getElementById('cand-filter-location').value;
   const filterStatus = document.getElementById('cand-filter-status').value;
   const filterGender = document.getElementById('cand-filter-gender').value;
@@ -2868,7 +2870,8 @@ function renderCandidates() {
 
   let filtered = candidates.filter(c => {
     if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
-    if (filterType && c.jobType !== filterType) return false;
+    const candJobTypes = c.jobTypes?.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
+    if (filterTypes.length && !filterTypes.some(type => candJobTypes.includes(type))) return false;
     if (filterLoc && c.location !== filterLoc) return false;
     if (filterStatus === 'Verified' && !getEffectiveVerified(c)) return false;
     if (filterStatus === 'Unverified' && getEffectiveVerified(c)) return false;
@@ -2968,7 +2971,7 @@ function createCandCard(c) {
     <div class="cand-details">
       <div class="cand-detail"><span class="cand-detail-label">Age</span><span class="cand-detail-val">${escHtml(c.age)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Gender</span><span class="cand-detail-val">${escHtml(c.gender)}</span></div>
-      <div class="cand-detail"><span class="cand-detail-label">Job Type</span><span class="cand-detail-val">${escHtml(c.jobType)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Job Type</span><span class="cand-detail-val">${escHtml(c.jobTypeFormatted || c.jobType)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Location</span><span class="cand-detail-val">${escHtml(c.location)}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Registered</span><span class="cand-detail-val">${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</span></div>
       <div class="cand-detail" style="grid-column:1/-1">
@@ -4085,7 +4088,7 @@ function initCandAutofill() {
     dropdown.innerHTML = matches.map(c => `
       <div class="autofill-item" onclick="selectAutofillCand('${escAttr(c.id)}','${escAttr(c.name)}','${escAttr(c.phone||'')}')">
         <div style="font-weight:600">${escHtml(c.name)}</div>
-        <div style="font-size:10px;color:var(--text3)">${escHtml(c.id)} · ${escHtml(c.jobType)} · ${escHtml(c.location)}</div>
+        <div style="font-size:10px;color:var(--text3)">${escHtml(c.id)} · ${escHtml(c.jobTypeFormatted || c.jobType)} · ${escHtml(c.location)}</div>
       </div>
     `).join('');
     dropdown.style.display = 'block';
