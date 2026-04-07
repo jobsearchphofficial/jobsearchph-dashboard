@@ -1340,6 +1340,69 @@
   .sync-instructions { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 12px; color: var(--text2); line-height: 1.7; }
   .sync-instructions strong { color: var(--text); }
   .sync-instructions ol { margin: 6px 0 0 16px; padding: 0; }
+
+  /* ═══ UPDATES PANEL ═══ */
+  .updates-panel {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; margin: 0 0 20px; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .updates-bar {
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+    cursor: pointer; user-select: none; transition: background .15s;
+  }
+  .updates-bar:hover { background: var(--card2); }
+  .updates-bar-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    flex-shrink: 0; box-shadow: 0 0 0 3px rgba(23,85,237,.18);
+  }
+  .updates-bar-label { font-size: 12px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .updates-bar-latest { flex: 1; font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .updates-bar-date { font-size: 11px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; }
+  .updates-bar-chevron { font-size: 11px; color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+  .updates-bar-chevron.open { transform: rotate(180deg); }
+  .updates-body { display: none; padding: 0 18px 18px; }
+  .updates-body.open { display: block; }
+  .updates-timeline { position: relative; padding-left: 22px; }
+  .updates-timeline::before {
+    content: ''; position: absolute; left: 6px; top: 6px; bottom: 6px;
+    width: 1px; background: var(--border2);
+  }
+  .updates-entry { position: relative; margin-bottom: 20px; }
+  .updates-entry:last-child { margin-bottom: 0; }
+  .updates-entry-dot {
+    position: absolute; left: -19px; top: 4px;
+    width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--card);
+    flex-shrink: 0;
+  }
+  .ue-past   .updates-entry-dot { background: var(--text3); }
+  .ue-latest .updates-entry-dot { background: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,.2); }
+  .ue-future .updates-entry-dot { background: var(--card); border-color: var(--border2); border-style: dashed; }
+  .updates-entry-date {
+    font-size: 10px; font-weight: 700; font-family: var(--mono);
+    letter-spacing: .4px; margin-bottom: 3px;
+  }
+  .ue-past   .updates-entry-date { color: var(--text3); }
+  .ue-latest .updates-entry-date { color: var(--accent); }
+  .ue-future .updates-entry-date { color: var(--text3); font-style: italic; }
+  .updates-entry-title {
+    font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+  }
+  .ue-future .updates-entry-title { color: var(--text2); }
+  .updates-entry-items { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .updates-entry-items li {
+    font-size: 12px; color: var(--text2); padding-left: 14px; position: relative; line-height: 1.5;
+  }
+  .updates-entry-items li::before {
+    content: '—'; position: absolute; left: 0; color: var(--text3); font-size: 10px;
+  }
+  .ue-future .updates-entry-items li { color: var(--text3); }
+  .ue-latest .updates-entry-title { color: var(--accent); }
+  .updates-section-label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--text3); margin: 14px 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
 </style>
 </head>
 <body>
@@ -1416,6 +1479,21 @@
 
 <!-- ─── MAIN ─── -->
 <main>
+
+  <!-- ═══ UPDATES PANEL ═══ -->
+  <div class="updates-panel" id="updates-panel">
+    <div class="updates-bar" onclick="toggleUpdatesPanel()">
+      <div class="updates-bar-dot"></div>
+      <div class="updates-bar-label">Updates</div>
+      <div class="updates-bar-latest" id="updates-bar-latest">ERA Pre-Match Filter · Emoji-free UI · Active JO default view · Days to Hire from JO date</div>
+      <div class="updates-bar-date">Apr 2026</div>
+      <div class="updates-bar-chevron" id="updates-chevron">▾</div>
+    </div>
+    <div class="updates-body" id="updates-body">
+      <div class="updates-section-label">Past Updates</div>
+      <div class="updates-timeline" id="updates-timeline"></div>
+    </div>
+  </div>
 
   <!-- ═══ TAB: JOBS ═══ -->
   <div class="tab-content active" id="tab-jobs">
@@ -1979,6 +2057,7 @@ async function loadAll() {
   populateMatcherDropdown();
   populateFilterDropdowns();
   updateTimestamp();
+  initUpdatesPanel();
 }
 
 function loadingHTML(msg) {
@@ -4496,6 +4575,181 @@ function switchTab(tab) {
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
   if (tab === 'hired') renderHiredTab();
   if (tab === 'templates') renderTemplatesTab();
+}
+
+// ═══════════════════════════════════════════════
+// UPDATES PANEL
+// ═══════════════════════════════════════════════
+const CHANGELOG = [
+  // ── PAST ──
+  {
+    type: 'past', date: 'Nov 2024',
+    title: 'Initial Launch',
+    items: [
+      'Job Orders tab with candidate placement rows',
+      'Candidates tab with profile cards',
+      'Basic ERA rating system',
+      'Google Sheets CSV data source (read-only)',
+      'localStorage persistence for all edits',
+    ]
+  },
+  {
+    type: 'past', date: 'Dec 2024',
+    title: 'Candidate Management',
+    items: [
+      'Candidate Profile modal with full details',
+      'Blacklist system with reason and notes',
+      'Verified / Unverified status tracking',
+      'Document submission tracking (Brgy, Police, NBI, ID, Resume)',
+    ]
+  },
+  {
+    type: 'past', date: 'Jan 2025',
+    title: 'Quick Add + Templates',
+    items: [
+      'Quick Add Candidate form (separate page)',
+      'Message Templates tab with Taglish scripts',
+      'Full job description collapsible section on Job Orders',
+    ]
+  },
+  {
+    type: 'past', date: 'Feb 2025',
+    title: 'Hired Tab + Timeline',
+    items: [
+      'Hired tab with fee tracking and 30-day guarantee countdown',
+      'Timeline and placement summary in expanded hired view',
+      'Fee status: Paid / Pending / Waived',
+      'Issue reporting for replacement tracking',
+    ]
+  },
+  {
+    type: 'past', date: 'Mar 2025',
+    title: 'Cloud Sync + AI Matcher',
+    items: [
+      'Firebase cloud sync — access data on any device',
+      'Force push / pull controls in sync modal',
+      'AI Matcher tab using Claude claude-sonnet-4-6',
+      'Candidate readiness badge and last contacted in profile',
+      'JO Activity section in candidate profile',
+    ]
+  },
+  {
+    type: 'past', date: 'Mar 2025',
+    title: 'ERA Scoring System',
+    items: [
+      'ERA pillars: Eligibility, Responsiveness, Attitude',
+      'Document confidence indicator',
+      'Behavior flags panel with toggleable signals',
+      'Auto-verified status via document submission',
+      'Quality flags for AI Matcher context',
+    ]
+  },
+  // ── LATEST ──
+  {
+    type: 'latest', date: 'Apr 8 2026',
+    title: 'ERA Pre-Match Filter + UI Overhaul',
+    items: [
+      'ERA rebuilt as Pre-Match Readiness Filter — no more job/location matching in ERA',
+      'Readiness Gate: Valid ID + R signal + Passed Screening required',
+      'New status system: Not Ready / Needs Verification / Ready for Matching',
+      'Auto-tags: Ready, No Response, High Potential applied to candidate cards',
+      'Ready to Send filter in Candidates tab — sorts by ERA then last active',
+      'Document Confidence: Incomplete / Partial / Complete shown on docs header',
+      'Daily Reminder banner removed — tracking now via profiles and JO rows',
+      'Last Contacted in profile now shows date + contact method',
+      'All emojis removed — clean professional layout throughout',
+      'Stat bar icons replaced with color-coded letter badges',
+      'Job Orders tab defaults to Active — fulfilled/cancelled hidden by default',
+      'Days to Hire now measures JO placement date to fulfillment date',
+    ]
+  },
+  // ── UPCOMING ──
+  {
+    type: 'future', date: 'Upcoming',
+    title: 'Data Persistence',
+    items: [
+      'Firebase / Supabase full sync — no data loss on cache clear',
+      'Multi-device real-time sync across staff accounts',
+      'Backup and restore to JSON',
+    ]
+  },
+  {
+    type: 'future', date: 'Upcoming',
+    title: 'Analytics Dashboard',
+    items: [
+      'Placement conversion rates per job type',
+      'Average days to hire by position',
+      'Monthly revenue from placement fees',
+      'Top performing candidates and job orders',
+    ]
+  },
+  {
+    type: 'future', date: 'Upcoming',
+    title: 'Operations Improvements',
+    items: [
+      'Add candidate manually from Candidates tab',
+      'Browser push notifications for follow-up due dates',
+      'Employer profiles with hiring history',
+      'Export to PDF / Excel (placement certificates, reports)',
+      'Mobile-first redesign',
+    ]
+  },
+];
+
+function buildUpdatesTimeline() {
+  const tl = document.getElementById('updates-timeline');
+  if (!tl) return;
+  const past   = CHANGELOG.filter(e => e.type === 'past');
+  const latest = CHANGELOG.filter(e => e.type === 'latest');
+  const future = CHANGELOG.filter(e => e.type === 'future');
+
+  let html = '';
+
+  past.forEach(e => {
+    html += renderUpdateEntry(e);
+  });
+
+  if (latest.length) {
+    html += `<div class="updates-section-label" style="margin-top:18px">Latest Release</div>`;
+    latest.forEach(e => { html += renderUpdateEntry(e); });
+  }
+
+  if (future.length) {
+    html += `<div class="updates-section-label" style="margin-top:18px">Planned Updates</div>`;
+    future.forEach(e => { html += renderUpdateEntry(e); });
+  }
+
+  tl.innerHTML = html;
+}
+
+function renderUpdateEntry(e) {
+  const cls = 'updates-entry ue-' + e.type;
+  const items = e.items.map(i => `<li>${escHtml(i)}</li>`).join('');
+  return `<div class="${cls}">
+    <div class="updates-entry-dot"></div>
+    <div class="updates-entry-date">${escHtml(e.date)}</div>
+    <div class="updates-entry-title">${escHtml(e.title)}</div>
+    <ul class="updates-entry-items">${items}</ul>
+  </div>`;
+}
+
+function toggleUpdatesPanel() {
+  const body    = document.getElementById('updates-body');
+  const chevron = document.getElementById('updates-chevron');
+  const isOpen  = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chevron.classList.toggle('open', !isOpen);
+  try { localStorage.setItem('updates_panel_open', !isOpen ? '1' : '0'); } catch(e){}
+  if (!isOpen) buildUpdatesTimeline();
+}
+
+function initUpdatesPanel() {
+  const wasOpen = localStorage.getItem('updates_panel_open') === '1';
+  if (wasOpen) {
+    document.getElementById('updates-body').classList.add('open');
+    document.getElementById('updates-chevron').classList.add('open');
+    buildUpdatesTimeline();
+  }
 }
 
 // ═══════════════════════════════════════════════
