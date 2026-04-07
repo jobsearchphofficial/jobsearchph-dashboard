@@ -2938,69 +2938,90 @@ function populateFilterDropdowns() {
 }
 
 function renderCandidates() {
-  const search = document.getElementById('cand-search').value.toLowerCase();
-  const filterTypes = Array.from(document.getElementById('cand-filter-type').selectedOptions).map(opt => opt.value).filter(Boolean);
-  const filterLoc = document.getElementById('cand-filter-location').value;
-  const filterStatus = document.getElementById('cand-filter-status').value;
-  const filterGender = document.getElementById('cand-filter-gender').value;
-  const filterBl = document.getElementById('cand-filter-blacklist').value;
-  const filterReadiness = document.getElementById('cand-filter-readiness').value;
-  const summaryEl = document.getElementById('cand-filter-summary');
-  const hiredIds = new Set(candidates.filter(c => isCandidateHired(c.id)).map(c => c.id));
-
-  let filtered = candidates.filter(c => {
-    if (hiredIds.has(c.id)) return false;
-    if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
-    const candJobTypes = c.jobTypes?.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
-    if (filterTypes.length && !filterTypes.some(type => candJobTypes.includes(type))) return false;
-    if (filterLoc && c.location !== filterLoc) return false;
-    if (filterStatus === 'Verified' && !getEffectiveVerified(c)) return false;
-    if (filterStatus === 'Unverified' && getEffectiveVerified(c)) return false;
-    if (filterStatus && filterStatus !== 'Verified' && filterStatus !== 'Unverified' && c.status !== filterStatus) return false;
-    if (filterGender && c.gender !== filterGender) return false;
-    const isBlacklisted = !!blacklist[c.id];
-    if (filterBl === 'hide' && isBlacklisted) return false;
-    if (filterBl === 'only' && !isBlacklisted) return false;
-    if (filterReadiness) {
-      const rl = getCandReadiness(c.id).level;
-      if (filterReadiness === 'ready' && rl !== 'Ready for Matching') return false;
-      if (filterReadiness === 'needs_verification' && rl !== 'Needs Verification') return false;
-      if (filterReadiness === 'not_ready' && rl !== 'Not Ready') return false;
-    }
-    return true;
-  });
-
-  document.getElementById('cand-count').textContent = filtered.length;
   const container = document.getElementById('cand-container');
-  if (summaryEl) {
-    const hiddenHired = hiredIds.size;
-    const selectedJobs = filterTypes.length ? `${filterTypes.length} job type${filterTypes.length > 1 ? 's' : ''}` : 'all job types';
-    summaryEl.textContent = `Showing ${filtered.length} active candidates · ${hiddenHired} hired hidden · Sorted highest rating first · ${selectedJobs}`;
+  const summaryEl = document.getElementById('cand-filter-summary');
+  try {
+    const search = String(document.getElementById('cand-search')?.value || '').toLowerCase();
+    const filterTypes = Array.from(document.getElementById('cand-filter-type')?.selectedOptions || []).map(opt => opt.value).filter(Boolean);
+    const filterLoc = document.getElementById('cand-filter-location')?.value || '';
+    const filterStatus = document.getElementById('cand-filter-status')?.value || '';
+    const filterGender = document.getElementById('cand-filter-gender')?.value || '';
+    const filterBl = document.getElementById('cand-filter-blacklist')?.value || 'hide';
+    const filterReadiness = document.getElementById('cand-filter-readiness')?.value || '';
+    const hiredIds = new Set((candidates || []).filter(c => c?.id && isCandidateHired(c.id)).map(c => c.id));
+
+    let filtered = (candidates || []).filter(c => {
+      if (!c || !c.id) return false;
+      if (hiredIds.has(c.id)) return false;
+      const name = String(c.name || '').toLowerCase();
+      const id = String(c.id || '').toLowerCase();
+      if (search && !name.includes(search) && !id.includes(search)) return false;
+      const candJobTypes = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
+      if (filterTypes.length && !filterTypes.some(type => candJobTypes.includes(type))) return false;
+      if (filterLoc && (c.location || '') !== filterLoc) return false;
+      if (filterStatus === 'Verified' && !getEffectiveVerified(c)) return false;
+      if (filterStatus === 'Unverified' && getEffectiveVerified(c)) return false;
+      if (filterStatus && filterStatus !== 'Verified' && filterStatus !== 'Unverified' && (c.status || '') !== filterStatus) return false;
+      if (filterGender && (c.gender || '') !== filterGender) return false;
+      const isBlacklisted = !!blacklist[c.id];
+      if (filterBl === 'hide' && isBlacklisted) return false;
+      if (filterBl === 'only' && !isBlacklisted) return false;
+      if (filterReadiness) {
+        const rl = getCandReadiness(c.id).level;
+        if (filterReadiness === 'ready' && rl !== 'Ready for Matching') return false;
+        if (filterReadiness === 'needs_verification' && rl !== 'Needs Verification') return false;
+        if (filterReadiness === 'not_ready' && rl !== 'Not Ready') return false;
+      }
+      return true;
+    });
+
+    document.getElementById('cand-count').textContent = filtered.length;
+    if (summaryEl) {
+      const hiddenHired = hiredIds.size;
+      const selectedJobs = filterTypes.length ? `${filterTypes.length} job type${filterTypes.length > 1 ? 's' : ''}` : 'all job types';
+      summaryEl.textContent = `Showing ${filtered.length} active candidates · ${hiddenHired} hired hidden · Sorted highest rating first · ${selectedJobs}`;
+    }
+
+    if (!filtered.length) {
+      container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No candidates match your filters.</div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+
+    filtered.sort((a, b) => {
+      const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
+      if (scoreDiff !== 0) return scoreDiff;
+      const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
+      const readinessDiff = (readinessOrder[getCandReadiness(a.id).level] ?? 9) - (readinessOrder[getCandReadiness(b.id).level] ?? 9);
+      if (readinessDiff !== 0) return readinessDiff;
+      const verifiedDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
+      if (verifiedDiff !== 0) return verifiedDiff;
+      const lastActiveDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
+      if (lastActiveDiff !== 0) return lastActiveDiff;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
+    let renderedCount = 0;
+    filtered.forEach(c => {
+      try {
+        container.appendChild(createCandCard(c));
+        renderedCount++;
+      } catch (err) {
+        console.error('Candidate card render failed for', c?.id, err);
+      }
+    });
+
+    if (!renderedCount) {
+      container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>Unable to render candidate cards. Please refresh.</div>`;
+    }
+  } catch (err) {
+    console.error('renderCandidates failed:', err);
+    if (summaryEl) summaryEl.textContent = 'Candidate view encountered an error. Try Refresh.';
+    if (container) {
+      container.innerHTML = `<div class="error-msg" style="grid-column:1/-1">Candidates tab failed to render. Please click Refresh.</div>`;
+    }
   }
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No candidates match your filters.</div>`;
-    return;
-  }
-
-  container.innerHTML = '';
-
-  filtered.sort((a, b) => {
-    const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
-    if (scoreDiff !== 0) return scoreDiff;
-    const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
-    const readinessDiff = (readinessOrder[getCandReadiness(a.id).level] ?? 9) - (readinessOrder[getCandReadiness(b.id).level] ?? 9);
-    if (readinessDiff !== 0) return readinessDiff;
-    const verifiedDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
-    if (verifiedDiff !== 0) return verifiedDiff;
-    const lastActiveDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
-    if (lastActiveDiff !== 0) return lastActiveDiff;
-    return a.name.localeCompare(b.name);
-  });
-
-  filtered.forEach(c => {
-    container.appendChild(createCandCard(c));
-  });
 }
 
 function genderEmoji(g) {
