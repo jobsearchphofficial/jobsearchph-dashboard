@@ -3889,10 +3889,16 @@ function getEffectiveVerified(c) {
   return c.status === 'Verified' || isAutoVerified(c.id);
 }
 
+function getPlacementExtra(pid) {
+  let ex = {};
+  try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+  return ex;
+}
+
 function isCandidateHired(candId) {
   return [...placements, ...manualPlacements].some(p => {
     if (p.candidateId !== candId) return false;
-    const ex = getExtra(p.placementId || p.candidateId);
+    const ex = getPlacementExtra(p.placementId || p.candidateId);
     return (ex.status || p.status) === 'Hired';
   });
 }
@@ -3901,7 +3907,7 @@ function getCandidateLastActive(candId) {
   const dates = [...placements, ...manualPlacements]
     .filter(p => p.candidateId === candId)
     .map(p => {
-      const ex = getExtra(p.placementId || p.candidateId);
+      const ex = getPlacementExtra(p.placementId || p.candidateId);
       return ex.lastContacted || p.date || '';
     })
     .filter(Boolean)
