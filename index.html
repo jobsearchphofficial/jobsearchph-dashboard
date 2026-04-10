@@ -1472,6 +1472,259 @@
     color: var(--text3); margin: 14px 0 10px; padding-bottom: 6px;
     border-bottom: 1px solid var(--border);
   }
+
+  /* ─── SCREENING TAB ─── */
+  .screening-view-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .screening-views {
+    display: flex; gap: 4px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 3px;
+  }
+  .sv-btn {
+    padding: 6px 16px; border-radius: 7px; border: none; background: none;
+    color: var(--text3); font-family: var(--sans); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .sv-btn.active {
+    background: var(--card); color: var(--accent);
+    box-shadow: var(--shadow-card); border: 1px solid var(--border);
+  }
+  .screening-toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .screening-search {
+    background: var(--card); border: 1px solid var(--border2); color: var(--text);
+    padding: 8px 14px; border-radius: 9px; font-family: var(--sans); font-size: 12px;
+    font-weight: 500; outline: none; min-width: 200px; box-shadow: var(--shadow-card);
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .screening-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,.10); }
+  .filter-btn-wrap { position: relative; }
+  .filter-toggle-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border2); color: var(--text2);
+    padding: 8px 14px; border-radius: 9px; font-family: var(--sans); font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all .2s; box-shadow: var(--shadow-card);
+    white-space: nowrap; position: relative;
+  }
+  .filter-toggle-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .filter-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    position: absolute; top: 5px; right: 5px;
+  }
+  .screening-filter-panel {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 16px; min-width: 520px; display: none;
+  }
+  .screening-filter-panel.open { display: block; }
+  .sfp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .sfp-select {
+    width: 100%; background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text); padding: 7px 10px; border-radius: 8px;
+    font-family: var(--sans); font-size: 12px; font-weight: 500; outline: none;
+  }
+  .sfp-label {
+    font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 4px;
+  }
+  .sfp-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .screening-stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;
+  }
+  .scr-stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow-card);
+  }
+  .scr-stat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .scr-stat-val { font-family: var(--mono); font-size: 22px; font-weight: 500; line-height: 1; }
+  .scr-stat-label {
+    font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px;
+  }
+
+  /* Nurture Queue */
+  .nurture-layout {
+    display: grid; grid-template-columns: minmax(340px,1fr) minmax(360px,460px);
+    gap: 16px; align-items: start;
+  }
+  .nurture-list {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow-card);
+  }
+  .nurture-list-header {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .6px;
+    display: grid; grid-template-columns: 1fr 80px 110px 90px; gap: 8px; align-items: center;
+  }
+  .nurture-row {
+    padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background .15s;
+    display: grid; grid-template-columns: 1fr 80px 110px 90px; gap: 8px; align-items: center;
+  }
+  .nurture-row:hover { background: var(--card2); }
+  .nurture-row.selected { background: var(--accent-dim); }
+  .nurture-row:last-child { border-bottom: none; }
+  .nurture-cand-name { font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 2px; }
+  .nurture-cand-sub { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .nudge-pill {
+    display: inline-flex; align-items: center; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+    background: var(--gold-dim2); color: var(--gold2); border: 1px solid rgba(245,158,11,.3);
+  }
+  .nudge-pill.nudge-new { background: var(--accent-dim); color: var(--accent); border-color: rgba(23,85,237,.25); }
+  .nudge-pill.nudge-stuck { background: var(--purple-dim); color: var(--purple); border-color: rgba(124,58,237,.25); }
+  .nudge-pill.nudge-backed { background: var(--red-dim); color: var(--red); border-color: rgba(220,38,38,.25); }
+  .nudge-pill.nudge-ready { background: var(--green-dim); color: var(--green); border-color: rgba(5,150,105,.25); }
+  .era-stage-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+  }
+  .stage-not-ready { background: var(--red-dim); color: var(--red); border: 1px solid rgba(220,38,38,.25); }
+  .stage-E { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(23,85,237,.25); }
+  .stage-R { background: var(--gold-dim2); color: var(--gold2); border: 1px solid rgba(245,158,11,.3); }
+  .stage-A { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(124,58,237,.25); }
+  .stage-Ready { background: var(--green-dim); color: var(--green); border: 1px solid rgba(5,150,105,.25); }
+  .nurture-lc { font-size: 11px; color: var(--text3); }
+  .nurture-lc-date { font-weight: 600; color: var(--text2); font-size: 12px; }
+  .nurture-lc-via { font-size: 10px; color: var(--text3); }
+  .nurture-action-btn {
+    padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border2);
+    background: var(--card2); color: var(--text2); font-family: var(--sans);
+    font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .nurture-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Screening Panel */
+  .screening-panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-card); overflow: hidden;
+  }
+  .screening-panel-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 280px; color: var(--text3); font-size: 13px; gap: 8px;
+  }
+  .sp-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .sp-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--accent-dim2); color: var(--accent);
+    display: grid; place-items: center; font-size: 14px; font-weight: 800; flex-shrink: 0;
+    font-family: var(--mono);
+  }
+  .sp-name { font-size: 15px; font-weight: 800; color: var(--text); }
+  .sp-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .sp-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .sp-body { padding: 0 14px 14px; max-height: calc(100vh - 280px); overflow-y: auto; }
+  .sp-section { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .sp-section:last-child { border-bottom: none; }
+  .sp-section-title {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--text3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .sp-era-score-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .sp-era-num { font-family: var(--mono); font-size: 38px; font-weight: 500; line-height: 1; }
+  .sp-era-formula { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+  .sp-era-rows { display: flex; flex-direction: column; gap: 6px; }
+  .sp-era-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .sp-era-letter {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; font-weight: 800;
+    flex-shrink: 0; font-family: var(--mono);
+  }
+  .sp-era-label { flex: 1; font-weight: 600; color: var(--text2); }
+  .sp-era-contrib { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .sp-gate-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .sp-gate-pill {
+    font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px;
+    border: 1px solid var(--border2); color: var(--text3); background: var(--card2);
+  }
+  .sp-gate-pill.met { background: var(--green-dim); color: var(--green); border-color: rgba(5,150,105,.3); }
+  .sp-gate-pill.missing { background: var(--red-dim); color: var(--red); border-color: rgba(220,38,38,.25); }
+  .sp-docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sp-doc-card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; cursor: pointer;
+    transition: all .15s; background: var(--card2);
+  }
+  .sp-doc-card:hover { border-color: var(--accent); }
+  .sp-doc-card.verified { background: rgba(5,150,105,.07); border-color: rgba(5,150,105,.4); }
+  .sp-doc-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .sp-doc-pts { font-family: var(--mono); font-size: 11px; }
+  .sp-doc-status { font-size: 10px; color: var(--text3); margin-top: 3px; }
+  .sp-doc-card.verified .sp-doc-status { color: var(--green); font-weight: 700; }
+  .sp-verifies-tag {
+    display: inline-block; font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+    background: var(--accent-dim); color: var(--accent); margin-bottom: 3px;
+  }
+  .sp-contact-log { display: flex; flex-direction: column; gap: 8px; }
+  .sp-log-entry {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px;
+    background: var(--card2); border-radius: 8px; border: 1px solid var(--border); font-size: 12px;
+  }
+  .sp-log-icon { font-size: 16px; flex-shrink: 0; }
+  .sp-log-method { font-weight: 700; color: var(--text); }
+  .sp-log-outcome { color: var(--text2); font-size: 11px; margin-top: 1px; }
+  .sp-log-date { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+  .sp-log-add-inline {
+    display: flex; flex-direction: column; gap: 8px; margin-top: 8px;
+    padding: 10px 12px; background: var(--card2); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .sp-bottom-actions {
+    display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .sp-bottom-actions .btn { flex: 1; min-width: 100px; justify-content: center; font-size: 12px; }
+
+  /* Pipeline view */
+  .pipeline-layout {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; align-items: start;
+  }
+  .pipeline-col {
+    background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .pipeline-col-header {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  }
+  .pipeline-col-count {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 2px 7px; border-radius: 99px; background: var(--card); border: 1px solid var(--border);
+  }
+  .pipeline-cards { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .pipeline-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; cursor: pointer; transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .pipeline-card:hover { box-shadow: var(--shadow-card); border-color: var(--border2); }
+  .pipeline-card.accent-amber { border-left-color: var(--gold); }
+  .pipeline-card.accent-green { border-left-color: var(--green); }
+  .pc-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .pc-type { font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+  .pc-score { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+
+  /* All Candidates screening view */
+  .scr-all-wrap {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow-card);
+  }
+  .scr-all-table { width: 100%; border-collapse: collapse; }
+  .scr-all-table th {
+    text-align: left; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--text3); padding: 8px 12px;
+    border-bottom: 2px solid var(--border); white-space: nowrap; background: var(--card2);
+  }
+  .scr-all-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
+    vertical-align: middle; cursor: pointer;
+  }
+  .scr-all-table tr:hover td { background: var(--card2); }
 </style>
 </head>
 <body>
@@ -1543,6 +1796,7 @@
     <button class="tab" onclick="switchTab('hired')">Hired</button>
     <button class="tab" onclick="switchTab('matcher')">AI Matcher</button>
     <button class="tab" onclick="switchTab('templates')">Templates</button>
+    <button class="tab" onclick="switchTab('screening')">Screening</button>
   </div>
 </header>
 
@@ -1686,6 +1940,11 @@
       <div class="badge" id="tmpl-count">0</div>
     </div>
     <div id="templates-container"></div>
+  </div>
+
+  <!-- ═══ TAB: SCREENING ═══ -->
+  <div class="tab-content" id="tab-screening">
+    <div id="screening-inner"></div>
   </div>
 
 </main>
@@ -1880,6 +2139,8 @@ function loadLocal() {
   try { candidateNotes = JSON.parse(localStorage.getItem('candidate_notes') || '{}'); } catch(e){ candidateNotes={}; }
   try { joStatusOverrides = JSON.parse(localStorage.getItem('jo_status_overrides') || '{}'); } catch(e){ joStatusOverrides={}; }
   try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
+  try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
+  try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
 }
 
 function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
@@ -4720,11 +4981,12 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
-  const tabs = ['jobs','candidates','hired','matcher','templates'];
+  const tabs = ['jobs','candidates','hired','matcher','templates','screening'];
   const idx = tabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
   if (tab === 'hired') renderHiredTab();
   if (tab === 'templates') renderTemplatesTab();
+  if (tab === 'screening') renderScreeningTab();
 }
 
 // ═══════════════════════════════════════════════
@@ -5488,6 +5750,605 @@ async function syncForcePull() {
   } catch(e) {
     _syncResult('❌ Download failed: ' + e.message, 'var(--red)');
   }
+}
+
+// ═══════════════════════════════════════════════
+// SCREENING TAB
+// ═══════════════════════════════════════════════
+
+let eraStages = {};
+let eraContactLogs = {};
+
+function saveEraStages() { localStorage.setItem('era_stages', JSON.stringify(eraStages)); }
+function saveEraContactLogs() { localStorage.setItem('era_contact_logs', JSON.stringify(eraContactLogs)); }
+
+function getEraStage(candId) {
+  return (eraStages[candId] && eraStages[candId].stage) || 'Not Ready';
+}
+
+function setEraStage(candId, stage) {
+  if (!eraStages[candId]) eraStages[candId] = {};
+  eraStages[candId].stage = stage;
+  eraStages[candId].changedAt = new Date().toISOString().slice(0, 10);
+  saveEraStages();
+}
+
+function getStageBadge(stage) {
+  const cls = stage === 'Not Ready' ? 'stage-not-ready' : ('stage-' + stage);
+  const labels = { 'Not Ready': 'Not Ready', 'E': 'E', 'R': 'R', 'A': 'A', 'Ready': 'Ready' };
+  return '<span class="era-stage-badge ' + cls + '">' + (labels[stage] || stage) + '</span>';
+}
+
+function getLastContact(candId) {
+  const logs = eraContactLogs[candId] || [];
+  return logs.length ? logs[logs.length - 1] : null;
+}
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now - d) / 86400000);
+}
+
+function getNudgeReason(candId) {
+  const logs = eraContactLogs[candId] || [];
+  const stage = getEraStage(candId);
+  const lastLog = logs.length ? logs[logs.length - 1] : null;
+  const stageData = eraStages[candId] || {};
+  const scores = (candidateRatings[candId] || {}).scores || {};
+
+  if (scores.backedOut && stage !== 'Ready') {
+    return { text: 'Backed out — review', cls: 'nudge-backed' };
+  }
+  if (stage === 'Ready') {
+    const ds = lastLog ? daysSince(lastLog.date) : 999;
+    if (ds >= 7 || !lastLog) return { text: 'Ready — confirm avail.', cls: 'nudge-ready' };
+    return null;
+  }
+  if (!lastLog) return { text: 'New — not contacted', cls: 'nudge-new' };
+  const ds = daysSince(lastLog.date);
+  if (ds >= 7) return { text: ds + ' days no contact', cls: '' };
+  if (stageData.changedAt) {
+    const stageDays = daysSince(stageData.changedAt);
+    if (stageDays >= 5 && stage !== 'Not Ready') {
+      return { text: 'Stuck at ' + stage + ' — ' + stageDays + ' days', cls: 'nudge-stuck' };
+    }
+  }
+  return null;
+}
+
+function isInNurtureQueue(candId) { return getNudgeReason(candId) !== null; }
+
+function renderNudgePill(candId) {
+  const r = getNudgeReason(candId);
+  if (!r) return '';
+  return '<span class="nudge-pill ' + r.cls + '">' + escHtml(r.text) + '</span>';
+}
+
+let _scrView = 'nurture';
+let _scrSearch = '';
+let _scrFilters = {};
+let _scrFilterOpen = false;
+let _scrSelectedCand = null;
+
+function switchScreeningView(view) {
+  _scrView = view;
+  _scrSelectedCand = null;
+  renderScreeningTab();
+}
+
+function calcScreeningStats() {
+  let notReady = 0, inProgress = 0, ready = 0, inQueue = 0;
+  candidates.forEach(function(c) {
+    if (blacklist[c.id]) return;
+    const stage = getEraStage(c.id);
+    if (stage === 'Not Ready') notReady++;
+    else if (stage === 'Ready') ready++;
+    else inProgress++;
+    if (isInNurtureQueue(c.id)) inQueue++;
+  });
+  return { notReady: notReady, inProgress: inProgress, ready: ready, inQueue: inQueue };
+}
+
+function scrSearchChange(val) {
+  _scrSearch = val;
+  renderScreeningTab();
+}
+
+function toggleScrFilter() {
+  _scrFilterOpen = !_scrFilterOpen;
+  const panel = document.getElementById('scr-filter-panel');
+  if (panel) {
+    if (_scrFilterOpen) panel.classList.add('open');
+    else panel.classList.remove('open');
+  }
+}
+
+function setScrFilter(key, val) {
+  if (val) _scrFilters[key] = val;
+  else delete _scrFilters[key];
+}
+
+function clearScrFilters() {
+  _scrFilters = {};
+  _scrFilterOpen = false;
+  renderScreeningTab();
+}
+
+function filterScrCandidates(cands) {
+  let result = cands.filter(function(c) { return !blacklist[c.id]; });
+  const q = _scrSearch.toLowerCase();
+  if (q) result = result.filter(function(c) { return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q); });
+  if (_scrFilters.jobType) {
+    const jt = _scrFilters.jobType.toLowerCase();
+    result = result.filter(function(c) { return (c.jobType||'').toLowerCase().includes(jt); });
+  }
+  if (_scrFilters.gender) {
+    result = result.filter(function(c) { return (c.gender||'') === _scrFilters.gender; });
+  }
+  if (_scrFilters.eraStage) {
+    const stageMap = { 'Not Ready': 'Not Ready', 'E — Eligibility': 'E', 'R — Responsiveness': 'R', 'A — Attitude': 'A', 'Ready': 'Ready' };
+    const targetStage = stageMap[_scrFilters.eraStage] || _scrFilters.eraStage;
+    result = result.filter(function(c) { return getEraStage(c.id) === targetStage; });
+  }
+  if (_scrFilters.location) {
+    const loc = _scrFilters.location;
+    result = result.filter(function(c) { return (c.location||'').includes(loc); });
+  }
+  if (_scrFilters.ageRange) {
+    result = result.filter(function(c) {
+      const age = parseInt(c.age) || 0;
+      if (_scrFilters.ageRange === '18-24') return age >= 18 && age <= 24;
+      if (_scrFilters.ageRange === '25-35') return age >= 25 && age <= 35;
+      if (_scrFilters.ageRange === '36-45') return age >= 36 && age <= 45;
+      if (_scrFilters.ageRange === '46+') return age >= 46;
+      return true;
+    });
+  }
+  if (_scrFilters.lastContact) {
+    result = result.filter(function(c) {
+      const last = getLastContact(c.id);
+      const ds = last ? daysSince(last.date) : null;
+      if (_scrFilters.lastContact === 'Never contacted') return !last;
+      if (_scrFilters.lastContact === 'Today') return ds !== null && ds === 0;
+      if (_scrFilters.lastContact === 'Last 3 days') return ds !== null && ds <= 3;
+      if (_scrFilters.lastContact === 'Last 7 days') return ds !== null && ds <= 7;
+      if (_scrFilters.lastContact === 'Over 7 days ago') return ds === null || ds > 7;
+      return true;
+    });
+  }
+  return result;
+}
+
+function renderScreeningTab() {
+  const el = document.getElementById('screening-inner');
+  if (!el) return;
+
+  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) { return !!_scrFilters[k]; });
+  const filterBtnCls = hasActiveFilter ? 'active' : '';
+  const filterDot = hasActiveFilter ? '<span class="filter-dot"></span>' : '';
+
+  const filterOptions = [
+    ['Job type', 'jobType', ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter']],
+    ['Gender', 'gender', ['Female','Male']],
+    ['Age range', 'ageRange', ['18-24','25-35','36-45','46+']],
+    ['ERA stage', 'eraStage', ['Not Ready','E — Eligibility','R — Responsiveness','A — Attitude','Ready']],
+    ['Location', 'location', ['Bacolod City','Talisay','Silay','Bago City']],
+    ['Last contacted', 'lastContact', ['Never contacted','Today','Last 3 days','Last 7 days','Over 7 days ago']],
+  ];
+
+  const sfpRows = filterOptions.map(function(item) {
+    const label = item[0], key = item[1], opts = item[2];
+    const optHtml = opts.map(function(o) {
+      return '<option value="' + escAttr(o) + '"' + (_scrFilters[key]===o?' selected':'') + '>' + escHtml(o) + '</option>';
+    }).join('');
+    return '<div><div class="sfp-label">' + label + '</div><select class="sfp-select" onchange="setScrFilter(\'' + key + '\',this.value)"><option value="">All</option>' + optHtml + '</select></div>';
+  }).join('');
+
+  const viewBar = '<div class="screening-view-bar">' +
+    '<div class="screening-views">' +
+    '<button class="sv-btn ' + (_scrView==='nurture'?'active':'') + '" onclick="switchScreeningView(\'nurture\')">Nurture Queue</button>' +
+    '<button class="sv-btn ' + (_scrView==='pipeline'?'active':'') + '" onclick="switchScreeningView(\'pipeline\')">Pipeline</button>' +
+    '<button class="sv-btn ' + (_scrView==='all'?'active':'') + '" onclick="switchScreeningView(\'all\')">All Candidates</button>' +
+    '</div>' +
+    '<div class="screening-toolbar-right">' +
+    '<input class="screening-search" type="text" placeholder="Search candidates…" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
+    '<div class="filter-btn-wrap">' +
+    '<button class="filter-toggle-btn ' + filterBtnCls + '" onclick="toggleScrFilter()">&#9881; Filter' + filterDot + '</button>' +
+    '<div class="screening-filter-panel" id="scr-filter-panel">' +
+    '<div class="sfp-grid">' + sfpRows + '</div>' +
+    '<div class="sfp-actions"><button class="btn btn-ghost" onclick="clearScrFilters()">Clear all</button><button class="btn btn-blue" onclick="toggleScrFilter()">Apply</button></div>' +
+    '</div>' +
+    '</div></div></div>';
+
+  const stats = calcScreeningStats();
+  const statsRow = '<div class="screening-stats-row">' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--red)"></div><div><div class="scr-stat-val" style="color:var(--red)">' + stats.notReady + '</div><div class="scr-stat-label">Not ready</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--gold)"></div><div><div class="scr-stat-val" style="color:var(--gold)">' + stats.inProgress + '</div><div class="scr-stat-label">In progress</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--green)"></div><div><div class="scr-stat-val" style="color:var(--green)">' + stats.ready + '</div><div class="scr-stat-label">Ready</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--text3)"></div><div><div class="scr-stat-val">' + stats.inQueue + '</div><div class="scr-stat-label">In queue today</div></div></div>' +
+    '</div>';
+
+  let viewHtml = '';
+  if (_scrView === 'nurture') viewHtml = renderNurtureView();
+  else if (_scrView === 'pipeline') viewHtml = renderPipelineView();
+  else viewHtml = renderAllCandidatesView();
+
+  el.innerHTML = viewBar + statsRow + viewHtml;
+
+  if (_scrFilterOpen) {
+    const panel = document.getElementById('scr-filter-panel');
+    if (panel) panel.classList.add('open');
+  }
+}
+
+function renderNurtureView() {
+  const filtered = filterScrCandidates(candidates);
+  const inQueue = filtered.filter(function(c) { return isInNurtureQueue(c.id); });
+
+  inQueue.sort(function(a, b) {
+    const priority = function(id) {
+      const r = getNudgeReason(id);
+      if (!r) return 0;
+      if (r.cls === 'nudge-backed') return 4;
+      if (r.cls === 'nudge-new') return 3;
+      if (r.cls === '') return 2;
+      if (r.cls === 'nudge-stuck') return 1;
+      if (r.cls === 'nudge-ready') return 1;
+      return 0;
+    };
+    return priority(b.id) - priority(a.id);
+  });
+
+  const panelHtml = '<div class="screening-panel" id="scr-panel">' +
+    (_scrSelectedCand ? buildScreeningPanelInner(_scrSelectedCand) : '<div class="screening-panel-empty"><div style="font-size:24px">&#128101;</div><div>Select a candidate to screen</div></div>') +
+    '</div>';
+
+  if (!inQueue.length) {
+    return '<div class="nurture-layout">' +
+      '<div class="nurture-list"><div style="padding:40px;text-align:center;color:var(--text3)">No candidates in nurture queue</div></div>' +
+      panelHtml + '</div>';
+  }
+
+  const rowsHtml = inQueue.map(function(c) {
+    const stage = getEraStage(c.id);
+    const nudge = renderNudgePill(c.id);
+    const last = getLastContact(c.id);
+    const sel = _scrSelectedCand === c.id ? 'selected' : '';
+    const actionLabel = (stage === 'Not Ready' || stage === 'E') ? 'Log contact' : 'Review ERA';
+    const sub = escHtml(c.jobType||'') + ' &middot; ' + escHtml(c.gender||'') + (c.age ? ', ' + escHtml(c.age) : '') + ' &middot; ' + escHtml(c.location||'');
+    const lcHtml = last
+      ? '<div class="nurture-lc-date">' + escHtml(fmtDate(last.date)) + '</div><div class="nurture-lc-via">' + escHtml(last.method) + '</div>'
+      : '<span style="color:var(--text3);font-style:italic;font-size:11px">Never</span>';
+    return '<div class="nurture-row ' + sel + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
+      '<div><div class="nurture-cand-name">' + escHtml(c.name) + '</div><div class="nurture-cand-sub">' + sub + '</div>' + nudge + '</div>' +
+      '<div>' + getStageBadge(stage) + '</div>' +
+      '<div class="nurture-lc">' + lcHtml + '</div>' +
+      '<div><button class="nurture-action-btn" onclick="event.stopPropagation();openScreeningPanel(\'' + escAttr(c.id) + '\')">' + actionLabel + '</button></div>' +
+      '</div>';
+  }).join('');
+
+  return '<div class="nurture-layout">' +
+    '<div class="nurture-list">' +
+    '<div class="nurture-list-header"><span>Candidate</span><span>Stage</span><span>Last Contact</span><span>Action</span></div>' +
+    rowsHtml + '</div>' + panelHtml + '</div>';
+}
+
+function openScreeningPanel(candId) {
+  _scrSelectedCand = candId;
+  renderScreeningTab();
+}
+
+function renderPipelineView() {
+  const filtered = filterScrCandidates(candidates);
+  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
+  const stageColors = { 'Not Ready': 'var(--red)', 'E': 'var(--accent)', 'R': 'var(--gold)', 'A': 'var(--purple)', 'Ready': 'var(--green)' };
+  const stageLbls = { 'Not Ready': 'Not ready', 'E': 'E — Eligibility', 'R': 'R — Responsiveness', 'A': 'A — Attitude', 'Ready': 'Ready' };
+
+  const byCols = {};
+  stageOrder.forEach(function(s) { byCols[s] = []; });
+  filtered.forEach(function(c) {
+    const s = getEraStage(c.id);
+    if (byCols[s]) byCols[s].push(c);
+  });
+
+  const colsHtml = stageOrder.map(function(stage) {
+    const cands = byCols[stage];
+    const cardsHtml = cands.length ? cands.map(function(c) {
+      const era = calcERA(c.id);
+      const nudge = getNudgeReason(c.id);
+      const last = getLastContact(c.id);
+      const ds = last ? daysSince(last.date) : null;
+      const accentCls = (stage === 'R' && ds !== null && ds >= 7) ? 'accent-amber' : (stage === 'Ready' ? 'accent-green' : '');
+      const nudgeHtml = nudge ? '<span class="nudge-pill ' + nudge.cls + '" style="margin-bottom:4px;display:inline-flex">' + escHtml(nudge.text) + '</span>' : '';
+      return '<div class="pipeline-card ' + accentCls + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
+        '<div class="pc-name">' + escHtml(c.name) + '</div>' +
+        '<div class="pc-type">' + escHtml(c.jobType||'') + '</div>' +
+        nudgeHtml +
+        '<div class="pc-score" style="color:' + getRatingColor(era.score) + '">' + era.score + ' ERA</div>' +
+        '</div>';
+    }).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">Empty</div>';
+
+    return '<div class="pipeline-col">' +
+      '<div class="pipeline-col-header" style="color:' + stageColors[stage] + '">' + stageLbls[stage] +
+      '<span class="pipeline-col-count">' + cands.length + '</span></div>' +
+      '<div class="pipeline-cards">' + cardsHtml + '</div></div>';
+  }).join('');
+
+  if (_scrSelectedCand) {
+    return '<div style="display:flex;gap:16px;align-items:start">' +
+      '<div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">' + colsHtml + '</div>' +
+      '<div class="screening-panel" id="scr-panel" style="width:400px;flex-shrink:0;position:sticky;top:80px">' + buildScreeningPanelInner(_scrSelectedCand) + '</div>' +
+      '</div>';
+  }
+  return '<div class="pipeline-layout">' + colsHtml + '</div>';
+}
+
+function renderAllCandidatesView() {
+  const filtered = filterScrCandidates(candidates);
+  if (!filtered.length) {
+    return '<div class="scr-all-wrap"><div style="padding:40px;text-align:center;color:var(--text3)">No candidates found</div></div>';
+  }
+
+  const bodyHtml = filtered.map(function(c) {
+    const stage = getEraStage(c.id);
+    const r = getCandReadiness(c.id);
+    const readinessHtml = '<span style="font-size:11px;font-weight:700;color:' + r.color + '">' + r.level + '</span>';
+    return '<tr onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
+      '<td><strong>' + escHtml(c.name) + '</strong> <span style="color:var(--text3);font-size:11px">' + escHtml(c.id) + '</span></td>' +
+      '<td>' + escHtml(c.jobType||'—') + '</td>' +
+      '<td>' + escHtml(c.location||'—') + '</td>' +
+      '<td>' + getStageBadge(stage) + '</td>' +
+      '<td>' + readinessHtml + '</td>' +
+      '</tr>';
+  }).join('');
+
+  const tableHtml = '<div class="scr-all-wrap"><table class="scr-all-table">' +
+    '<thead><tr><th>Candidate</th><th>Job Type</th><th>Location</th><th>ERA Stage</th><th>Readiness</th></tr></thead>' +
+    '<tbody>' + bodyHtml + '</tbody></table></div>';
+
+  if (_scrSelectedCand) {
+    return '<div style="display:flex;gap:16px;align-items:start">' +
+      '<div style="flex:1;min-width:0">' + tableHtml + '</div>' +
+      '<div class="screening-panel" id="scr-panel" style="width:420px;flex-shrink:0;position:sticky;top:80px">' + buildScreeningPanelInner(_scrSelectedCand) + '</div>' +
+      '</div>';
+  }
+  return tableHtml;
+}
+
+function buildScreeningPanelInner(candId) {
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return '<div class="screening-panel-empty">Candidate not found</div>';
+
+  const era = calcERA(candId);
+  const stored = candidateRatings[candId] || {};
+  const docs = stored.docs || {};
+  const scores = stored.scores || {};
+  const stage = getEraStage(candId);
+  const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
+  const parts = c.name.split(' ').filter(Boolean);
+  const initials = parts.slice(0, 2).map(function(n) { return n[0] || ''; }).join('').toUpperCase();
+  const gateOk = era.gateOk;
+
+  const header = '<div class="sp-header">' +
+    '<div class="sp-avatar">' + initials + '</div>' +
+    '<div style="flex:1;min-width:0">' +
+    '<div class="sp-name">' + escHtml(c.name) + '</div>' +
+    '<div class="sp-sub">' + escHtml(c.jobType||'') + ' &middot; ' + escHtml(c.gender||'') + (c.age ? ', ' + escHtml(c.age) : '') + ' &middot; ' + escHtml(c.location||'') + '</div>' +
+    (c.expectedPay ? '<div class="sp-sub">' + escHtml(c.expectedPay) + '</div>' : '') +
+    '<div class="sp-badges">' + getStageBadge(stage) +
+    '<span class="era-stage-badge ' + (gateOk ? 'stage-Ready' : 'stage-not-ready') + '">' + (gateOk ? 'Gate Passed' : 'Gate Failed') + '</span>' +
+    '</div></div>' +
+    '<button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0" onclick="_scrSelectedCand=null;renderScreeningTab()">&#x2715;</button>' +
+    '</div>';
+
+  const eraSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">ERA Score</div>' +
+    '<div class="sp-era-score-hero">' +
+    '<div><div class="sp-era-num" style="color:' + eraColor + '">' + era.score + '</div>' +
+    '<div class="sp-era-formula">Base 2.0 + E(' + (era.E >= 0 ? '+' : '') + era.E.toFixed(1) + ') + R(' + (era.R >= 0 ? '+' : '') + era.R.toFixed(1) + ') + A(' + (era.A >= 0 ? '+' : '') + era.A.toFixed(1) + ') + Bonus(' + (era.bonus >= 0 ? '+' : '') + era.bonus.toFixed(1) + ')</div>' +
+    '</div></div>' +
+    '<div class="sp-era-rows">' +
+    [['E','Eligibility',era.E,'var(--accent)'],['R','Responsiveness',era.R,'var(--gold)'],['A','Attitude',era.A,'var(--purple)']].map(function(item) {
+      const letter = item[0], label = item[1], val = item[2], col = item[3];
+      return '<div class="sp-era-row">' +
+        '<div class="sp-era-letter" style="background:' + col + '18;color:' + col + '">' + letter + '</div>' +
+        '<div class="sp-era-label">' + label + '</div>' +
+        '<div class="sp-era-contrib" style="color:' + (val >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (val >= 0 ? '+' : '') + val.toFixed(1) + '</div>' +
+        '</div>';
+    }).join('') + '</div>' +
+    '<div class="sp-gate-pills">' +
+    '<span class="sp-gate-pill ' + (docs.validId ? 'met' : 'missing') + '">Valid ID: ' + (docs.validId ? 'Met' : 'Missing') + '</span>' +
+    '<span class="sp-gate-pill ' + (era.hasRSignal ? 'met' : 'missing') + '">R Signal: ' + (era.hasRSignal ? 'Met' : 'Missing') + '</span>' +
+    '<span class="sp-gate-pill ' + (scores.passedScreening ? 'met' : 'missing') + '">Passed Screening: ' + (scores.passedScreening ? 'Met' : 'Missing') + '</span>' +
+    '</div></div>';
+
+  const docList = [
+    ['brgy',    'Brgy Clearance',   '+0.5', true],
+    ['police',  'Police Clearance', '+1.0', true],
+    ['nbi',     'NBI Clearance',    '+0.5', true],
+    ['validId', 'Valid ID',         '+0.5', true],
+    ['resume',  'Resume',           '+0.5', false],
+    ['medical', 'Medical Cert',     'info', true],
+  ];
+  const allCoreDocs = ['brgy','police','nbi','validId'].every(function(k) { return docs[k]; });
+  const docsSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Documents <span style="font-size:10px;font-weight:700;color:' + (allCoreDocs ? 'var(--green)' : 'var(--red)') + '">' + (allCoreDocs ? 'COMPLETE' : 'INCOMPLETE') + '</span></div>' +
+    '<div class="sp-docs-grid">' +
+    docList.map(function(item) {
+      const key = item[0], label = item[1], pts = item[2], verifies = item[3];
+      return '<div class="sp-doc-card ' + (docs[key] ? 'verified' : '') + '" onclick="saveCandDoc(\'' + escAttr(candId) + '\',\'' + key + '\',' + (!docs[key]) + ');renderScreeningTab()">' +
+        (verifies ? '<div class="sp-verifies-tag">VERIFIES</div>' : '<div></div>') +
+        '<div class="sp-doc-name">' + label + '</div>' +
+        '<div class="sp-doc-pts" style="color:' + (pts === 'info' ? 'var(--text3)' : 'var(--green)') + '">' + pts + '</div>' +
+        '<div class="sp-doc-status">' + (docs[key] ? 'Verified' : 'Not submitted') + '</div>' +
+        '</div>';
+    }).join('') + '</div></div>';
+
+  const att = parseInt(scores.callAttitude) || 0;
+  const attLabels = {1:'Poor',2:'Below Avg',3:'Average',4:'Good',5:'Excellent'};
+  const attPts = {1:'-1.5',2:'-0.5',3:'0',4:'+1.0',5:'+1.0'};
+  const attitudeSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Call Attitude</div>' +
+    '<div class="attitude-row">' +
+    [1,2,3,4,5].map(function(n) {
+      const sel = att === n ? 'attitude-sel' : '';
+      return '<button class="attitude-btn ' + sel + '" onclick="saveCandScore(\'' + escAttr(candId) + '\',\'callAttitude\',' + n + ');renderScreeningTab()">' +
+        '<div class="att-num">' + n + '</div>' +
+        '<div class="att-label">' + attLabels[n] + '</div>' +
+        '<div class="att-pts">' + attPts[n] + '</div>' +
+        '</button>';
+    }).join('') + '</div></div>';
+
+  const buildFlagGroup = function(groupLabel, groupColor, flagDefs) {
+    const cardsHtml = flagDefs.map(function(item) {
+      const key = item[0], label = item[1], pts = item[2], bad = item[3];
+      return '<div class="rating-flag-card ' + (scores[key] ? 'flag-active' : '') + ' ' + (bad ? 'flag-bad' : 'flag-good') + '" onclick="saveCandScore(\'' + escAttr(candId) + '\',\'' + key + '\',' + (!scores[key]) + ');renderScreeningTab()">' +
+        '<div class="flag-label" style="font-size:11px;font-weight:600">' + label + '</div>' +
+        '<div class="flag-pts" style="color:' + (bad ? 'var(--red)' : 'var(--green)') + '">' + pts + '</div>' +
+        '<div class="flag-check">' + (scores[key] ? '&#9745;' : '&#9744;') + '</div>' +
+        '</div>';
+    }).join('');
+    return '<div class="era-flags-group-label" style="color:' + groupColor + ';margin-top:8px">' + groupLabel + '</div>' +
+      '<div class="rating-flags-grid">' + cardsHtml + '</div>';
+  };
+
+  const flagsSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Behavior Flags <span style="font-size:10px;font-weight:400;color:var(--text3)">click to toggle</span></div>' +
+    '<div class="era-flags-section">' +
+    buildFlagGroup('R — Responsiveness', 'var(--accent)', [
+      ['repliedFast',   'Replied within 24 hours', 'R +1.0', false],
+      ['answeredCall',  'Answered call',            'R +1.0', false],
+      ['confirmedIntv', 'Confirmed availability',  'R +1.0', false],
+      ['lateReply',     'Slow reply (3+ days)',    'R -1.0', true],
+      ['noShow',        'No response',             'R -2.5', true],
+    ]) +
+    buildFlagGroup('A — Attitude', 'var(--purple)', [
+      ['polite',          'Clear communication',       'A +1.0', false],
+      ['willingToWork',   'Willing to work',           'A +1.0', false],
+      ['passedScreening', 'Passed internal screening', 'A +1.0', false],
+      ['hesitantAnswers', 'Hesitant answers',          'A -1.0', true],
+    ]) +
+    buildFlagGroup('Track Record / Bonus', 'var(--green)', [
+      ['showedUp',              'Showed up to interview',     'Bonus +1.5', false],
+      ['completedJob',          'Completed a job',            'Bonus +2.0', false],
+      ['workIntentConfirmed',   'Work intent confirmed',      'E +1.0',     false],
+      ['availabilityConfirmed', 'Availability confirmed',     'E +1.0',     false],
+      ['backedOut',             'Backed out after accepting', 'Bonus -2.0', true],
+    ]) +
+    '</div></div>';
+
+  const logs = eraContactLogs[candId] || [];
+  const methodIcons = { 'Phone call': '&#128222;', 'FB Messenger': '&#128172;', 'SMS Text': '&#9993;', 'Email': '&#128231;' };
+  const logsHtml = logs.length ? logs.slice().reverse().map(function(log) {
+    return '<div class="sp-log-entry">' +
+      '<div class="sp-log-icon">' + (methodIcons[log.method] || '&#128221;') + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+      '<div class="sp-log-method">' + escHtml(log.method) + '</div>' +
+      (log.outcome ? '<div class="sp-log-outcome">' + escHtml(log.outcome) + '</div>' : '') +
+      '<div class="sp-log-date">' + escHtml(fmtDate(log.date)) + '</div>' +
+      '</div></div>';
+  }).join('') : '<div style="font-size:12px;color:var(--text3);font-style:italic">No contact attempts logged yet</div>';
+
+  const safeId = escAttr(candId);
+  const today = new Date().toISOString().slice(0, 10);
+  const contactSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Contact Log</div>' +
+    '<div class="sp-contact-log">' + logsHtml + '</div>' +
+    '<div style="margin-top:8px">' +
+    '<select id="scr-log-method-' + safeId + '" class="sfp-select" style="width:100%" onchange="showLogInline(\'' + safeId + '\',this.value)">' +
+    '<option value="">+ Log contact attempt...</option>' +
+    '<option>Phone call</option><option>FB Messenger</option><option>SMS Text</option><option>Email</option>' +
+    '</select>' +
+    '<div id="scr-log-inline-' + safeId + '" style="display:none">' +
+    '<div class="sp-log-add-inline">' +
+    '<input type="text" id="scr-log-outcome-' + safeId + '" class="sfp-select" placeholder="Outcome / notes..." style="width:100%">' +
+    '<input type="date" id="scr-log-date-' + safeId + '" class="sfp-select" style="width:100%" value="' + today + '">' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn btn-ghost" onclick="cancelLogInline(\'' + safeId + '\')">Cancel</button>' +
+    '<button class="btn btn-blue" onclick="submitLogEntry(\'' + safeId + '\')">Add</button>' +
+    '</div></div></div></div></div>';
+
+  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
+  const stageIdx = stageOrder.indexOf(stage);
+  const nextStage = stageIdx < stageOrder.length - 1 ? stageOrder[stageIdx + 1] : null;
+  const isBlacklisted = !!blacklist[candId];
+
+  let canAdvance = false;
+  let advanceTip = '';
+  if (nextStage === 'E') { canAdvance = true; }
+  else if (nextStage === 'R') { canAdvance = !!docs.validId; advanceTip = canAdvance ? '' : 'Needs Valid ID to advance'; }
+  else if (nextStage === 'A') { canAdvance = era.hasRSignal; advanceTip = canAdvance ? '' : 'Needs R signal to advance'; }
+  else if (nextStage === 'Ready') { canAdvance = era.gateOk; advanceTip = canAdvance ? '' : 'Gate conditions not met'; }
+
+  const markReadyOk = era.gateOk;
+  const missingList = [!docs.validId && 'Valid ID', !era.hasRSignal && 'R Signal', !scores.passedScreening && 'Passed Screening'].filter(Boolean).join(', ');
+  const markReadyTip = markReadyOk ? '' : 'Missing: ' + missingList;
+
+  const bottomActions = '<div class="sp-bottom-actions">' +
+    (nextStage ? '<button class="btn btn-blue" ' + (!canAdvance ? 'disabled title="' + escAttr(advanceTip) + '"' : '') + ' onclick="advanceEraStage(\'' + safeId + '\')">Move to ' + escHtml(nextStage) + '</button>' : '') +
+    (stage !== 'Ready' ? '<button class="btn btn-green" ' + (!markReadyOk ? 'disabled title="' + escAttr(markReadyTip) + '"' : '') + ' onclick="markEraReady(\'' + safeId + '\')">Mark Ready ✓</button>' : '') +
+    (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
+    '</div>';
+
+  return header + '<div class="sp-body">' + eraSection + docsSection + attitudeSection + flagsSection + contactSection + '</div>' + bottomActions;
+}
+
+function showLogInline(candId, method) {
+  if (!method) return;
+  const wrap = document.getElementById('scr-log-inline-' + candId);
+  if (wrap) wrap.style.display = 'block';
+}
+
+function cancelLogInline(candId) {
+  const wrap = document.getElementById('scr-log-inline-' + candId);
+  if (wrap) wrap.style.display = 'none';
+  const sel = document.getElementById('scr-log-method-' + candId);
+  if (sel) sel.value = '';
+}
+
+function submitLogEntry(candId) {
+  const methodSel = document.getElementById('scr-log-method-' + candId);
+  const outcomeEl = document.getElementById('scr-log-outcome-' + candId);
+  const dateEl    = document.getElementById('scr-log-date-' + candId);
+  if (!methodSel) return;
+  const method  = methodSel.value;
+  const outcome = outcomeEl ? outcomeEl.value.trim() : '';
+  const date    = dateEl ? (dateEl.value || new Date().toISOString().slice(0, 10)) : new Date().toISOString().slice(0, 10);
+  if (!method) { showToast('Select a contact method', 'orange'); return; }
+  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
+  eraContactLogs[candId].push({ method: method, outcome: outcome, date: date, ts: Date.now() });
+  saveEraContactLogs();
+  showToast('Contact logged', 'green');
+  renderScreeningTab();
+}
+
+function advanceEraStage(candId) {
+  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
+  const current = getEraStage(candId);
+  const idx = stageOrder.indexOf(current);
+  if (idx >= 0 && idx < stageOrder.length - 1) {
+    const next = stageOrder[idx + 1];
+    setEraStage(candId, next);
+    const cand = candidates.find(function(c) { return c.id === candId; });
+    showToast((cand ? cand.name : candId) + ' advanced to ' + next, 'green');
+    renderScreeningTab();
+  }
+}
+
+function markEraReady(candId) {
+  const era = calcERA(candId);
+  if (!era.gateOk) { showToast('Gate conditions not met', 'orange'); return; }
+  setEraStage(candId, 'Ready');
+  const cand = candidates.find(function(c) { return c.id === candId; });
+  showToast((cand ? cand.name : candId) + ' marked as Ready', 'green');
+  renderScreeningTab();
+}
+
+function confirmBlacklistFromPanel(candId, name) {
+  _scrSelectedCand = null;
+  openBlacklistModal(candId, name);
 }
 
 // ═══════════════════════════════════════════════
