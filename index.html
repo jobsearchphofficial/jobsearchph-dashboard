@@ -4271,7 +4271,7 @@ function _openCandModalInner(candId) {
             ${[
               ['polite',           'Clear communication',        'A +1.0', false],
               ['willingToWork',    'Willing to work',            'A +1.0', false],
-              ['passedScreening',  'Passed internal screening',  'A +1.0', false],
+              ['passedScreening',  'Consistent answers',  'A +1.0', false],
               ['hesitantAnswers',  'Hesitant answers',           'A -1.0', true],
             ].map(([key,label,pts,bad]) => `
               <div class="rating-flag-card ${scores[key]?'flag-active':''} ${bad?'flag-bad':'flag-good'}" onclick="saveCandScore('${escAttr(c.id)}','${key}',${!scores[key]})">
@@ -4614,7 +4614,7 @@ function calcERA(candId, joId) {
   }
   if (scores.polite)           { A += 1.0; aBreakdown.push({ label: 'Clear communication',     val: 1.0, sign: '+' }); }
   if (scores.willingToWork)    { A += 1.0; aBreakdown.push({ label: 'Willing to work',          val: 1.0, sign: '+' }); }
-  if (scores.passedScreening)  { A += 1.0; aBreakdown.push({ label: 'Passed internal screening', val: 1.0, sign: '+' }); }
+  if (scores.passedScreening)  { A += 1.0; aBreakdown.push({ label: 'Consistent answers', val: 1.0, sign: '+' }); }
   if (scores.hesitantAnswers)  { A -= 1.0; aBreakdown.push({ label: 'Hesitant answers',         val: 1.0, sign: '-' }); }
 
   A = Math.min(4.0, A);
@@ -6429,11 +6429,6 @@ function renderScreeningTab() {
   if (!el) return;
 
   const viewBar = '<div class="screening-view-bar">' +
-    '<div class="screening-views">' +
-    '<button class="sv-btn ' + (_scrView==='nurture'?'active':'') + '" onclick="switchScreeningView(\'nurture\')">Nurture Queue</button>' +
-    '<button class="sv-btn ' + (_scrView==='pipeline'?'active':'') + '" onclick="switchScreeningView(\'pipeline\')">Pipeline</button>' +
-    '<button class="sv-btn ' + (_scrView==='all'?'active':'') + '" onclick="switchScreeningView(\'all\')">All Candidates</button>' +
-    '</div>' +
     '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
     '</div>';
 
@@ -6461,10 +6456,7 @@ function renderScreeningTab() {
     '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--text3)"></div><div><div class="scr-stat-val">' + stats.inQueue + '</div><div class="scr-stat-label">In queue today</div></div></div>' +
     '</div>';
 
-  let viewHtml = '';
-  if (_scrView === 'nurture') viewHtml = renderNurtureView();
-  else if (_scrView === 'pipeline') viewHtml = renderPipelineView();
-  else viewHtml = renderAllCandidatesView();
+  const viewHtml = renderNurtureView();
 
   el.innerHTML = viewBar + filterBarDiv + statsRow + viewHtml;
   buildScrFilterBar();
@@ -6714,7 +6706,7 @@ function buildScreeningPanelInner(candId) {
     buildFlagGroup('A — Attitude', 'var(--purple)', [
       ['polite',          'Clear communication',       'A +1.0', false],
       ['willingToWork',   'Willing to work',           'A +1.0', false],
-      ['passedScreening', 'Passed internal screening', 'A +1.0', false],
+      ['passedScreening', 'Consistent answers', 'A +1.0', false],
       ['hesitantAnswers', 'Hesitant answers',          'A -1.0', true],
     ]) +
     buildFlagGroup('Track Record / Bonus', 'var(--green)', [
@@ -6774,7 +6766,6 @@ function buildScreeningPanelInner(candId) {
   const markReadyTip = markReadyOk ? '' : 'Missing: ' + missingList;
 
   const bottomActions = '<div class="sp-bottom-actions">' +
-    (nextStage ? '<button class="btn btn-blue" ' + (!canAdvance ? 'disabled title="' + escAttr(advanceTip) + '"' : '') + ' onclick="advanceEraStage(\'' + safeId + '\')">Move to ' + escHtml(nextStage) + '</button>' : '') +
     (stage !== 'Ready' ? '<button class="btn btn-green" ' + (!markReadyOk ? 'disabled title="' + escAttr(markReadyTip) + '"' : '') + ' onclick="markEraReady(\'' + safeId + '\')">Mark Ready ✓</button>' : '') +
     (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
     '</div>';
