@@ -1473,6 +1473,89 @@
     border-bottom: 1px solid var(--border);
   }
 
+  /* ─── CANDIDATE COMPACT FILTER BAR ─── */
+  .cf-top-row { margin-bottom: 10px; }
+  .cf-top-row input {
+    width: 100%; background: var(--card); border: 1px solid var(--border2); color: var(--text);
+    padding: 9px 14px; border-radius: 9px; font-family: var(--sans); font-size: 13px;
+    font-weight: 500; outline: none; box-shadow: var(--shadow-card);
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .cf-top-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,.10); }
+  .cf-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+  .cf-btn-wrap { position: relative; }
+  .cf-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--card); border: 1px solid var(--border2); color: var(--text2);
+    padding: 7px 12px; border-radius: 9px; font-family: var(--sans); font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
+    box-shadow: var(--shadow-card); position: relative;
+  }
+  .cf-btn:hover { border-color: var(--border3); color: var(--text); }
+  .cf-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(23,85,237,.06); }
+  .cf-btn .cf-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    position: absolute; top: 4px; right: 4px;
+  }
+  .cf-btn .cf-chev { font-size: 8px; opacity: .45; }
+  .cf-panel {
+    position: absolute; top: calc(100% + 5px); left: 0; z-index: 200;
+    background: var(--card); border: 1px solid var(--border2); border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(23,85,237,.12), 0 2px 8px rgba(0,0,0,.08);
+    padding: 10px; min-width: 180px; display: none;
+  }
+  .cf-panel.open { display: block; animation: fadeUp .15s ease; }
+  .cf-panel-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .cf-panel-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--text3); }
+  .cf-clear { font-size: 11px; color: var(--accent); cursor: pointer; font-weight: 600; }
+  .cf-clear:hover { text-decoration: underline; }
+  .cf-checklist { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+  .cf-check-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 7px;
+    cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2); transition: background .12s;
+  }
+  .cf-check-item:hover { background: var(--bg2); }
+  .cf-check-item input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+  .cf-summary { font-size: 11px; color: var(--text3); font-weight: 500; margin-bottom: 16px; min-height: 14px; }
+  /* Dual range slider */
+  .dr-wrap { padding: 4px 2px 2px; }
+  .dr-lbl { font-size: 13px; font-weight: 700; color: var(--text2); text-align: center; margin-bottom: 14px; font-family: var(--mono); }
+  .dr-track-wrap { position: relative; height: 28px; display: flex; align-items: center; margin: 0 9px; }
+  .dr-track { position: absolute; left: 0; right: 0; height: 4px; background: var(--border2); border-radius: 99px; }
+  .dr-fill { position: absolute; height: 4px; background: var(--accent); border-radius: 99px; }
+  .dr-handle {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: white; border: 2px solid var(--accent); cursor: grab;
+    transform: translateX(-50%); top: 50%; margin-top: -9px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.15); z-index: 1;
+  }
+  .dr-handle:active { cursor: grabbing; box-shadow: 0 2px 8px rgba(23,85,237,.3); }
+  .dr-reset-row { text-align: right; margin-top: 10px; }
+  .dr-reset { font-size: 11px; color: var(--accent); cursor: pointer; font-weight: 600; }
+  .dr-reset:hover { text-decoration: underline; }
+  /* ERA tier buttons */
+  .era-tier-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .era-tier-btn {
+    padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border2);
+    background: var(--card2); color: var(--text3); font-family: var(--sans);
+    font-size: 11px; font-weight: 700; cursor: pointer; transition: all .12s; white-space: nowrap;
+  }
+  /* Blacklist compact select */
+  .cf-bl-wrap { position: relative; }
+  .cf-bl-select {
+    display: inline-block; background: var(--card); border: 1px solid var(--border2); color: var(--text2);
+    padding: 7px 28px 7px 12px; border-radius: 9px; font-family: var(--sans); font-size: 12px;
+    font-weight: 600; cursor: pointer; outline: none; box-shadow: var(--shadow-card);
+    -webkit-appearance: none; appearance: none; transition: all .15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  .cf-bl-select:hover { border-color: var(--border3); }
+  .cf-bl-select.bl-active { border-color: var(--accent); color: var(--accent); background-color: rgba(23,85,237,.06); }
+
   /* ─── SCREENING TAB ─── */
   .screening-view-bar {
     display: flex; justify-content: space-between; align-items: center;
@@ -1847,50 +1930,11 @@
       <div class="section-title">Candidate Pool</div>
       <div class="badge" id="cand-count">0</div>
     </div>
-    <div class="filter-bar candidate-filter-bar">
-      <div class="filter-control filter-control-search">
-        <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
-      </div>
-      <div class="filter-control filter-control-types">
-        <select id="cand-filter-type" multiple size="5" onchange="renderCandidates()" title="Select one or more job types. Leave empty to show all."></select>
-        <div class="filter-help">Job Type: hold Cmd to pick multiple options.</div>
-      </div>
-      <div class="filter-control">
-        <select id="cand-filter-location" onchange="renderCandidates()">
-          <option value="">All Locations</option>
-        </select>
-      </div>
-      <div class="filter-control">
-        <select id="cand-filter-status" onchange="renderCandidates()">
-          <option value="">All Statuses</option>
-          <option value="Verified">Verified</option>
-          <option value="Unverified">Unverified</option>
-        </select>
-      </div>
-      <div class="filter-control">
-        <select id="cand-filter-gender" onchange="renderCandidates()">
-          <option value="">All Genders</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
-      </div>
-      <div class="filter-control">
-        <select id="cand-filter-blacklist" onchange="renderCandidates()">
-          <option value="hide">Hide Blacklisted</option>
-          <option value="show">Show All</option>
-          <option value="only">Blacklisted Only</option>
-        </select>
-      </div>
+    <div class="cf-top-row">
+      <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
     </div>
-    <div class="candidate-filter-secondary">
-      <select id="cand-filter-readiness" onchange="renderCandidates()">
-        <option value="">All Readiness</option>
-        <option value="ready">Ready to Send</option>
-        <option value="needs_verification">Needs Verification</option>
-        <option value="not_ready">Not Ready</option>
-      </select>
-      <div class="candidate-filter-summary" id="cand-filter-summary">Showing active candidates only</div>
-    </div>
+    <div class="cf-bar" id="cand-cf-bar"></div>
+    <div class="cf-summary" id="cand-filter-summary"></div>
     <div id="cand-error" class="error-msg hidden"></div>
     <div id="cand-container" class="cards-grid">
       <div class="loading-wrap">
@@ -3192,19 +3236,257 @@ function saveNote(key, val) {
 }
 
 // ═══════════════════════════════════════════════
+// CANDIDATES — COMPACT FILTER BAR
+// ═══════════════════════════════════════════════
+
+let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], blacklist: 'hide' };
+let _candActivePanel = null;
+let _candJobTypes = [];
+
+function initCandFilters() {
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.cf-btn-wrap') && !e.target.closest('.cf-bl-wrap')) {
+      if (_candActivePanel) { _candActivePanel = null; buildCandFilterBar(); }
+    }
+  });
+}
+
+function buildCandFilterBar() {
+  const bar = document.getElementById('cand-cf-bar');
+  if (!bar) return;
+  const defs = [
+    { key: 'jobType',   neutral: 'All job types',    prefix: 'Job type' },
+    { key: 'location',  neutral: 'All locations',    prefix: 'Location' },
+    { key: 'status',    neutral: 'All statuses',     prefix: 'Status' },
+    { key: 'gender',    neutral: 'All genders',      prefix: 'Gender' },
+    { key: 'age',       neutral: 'All ages',         prefix: 'Age' },
+    { key: 'payRange',  neutral: 'All pay ranges',   prefix: 'Pay' },
+    { key: 'eraScore',  neutral: 'All ERA scores',   prefix: 'ERA' },
+  ];
+  const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') + buildCfBlWrap();
+  bar.innerHTML = btns;
+  if (_candActivePanel === 'age') setTimeout(initAgeSlider, 0);
+}
+
+function buildCfBtnWrap(key, neutralLabel, prefix) {
+  const f = _candFilters;
+  let isActive = false, label = neutralLabel;
+  if (key === 'age') {
+    isActive = !(f.ageMin === 18 && f.ageMax === 65);
+    label = isActive ? 'Age \u00b7 ' + f.ageMin + '\u2013' + f.ageMax : neutralLabel;
+  } else if (key === 'eraScore') {
+    isActive = f.eraScore.length > 0;
+    label = isActive ? 'ERA \u00b7 ' + f.eraScore.join(', ') : neutralLabel;
+  } else {
+    const arr = f[key] || [];
+    isActive = arr.length > 0;
+    label = isActive ? prefix + ' \u00b7 ' + arr.length : neutralLabel;
+  }
+  const isOpen = _candActivePanel === key;
+  const dot = isActive ? '<span class="cf-dot"></span>' : '';
+  const chev = '<span class="cf-chev">' + (isOpen ? '\u25b4' : '\u25be') + '</span>';
+  const panel = isOpen ? buildCfPanel(key) : '';
+  return '<div class="cf-btn-wrap">' +
+    '<button class="cf-btn' + (isActive ? ' active' : '') + '" onclick="toggleCandPanel(\'' + key + '\')">' +
+    dot + escHtml(label) + chev + '</button>' + panel + '</div>';
+}
+
+function buildCfBlWrap() {
+  const val = _candFilters.blacklist;
+  const isActive = val !== 'hide';
+  const opts = [['hide','Hide Blacklisted'],['show','Show All'],['only','Blacklisted Only']];
+  return '<div class="cf-bl-wrap">' +
+    '<select class="cf-bl-select' + (isActive ? ' bl-active' : '') + '" onchange="setCandBlacklist(this.value)">' +
+    opts.map(function(o) { return '<option value="' + o[0] + '"' + (val === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+    '</select></div>';
+}
+
+function buildCfPanel(key) {
+  if (key === 'jobType') return buildCfCheckPanel('jobType', 'Job Type', _candJobTypes.length ? _candJobTypes : ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter']);
+  if (key === 'location') return buildCfCheckPanel('location', 'Location', ['Bacolod City','Talisay','Silay','Bago City','Others']);
+  if (key === 'status') return buildCfCheckPanel('status', 'Status', ['Not Ready','Needs Verification','Ready','Hired','Blacklisted']);
+  if (key === 'gender') return buildCfCheckPanel('gender', 'Gender', ['Female','Male','Others']);
+  if (key === 'age') return buildAgePanel();
+  if (key === 'payRange') return buildCfCheckPanel('payRange', 'Pay Range', ['Below \u20b15,000','\u20b15,000\u2013\u20b17,000','\u20b17,001\u2013\u20b110,000','\u20b110,001\u2013\u20b115,000','Above \u20b115,000']);
+  if (key === 'eraScore') return buildEraTierPanel();
+  return '';
+}
+
+function buildCfCheckPanel(key, title, opts) {
+  const selected = _candFilters[key] || [];
+  const items = opts.map(function(o) {
+    const safe = o.replace(/'/g, '');
+    const chk = selected.indexOf(o) >= 0 ? ' checked' : '';
+    return '<label class="cf-check-item"><input type="checkbox"' + chk + ' onchange="candFilterToggle(\'' + key + '\',\'' + safe + '\')">' + escHtml(o) + '</label>';
+  }).join('');
+  return '<div class="cf-panel open">' +
+    '<div class="cf-panel-hd"><span class="cf-panel-title">' + title + '</span><span class="cf-clear" onclick="candFilterClear(\'' + key + '\')">Clear</span></div>' +
+    '<div class="cf-checklist">' + items + '</div></div>';
+}
+
+function buildAgePanel() {
+  const lo = _candFilters.ageMin, hi = _candFilters.ageMax;
+  const loP = ((lo - 18) / 47 * 100).toFixed(1);
+  const hiP = ((hi - 18) / 47 * 100).toFixed(1);
+  return '<div class="cf-panel open" style="min-width:240px">' +
+    '<div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="candAgeReset()">Reset</span></div>' +
+    '<div class="dr-wrap">' +
+    '<div class="dr-lbl" id="dr-age-lbl">' + lo + ' \u2013 ' + hi + ' years old</div>' +
+    '<div class="dr-track-wrap" id="dr-track-wrap">' +
+    '<div class="dr-track"></div>' +
+    '<div class="dr-fill" id="dr-fill" style="left:' + loP + '%;width:' + (parseFloat(hiP) - parseFloat(loP)) + '%"></div>' +
+    '<div class="dr-handle" id="dr-lo" style="left:' + loP + '%"></div>' +
+    '<div class="dr-handle" id="dr-hi" style="left:' + hiP + '%"></div>' +
+    '</div>' +
+    '<div class="dr-reset-row"><span class="dr-reset" onclick="candAgeReset()">Reset to 18\u201365</span></div>' +
+    '</div></div>';
+}
+
+function buildEraTierPanel() {
+  const selected = _candFilters.eraScore || [];
+  const tiers = [
+    ['Below 3', 'var(--red)',    'rgba(220,38,38,.12)',  'rgba(220,38,38,.5)'],
+    ['3\u20135', 'var(--gold)',  'rgba(245,158,11,.12)', 'rgba(245,158,11,.5)'],
+    ['5\u20137', 'var(--accent)','rgba(23,85,237,.10)',  'rgba(23,85,237,.45)'],
+    ['7\u20138', 'var(--purple)','rgba(124,58,237,.10)', 'rgba(124,58,237,.45)'],
+    ['8\u201310','var(--green)', 'rgba(5,150,105,.10)',  'rgba(5,150,105,.45)'],
+  ];
+  const pills = tiers.map(function(t) {
+    const lbl = t[0], col = t[1], bg = t[2], border = t[3];
+    const sel = selected.indexOf(lbl) >= 0;
+    const style = sel ? 'background:' + bg + ';border-color:' + border + ';color:' + col + ';border-width:1.5px' : '';
+    const safe = lbl.replace(/'/g, '');
+    return '<button class="era-tier-btn' + (sel ? ' sel' : '') + '" style="' + style + '" onclick="candFilterToggle(\'eraScore\',\'' + safe + '\')">' + escHtml(lbl) + '</button>';
+  }).join('');
+  return '<div class="cf-panel open" style="min-width:280px">' +
+    '<div class="cf-panel-hd"><span class="cf-panel-title">ERA Score</span><span class="cf-clear" onclick="candFilterClear(\'eraScore\')">Clear</span></div>' +
+    '<div class="era-tier-row">' + pills + '</div></div>';
+}
+
+function toggleCandPanel(key) {
+  _candActivePanel = _candActivePanel === key ? null : key;
+  buildCandFilterBar();
+}
+
+function candFilterToggle(key, val) {
+  if (!_candFilters[key]) _candFilters[key] = [];
+  const arr = _candFilters[key];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  renderCandidates();
+  buildCandFilterBar();
+}
+
+function candFilterClear(key) {
+  _candFilters[key] = [];
+  renderCandidates();
+  buildCandFilterBar();
+}
+
+function setCandBlacklist(val) {
+  _candFilters.blacklist = val;
+  renderCandidates();
+  buildCandFilterBar();
+}
+
+function candAgeReset() {
+  _candFilters.ageMin = 18; _candFilters.ageMax = 65;
+  renderCandidates();
+  buildCandFilterBar();
+  setTimeout(initAgeSlider, 0);
+}
+
+function initAgeSlider() {
+  const trackWrap = document.getElementById('dr-track-wrap');
+  const loH = document.getElementById('dr-lo');
+  const hiH = document.getElementById('dr-hi');
+  const fill = document.getElementById('dr-fill');
+  const lbl  = document.getElementById('dr-age-lbl');
+  if (!trackWrap || !loH || !hiH) return;
+
+  function pctToVal(p) { return Math.round(18 + (p / 100) * 47); }
+  function valToPct(v) { return ((v - 18) / 47) * 100; }
+
+  function updateVis() {
+    const lo = _candFilters.ageMin, hi = _candFilters.ageMax;
+    const loP = valToPct(lo), hiP = valToPct(hi);
+    loH.style.left = loP + '%';
+    hiH.style.left = hiP + '%';
+    if (fill) { fill.style.left = loP + '%'; fill.style.width = (hiP - loP) + '%'; }
+    if (lbl) lbl.textContent = lo + ' \u2013 ' + hi + ' years old';
+  }
+
+  function startDrag(e, which) {
+    e.preventDefault(); e.stopPropagation();
+    const rect = trackWrap.getBoundingClientRect();
+    function onMove(ev) {
+      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const pct = Math.max(0, Math.min(100, (cx - rect.left) / rect.width * 100));
+      const val = pctToVal(pct);
+      if (which === 'lo') _candFilters.ageMin = Math.min(val, _candFilters.ageMax - 1);
+      else _candFilters.ageMax = Math.max(val, _candFilters.ageMin + 1);
+      updateVis();
+      renderCandidates();
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      buildCandFilterBar();
+      setTimeout(initAgeSlider, 0);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+
+  loH.onmousedown = function(e) { startDrag(e, 'lo'); };
+  hiH.onmousedown = function(e) { startDrag(e, 'hi'); };
+  loH.ontouchstart = function(e) { startDrag(e, 'lo'); };
+  hiH.ontouchstart = function(e) { startDrag(e, 'hi'); };
+}
+
+function parsePayAmount(str) {
+  if (!str) return null;
+  const n = parseInt((str + '').replace(/[^\d]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function matchPayRange(c, ranges) {
+  if (!ranges.length) return true;
+  const pay = parsePayAmount(c.expectedPay);
+  if (pay === null) return false;
+  return ranges.some(function(r) {
+    if (r === 'Below \u20b15,000') return pay < 5000;
+    if (r === '\u20b15,000\u2013\u20b17,000') return pay >= 5000 && pay <= 7000;
+    if (r === '\u20b17,001\u2013\u20b110,000') return pay >= 7001 && pay <= 10000;
+    if (r === '\u20b110,001\u2013\u20b115,000') return pay >= 10001 && pay <= 15000;
+    if (r === 'Above \u20b115,000') return pay > 15000;
+    return false;
+  });
+}
+
+function matchEraTier(candId, tiers) {
+  if (!tiers.length) return true;
+  const score = calcERA(candId).score;
+  return tiers.some(function(t) {
+    if (t === 'Below 3') return score < 3;
+    if (t === '3\u20135') return score >= 3 && score < 5;
+    if (t === '5\u20137') return score >= 5 && score < 7;
+    if (t === '7\u20138') return score >= 7 && score < 8;
+    if (t === '8\u201310') return score >= 8;
+    return false;
+  });
+}
+
+// ═══════════════════════════════════════════════
 // CANDIDATES
 // ═══════════════════════════════════════════════
 function populateFilterDropdowns() {
-  const types = [...new Set(candidates.flatMap(c => c.jobTypes?.length ? c.jobTypes : (c.jobType ? [c.jobType] : [])).filter(Boolean))].sort();
-  const locs = [...new Set(candidates.map(c=>c.location).filter(Boolean))].sort();
-
-  const typeEl = document.getElementById('cand-filter-type');
-  const locEl = document.getElementById('cand-filter-location');
-  const curTypes = Array.from(typeEl.selectedOptions).map(opt => opt.value);
-  const curLoc = locEl.value;
-
-  typeEl.innerHTML = types.map(t=>`<option value="${escAttr(t)}"${curTypes.includes(t)?' selected':''}>${escHtml(t)}</option>`).join('');
-  locEl.innerHTML = '<option value="">All Locations</option>' + locs.map(l=>`<option${l===curLoc?' selected':''}>${l}</option>`).join('');
+  _candJobTypes = [...new Set(candidates.flatMap(function(c) { return c.jobTypes && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []); }).filter(Boolean))].sort();
+  buildCandFilterBar();
 }
 
 function renderCandidates() {
@@ -3212,85 +3494,137 @@ function renderCandidates() {
   const summaryEl = document.getElementById('cand-filter-summary');
   try {
     const search = String(document.getElementById('cand-search')?.value || '').toLowerCase();
-    const filterTypes = Array.from(document.getElementById('cand-filter-type')?.selectedOptions || []).map(opt => opt.value).filter(Boolean);
-    const filterLoc = document.getElementById('cand-filter-location')?.value || '';
-    const filterStatus = document.getElementById('cand-filter-status')?.value || '';
-    const filterGender = document.getElementById('cand-filter-gender')?.value || '';
-    const filterBl = document.getElementById('cand-filter-blacklist')?.value || 'hide';
-    const filterReadiness = document.getElementById('cand-filter-readiness')?.value || '';
-    const hiredIds = new Set((candidates || []).filter(c => c?.id && isCandidateHired(c.id)).map(c => c.id));
+    const f = _candFilters;
+    const hiredIds = new Set((candidates || []).filter(function(c) { return c && c.id && isCandidateHired(c.id); }).map(function(c) { return c.id; }));
 
-    let filtered = (candidates || []).filter(c => {
+    let filtered = (candidates || []).filter(function(c) {
       if (!c || !c.id) return false;
-      if (hiredIds.has(c.id)) return false;
+
+      // Search
       const name = String(c.name || '').toLowerCase();
-      const id = String(c.id || '').toLowerCase();
-      if (search && !name.includes(search) && !id.includes(search)) return false;
-      const candJobTypes = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
-      if (filterTypes.length && !filterTypes.some(type => candJobTypes.includes(type))) return false;
-      if (filterLoc && (c.location || '') !== filterLoc) return false;
-      if (filterStatus === 'Verified' && !getEffectiveVerified(c)) return false;
-      if (filterStatus === 'Unverified' && getEffectiveVerified(c)) return false;
-      if (filterStatus && filterStatus !== 'Verified' && filterStatus !== 'Unverified' && (c.status || '') !== filterStatus) return false;
-      if (filterGender && (c.gender || '') !== filterGender) return false;
-      const isBlacklisted = !!blacklist[c.id];
-      if (filterBl === 'hide' && isBlacklisted) return false;
-      if (filterBl === 'only' && !isBlacklisted) return false;
-      if (filterReadiness) {
-        const rl = getCandReadiness(c.id).level;
-        if (filterReadiness === 'ready' && rl !== 'Ready for Matching') return false;
-        if (filterReadiness === 'needs_verification' && rl !== 'Needs Verification') return false;
-        if (filterReadiness === 'not_ready' && rl !== 'Not Ready') return false;
+      const cid = String(c.id || '').toLowerCase();
+      if (search && !name.includes(search) && !cid.includes(search)) return false;
+
+      // Job type
+      if (f.jobType.length) {
+        const ct = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
+        if (!f.jobType.some(function(t) { return ct.indexOf(t) >= 0; })) return false;
       }
+
+      // Location
+      if (f.location.length) {
+        const loc = c.location || '';
+        const knownLocs = ['Bacolod City','Talisay','Silay','Bago City'];
+        const locMatch = f.location.some(function(l) {
+          if (l === 'Others') return !knownLocs.some(function(k) { return loc.includes(k); });
+          return loc.includes(l);
+        });
+        if (!locMatch) return false;
+      }
+
+      // Status + hired + blacklist
+      const isBlacklisted = !!blacklist[c.id];
+      const isHired = hiredIds.has(c.id);
+      if (f.status.length) {
+        const rl = getCandReadiness(c.id).level;
+        const statusMatch = f.status.some(function(s) {
+          if (s === 'Hired') return isHired;
+          if (s === 'Blacklisted') return isBlacklisted;
+          if (s === 'Ready') return rl === 'Ready for Matching' && !isHired;
+          if (s === 'Needs Verification') return rl === 'Needs Verification' && !isHired;
+          if (s === 'Not Ready') return rl === 'Not Ready' && !isHired;
+          return false;
+        });
+        if (!statusMatch) return false;
+        // Still apply blacklist toggle unless 'Blacklisted' is explicitly in status
+        if (f.status.indexOf('Blacklisted') < 0) {
+          if (f.blacklist === 'hide' && isBlacklisted) return false;
+          if (f.blacklist === 'only' && !isBlacklisted) return false;
+        }
+      } else {
+        if (isHired) return false;
+        if (f.blacklist === 'hide' && isBlacklisted) return false;
+        if (f.blacklist === 'only' && !isBlacklisted) return false;
+      }
+
+      // Gender
+      if (f.gender.length) {
+        const g = c.gender || '';
+        const gMatch = f.gender.some(function(gv) {
+          if (gv === 'Others') return ['Female','Male'].indexOf(g) < 0;
+          return g === gv;
+        });
+        if (!gMatch) return false;
+      }
+
+      // Age range
+      if (!(f.ageMin === 18 && f.ageMax === 65)) {
+        const age = parseInt(c.age) || 0;
+        if (age > 0 && (age < f.ageMin || age > f.ageMax)) return false;
+      }
+
+      // Pay range
+      if (f.payRange.length && !matchPayRange(c, f.payRange)) return false;
+
+      // ERA score
+      if (f.eraScore.length && !matchEraTier(c.id, f.eraScore)) return false;
+
       return true;
     });
 
     document.getElementById('cand-count').textContent = filtered.length;
+
     if (summaryEl) {
-      const hiddenHired = hiredIds.size;
-      const selectedJobs = filterTypes.length ? `${filterTypes.length} job type${filterTypes.length > 1 ? 's' : ''}` : 'all job types';
-      summaryEl.textContent = `Showing ${filtered.length} active candidates · ${hiddenHired} hired hidden · Sorted highest rating first · ${selectedJobs}`;
+      const hiddenHired = f.status.length ? 0 : hiredIds.size;
+      const parts = [];
+      if (f.jobType.length) parts.push(f.jobType.join(', '));
+      if (f.gender.length) parts.push(f.gender.join(', '));
+      if (f.location.length) parts.push(f.location.join(', '));
+      if (f.status.length) parts.push(f.status.join(', '));
+      if (!(f.ageMin === 18 && f.ageMax === 65)) parts.push('Age ' + f.ageMin + '\u2013' + f.ageMax);
+      if (f.payRange.length) parts.push(f.payRange.length + ' pay range' + (f.payRange.length > 1 ? 's' : ''));
+      if (f.eraScore.length) parts.push('ERA: ' + f.eraScore.join(', '));
+      summaryEl.textContent = 'Showing ' + filtered.length + ' candidates' +
+        (hiddenHired > 0 ? ' \u00b7 ' + hiddenHired + ' hired hidden' : '') +
+        ' \u00b7 Sorted highest rating first' +
+        (parts.length ? ' \u00b7 ' + parts.join(' \u00b7 ') : '');
     }
 
     if (!filtered.length) {
-      container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No candidates match your filters.</div>`;
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">\u2014</div>No candidates match your filters.</div>';
       return;
     }
 
     container.innerHTML = '';
 
-    filtered.sort((a, b) => {
+    filtered.sort(function(a, b) {
       const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
       if (scoreDiff !== 0) return scoreDiff;
       const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
-      const readinessDiff = (readinessOrder[getCandReadiness(a.id).level] ?? 9) - (readinessOrder[getCandReadiness(b.id).level] ?? 9);
-      if (readinessDiff !== 0) return readinessDiff;
-      const verifiedDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
-      if (verifiedDiff !== 0) return verifiedDiff;
-      const lastActiveDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
-      if (lastActiveDiff !== 0) return lastActiveDiff;
+      const rdA = readinessOrder[getCandReadiness(a.id).level];
+      const rdB = readinessOrder[getCandReadiness(b.id).level];
+      const rdDiff = (rdA !== undefined ? rdA : 9) - (rdB !== undefined ? rdB : 9);
+      if (rdDiff !== 0) return rdDiff;
+      const verDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
+      if (verDiff !== 0) return verDiff;
+      const laDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
+      if (laDiff !== 0) return laDiff;
       return String(a.name || '').localeCompare(String(b.name || ''));
     });
 
-    let renderedCount = 0;
-    filtered.forEach(c => {
-      try {
-        container.appendChild(createCandCard(c));
-        renderedCount++;
-      } catch (err) {
-        console.error('Candidate card render failed for', c?.id, err);
-      }
+    let rendered = 0;
+    filtered.forEach(function(c) {
+      try { container.appendChild(createCandCard(c)); rendered++; }
+      catch (err) { console.error('Card render failed for', c?.id, err); }
     });
 
-    if (!renderedCount) {
-      container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>Unable to render candidate cards. Please refresh.</div>`;
+    if (!rendered) {
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">\u2014</div>Unable to render candidate cards. Please refresh.</div>';
     }
   } catch (err) {
     console.error('renderCandidates failed:', err);
     if (summaryEl) summaryEl.textContent = 'Candidate view encountered an error. Try Refresh.';
-    if (container) {
-      container.innerHTML = `<div class="error-msg" style="grid-column:1/-1">Candidates tab failed to render. Please click Refresh.</div>`;
-    }
+    if (container) container.innerHTML = '<div class="error-msg" style="grid-column:1/-1">Candidates tab failed to render. Please click Refresh.</div>';
   }
 }
 
@@ -6384,7 +6718,7 @@ function confirmBlacklistFromPanel(candId, name) {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-loadAll().then(() => loadFromFirebase());
+loadAll().then(function() { loadFromFirebase(); initCandFilters(); });
 </script>
 
 <!-- ─── TEMPLATE PICKER MODAL ─── -->
