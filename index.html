@@ -1526,9 +1526,19 @@
   }
   .sfp-label {
     font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
-    letter-spacing: .5px; margin-bottom: 4px;
+    letter-spacing: .5px; margin-bottom: 6px;
   }
-  .sfp-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .sfp-checkbox-list { display: flex; flex-direction: column; gap: 2px; }
+  .sfp-checkbox-item {
+    display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500;
+    color: var(--text2); cursor: pointer; padding: 4px 6px; border-radius: 6px;
+    transition: background .12s;
+  }
+  .sfp-checkbox-item:hover { background: var(--bg2); }
+  .sfp-checkbox-item input[type=checkbox] {
+    accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0;
+  }
+  .sfp-actions { display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
   .screening-stats-row {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;
   }
@@ -5864,9 +5874,17 @@ function toggleScrFilter() {
   }
 }
 
-function setScrFilter(key, val) {
-  if (val) _scrFilters[key] = val;
-  else delete _scrFilters[key];
+function toggleScrFilterValue(key, val) {
+  if (!_scrFilters[key]) _scrFilters[key] = [];
+  const idx = _scrFilters[key].indexOf(val);
+  if (idx >= 0) _scrFilters[key].splice(idx, 1);
+  else _scrFilters[key].push(val);
+  if (_scrFilters[key].length === 0) delete _scrFilters[key];
+}
+
+function applyScrFilters() {
+  _scrFilterOpen = false;
+  renderScreeningTab();
 }
 
 function clearScrFilters() {
@@ -5879,42 +5897,51 @@ function filterScrCandidates(cands) {
   let result = cands.filter(function(c) { return !blacklist[c.id]; });
   const q = _scrSearch.toLowerCase();
   if (q) result = result.filter(function(c) { return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q); });
-  if (_scrFilters.jobType) {
-    const jt = _scrFilters.jobType.toLowerCase();
-    result = result.filter(function(c) { return (c.jobType||'').toLowerCase().includes(jt); });
-  }
-  if (_scrFilters.gender) {
-    result = result.filter(function(c) { return (c.gender||'') === _scrFilters.gender; });
-  }
-  if (_scrFilters.eraStage) {
-    const stageMap = { 'Not Ready': 'Not Ready', 'E — Eligibility': 'E', 'R — Responsiveness': 'R', 'A — Attitude': 'A', 'Ready': 'Ready' };
-    const targetStage = stageMap[_scrFilters.eraStage] || _scrFilters.eraStage;
-    result = result.filter(function(c) { return getEraStage(c.id) === targetStage; });
-  }
-  if (_scrFilters.location) {
-    const loc = _scrFilters.location;
-    result = result.filter(function(c) { return (c.location||'').includes(loc); });
-  }
-  if (_scrFilters.ageRange) {
+
+  if (_scrFilters.jobType && _scrFilters.jobType.length) {
     result = result.filter(function(c) {
-      const age = parseInt(c.age) || 0;
-      if (_scrFilters.ageRange === '18-24') return age >= 18 && age <= 24;
-      if (_scrFilters.ageRange === '25-35') return age >= 25 && age <= 35;
-      if (_scrFilters.ageRange === '36-45') return age >= 36 && age <= 45;
-      if (_scrFilters.ageRange === '46+') return age >= 46;
-      return true;
+      return _scrFilters.jobType.some(function(jt) { return (c.jobType||'').toLowerCase().includes(jt.toLowerCase()); });
     });
   }
-  if (_scrFilters.lastContact) {
+  if (_scrFilters.gender && _scrFilters.gender.length) {
+    result = result.filter(function(c) { return _scrFilters.gender.indexOf(c.gender||'') >= 0; });
+  }
+  if (_scrFilters.eraStage && _scrFilters.eraStage.length) {
+    const stageMap = { 'Not Ready': 'Not Ready', 'E — Eligibility': 'E', 'R — Responsiveness': 'R', 'A — Attitude': 'A', 'Ready': 'Ready' };
+    result = result.filter(function(c) {
+      const s = getEraStage(c.id);
+      return _scrFilters.eraStage.some(function(v) { return (stageMap[v] || v) === s; });
+    });
+  }
+  if (_scrFilters.location && _scrFilters.location.length) {
+    result = result.filter(function(c) {
+      return _scrFilters.location.some(function(loc) { return (c.location||'').includes(loc); });
+    });
+  }
+  if (_scrFilters.ageRange && _scrFilters.ageRange.length) {
+    result = result.filter(function(c) {
+      const age = parseInt(c.age) || 0;
+      return _scrFilters.ageRange.some(function(r) {
+        if (r === '18-24') return age >= 18 && age <= 24;
+        if (r === '25-35') return age >= 25 && age <= 35;
+        if (r === '36-45') return age >= 36 && age <= 45;
+        if (r === '46+') return age >= 46;
+        return false;
+      });
+    });
+  }
+  if (_scrFilters.lastContact && _scrFilters.lastContact.length) {
     result = result.filter(function(c) {
       const last = getLastContact(c.id);
       const ds = last ? daysSince(last.date) : null;
-      if (_scrFilters.lastContact === 'Never contacted') return !last;
-      if (_scrFilters.lastContact === 'Today') return ds !== null && ds === 0;
-      if (_scrFilters.lastContact === 'Last 3 days') return ds !== null && ds <= 3;
-      if (_scrFilters.lastContact === 'Last 7 days') return ds !== null && ds <= 7;
-      if (_scrFilters.lastContact === 'Over 7 days ago') return ds === null || ds > 7;
-      return true;
+      return _scrFilters.lastContact.some(function(v) {
+        if (v === 'Never contacted') return !last;
+        if (v === 'Today') return ds !== null && ds === 0;
+        if (v === 'Last 3 days') return ds !== null && ds <= 3;
+        if (v === 'Last 7 days') return ds !== null && ds <= 7;
+        if (v === 'Over 7 days ago') return ds === null || ds > 7;
+        return false;
+      });
     });
   }
   return result;
@@ -5924,7 +5951,7 @@ function renderScreeningTab() {
   const el = document.getElementById('screening-inner');
   if (!el) return;
 
-  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) { return !!_scrFilters[k]; });
+  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) { return _scrFilters[k] && _scrFilters[k].length > 0; });
   const filterBtnCls = hasActiveFilter ? 'active' : '';
   const filterDot = hasActiveFilter ? '<span class="filter-dot"></span>' : '';
 
@@ -5939,10 +5966,14 @@ function renderScreeningTab() {
 
   const sfpRows = filterOptions.map(function(item) {
     const label = item[0], key = item[1], opts = item[2];
-    const optHtml = opts.map(function(o) {
-      return '<option value="' + escAttr(o) + '"' + (_scrFilters[key]===o?' selected':'') + '>' + escHtml(o) + '</option>';
+    const selected = _scrFilters[key] || [];
+    const checkboxes = opts.map(function(o) {
+      const checked = selected.indexOf(o) >= 0 ? 'checked' : '';
+      return '<label class="sfp-checkbox-item">' +
+        '<input type="checkbox" ' + checked + ' onchange="toggleScrFilterValue(\'' + key + '\',\'' + escAttr(o) + '\')">' +
+        escHtml(o) + '</label>';
     }).join('');
-    return '<div><div class="sfp-label">' + label + '</div><select class="sfp-select" onchange="setScrFilter(\'' + key + '\',this.value)"><option value="">All</option>' + optHtml + '</select></div>';
+    return '<div><div class="sfp-label">' + label + '</div><div class="sfp-checkbox-list">' + checkboxes + '</div></div>';
   }).join('');
 
   const viewBar = '<div class="screening-view-bar">' +
@@ -5957,7 +5988,7 @@ function renderScreeningTab() {
     '<button class="filter-toggle-btn ' + filterBtnCls + '" onclick="toggleScrFilter()">&#9881; Filter' + filterDot + '</button>' +
     '<div class="screening-filter-panel" id="scr-filter-panel">' +
     '<div class="sfp-grid">' + sfpRows + '</div>' +
-    '<div class="sfp-actions"><button class="btn btn-ghost" onclick="clearScrFilters()">Clear all</button><button class="btn btn-blue" onclick="toggleScrFilter()">Apply</button></div>' +
+    '<div class="sfp-actions"><button class="btn btn-ghost" onclick="clearScrFilters()">Clear all</button><button class="btn btn-blue" onclick="applyScrFilters()">Apply</button></div>' +
     '</div>' +
     '</div></div></div>';
 
