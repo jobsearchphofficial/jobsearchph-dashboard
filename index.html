@@ -6171,9 +6171,17 @@ function renderNudgePill(candId) {
 
 let _scrView = 'nurture';
 let _scrSearch = '';
-let _scrFilters = {};
-let _scrFilterOpen = false;
+let _scrFilters = { jobType: [], eraStage: [], gender: [], ageMin: 18, ageMax: 65, location: [], lastContact: [] };
+let _scrActivePanel = null;
 let _scrSelectedCand = null;
+
+function initScrFilters() {
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.scrf-btn-wrap')) {
+      if (_scrActivePanel) { _scrActivePanel = null; buildScrFilterBar(); }
+    }
+  });
+}
 
 function switchScreeningView(view) {
   _scrView = view;
@@ -6199,76 +6207,210 @@ function scrSearchChange(val) {
   renderScreeningTab();
 }
 
-function toggleScrFilter() {
-  _scrFilterOpen = !_scrFilterOpen;
-  const panel = document.getElementById('scr-filter-panel');
-  if (panel) {
-    if (_scrFilterOpen) panel.classList.add('open');
-    else panel.classList.remove('open');
+function buildScrFilterBar() {
+  const bar = document.getElementById('scr-filter-bar');
+  if (!bar) return;
+  const defs = [
+    { key: 'jobType',     neutral: 'All job types',   prefix: 'Job type' },
+    { key: 'eraStage',    neutral: 'All stages',       prefix: 'Stage' },
+    { key: 'gender',      neutral: 'All genders',      prefix: 'Gender' },
+    { key: 'age',         neutral: 'All ages',         prefix: 'Age' },
+    { key: 'location',    neutral: 'All locations',    prefix: 'Location' },
+    { key: 'lastContact', neutral: 'All contact',      prefix: 'Contact' },
+  ];
+  bar.innerHTML = defs.map(function(d) { return buildScrBtnWrap(d.key, d.neutral, d.prefix); }).join('');
+  if (_scrActivePanel === 'age') setTimeout(initScrAgeSlider, 0);
+}
+
+function buildScrBtnWrap(key, neutralLabel, prefix) {
+  const f = _scrFilters;
+  let isActive = false, label = neutralLabel;
+  if (key === 'age') {
+    isActive = !(f.ageMin === 18 && f.ageMax === 65);
+    label = isActive ? 'Age \u00b7 ' + f.ageMin + '\u2013' + f.ageMax : neutralLabel;
+  } else {
+    const arr = f[key] || [];
+    isActive = arr.length > 0;
+    label = isActive ? prefix + ' \u00b7 ' + arr.length : neutralLabel;
   }
+  const isOpen = _scrActivePanel === key;
+  const dot = isActive ? '<span class="cf-dot"></span>' : '';
+  const chev = '<span class="cf-chev">' + (isOpen ? '\u25b4' : '\u25be') + '</span>';
+  const panel = isOpen ? buildScrPanel(key) : '';
+  return '<div class="scrf-btn-wrap">' +
+    '<button class="cf-btn' + (isActive ? ' active' : '') + '" onclick="toggleScrPanel(\'' + key + '\')">' +
+    dot + escHtml(label) + chev + '</button>' + panel + '</div>';
 }
 
-function toggleScrFilterValue(key, val) {
+function buildScrPanel(key) {
+  const jobTypeOpts = _candJobTypes.length ? _candJobTypes : ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter'];
+  if (key === 'jobType') return buildScrCheckPanel('jobType', 'Job Type', jobTypeOpts);
+  if (key === 'eraStage') return buildScrCheckPanel('eraStage', 'ERA Stage', ['Not Ready','E \u2014 Eligibility','R \u2014 Responsiveness','A \u2014 Attitude','Ready']);
+  if (key === 'gender') return buildScrCheckPanel('gender', 'Gender', ['Female','Male','Others']);
+  if (key === 'age') return buildScrAgePanel();
+  if (key === 'location') return buildScrCheckPanel('location', 'Location', ['Bacolod City','Talisay','Silay','Bago City','Others']);
+  if (key === 'lastContact') return buildScrCheckPanel('lastContact', 'Last Contacted', ['Never contacted','Today','Last 3 days','Last 7 days','Over 7 days ago']);
+  return '';
+}
+
+function buildScrCheckPanel(key, title, opts) {
+  const selected = _scrFilters[key] || [];
+  const items = opts.map(function(o) {
+    const safe = o.replace(/'/g, '');
+    const chk = selected.indexOf(o) >= 0 ? ' checked' : '';
+    return '<label class="cf-check-item"><input type="checkbox"' + chk + ' onchange="scrFilterToggle(\'' + key + '\',\'' + safe + '\')">' + escHtml(o) + '</label>';
+  }).join('');
+  return '<div class="cf-panel open">' +
+    '<div class="cf-panel-hd"><span class="cf-panel-title">' + title + '</span><span class="cf-clear" onclick="scrFilterClear(\'' + key + '\')">Clear</span></div>' +
+    '<div class="cf-checklist">' + items + '</div></div>';
+}
+
+function buildScrAgePanel() {
+  const lo = _scrFilters.ageMin, hi = _scrFilters.ageMax;
+  const loP = ((lo - 18) / 47 * 100).toFixed(1);
+  const hiP = ((hi - 18) / 47 * 100).toFixed(1);
+  return '<div class="cf-panel open" style="min-width:240px">' +
+    '<div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="scrAgeReset()">Reset</span></div>' +
+    '<div class="dr-wrap">' +
+    '<div class="dr-lbl" id="scr-dr-lbl">' + lo + ' \u2013 ' + hi + ' years old</div>' +
+    '<div class="dr-track-wrap" id="scr-dr-wrap">' +
+    '<div class="dr-track"></div>' +
+    '<div class="dr-fill" id="scr-dr-fill" style="left:' + loP + '%;width:' + (parseFloat(hiP) - parseFloat(loP)) + '%"></div>' +
+    '<div class="dr-handle" id="scr-dr-lo" style="left:' + loP + '%"></div>' +
+    '<div class="dr-handle" id="scr-dr-hi" style="left:' + hiP + '%"></div>' +
+    '</div>' +
+    '<div class="dr-reset-row"><span class="dr-reset" onclick="scrAgeReset()">Reset to 18\u201365</span></div>' +
+    '</div></div>';
+}
+
+function initScrAgeSlider() {
+  const trackWrap = document.getElementById('scr-dr-wrap');
+  const loH = document.getElementById('scr-dr-lo');
+  const hiH = document.getElementById('scr-dr-hi');
+  const fill = document.getElementById('scr-dr-fill');
+  const lbl  = document.getElementById('scr-dr-lbl');
+  if (!trackWrap || !loH || !hiH) return;
+
+  function pctToVal(p) { return Math.round(18 + (p / 100) * 47); }
+  function valToPct(v) { return ((v - 18) / 47) * 100; }
+
+  function updateVis() {
+    const lo = _scrFilters.ageMin, hi = _scrFilters.ageMax;
+    const loP = valToPct(lo), hiP = valToPct(hi);
+    loH.style.left = loP + '%';
+    hiH.style.left = hiP + '%';
+    if (fill) { fill.style.left = loP + '%'; fill.style.width = (hiP - loP) + '%'; }
+    if (lbl) lbl.textContent = lo + ' \u2013 ' + hi + ' years old';
+  }
+
+  function startDrag(e, which) {
+    e.preventDefault(); e.stopPropagation();
+    const rect = trackWrap.getBoundingClientRect();
+    function onMove(ev) {
+      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const pct = Math.max(0, Math.min(100, (cx - rect.left) / rect.width * 100));
+      const val = pctToVal(pct);
+      if (which === 'lo') _scrFilters.ageMin = Math.min(val, _scrFilters.ageMax - 1);
+      else _scrFilters.ageMax = Math.max(val, _scrFilters.ageMin + 1);
+      updateVis();
+      renderScreeningTab();
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      buildScrFilterBar();
+      setTimeout(initScrAgeSlider, 0);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+  }
+
+  loH.onmousedown = function(e) { startDrag(e, 'lo'); };
+  hiH.onmousedown = function(e) { startDrag(e, 'hi'); };
+  loH.ontouchstart = function(e) { startDrag(e, 'lo'); };
+  hiH.ontouchstart = function(e) { startDrag(e, 'hi'); };
+}
+
+function toggleScrPanel(key) {
+  _scrActivePanel = _scrActivePanel === key ? null : key;
+  buildScrFilterBar();
+}
+
+function scrFilterToggle(key, val) {
   if (!_scrFilters[key]) _scrFilters[key] = [];
-  const idx = _scrFilters[key].indexOf(val);
-  if (idx >= 0) _scrFilters[key].splice(idx, 1);
-  else _scrFilters[key].push(val);
-  if (_scrFilters[key].length === 0) delete _scrFilters[key];
+  const arr = _scrFilters[key];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  renderScreeningTab();
+  buildScrFilterBar();
 }
 
-function applyScrFilters() {
-  _scrFilterOpen = false;
+function scrFilterClear(key) {
+  if (key === 'age') { _scrFilters.ageMin = 18; _scrFilters.ageMax = 65; }
+  else _scrFilters[key] = [];
   renderScreeningTab();
+  buildScrFilterBar();
 }
 
-function clearScrFilters() {
-  _scrFilters = {};
-  _scrFilterOpen = false;
+function scrAgeReset() {
+  _scrFilters.ageMin = 18; _scrFilters.ageMax = 65;
   renderScreeningTab();
+  buildScrFilterBar();
+  setTimeout(initScrAgeSlider, 0);
 }
 
 function filterScrCandidates(cands) {
+  const f = _scrFilters;
   let result = cands.filter(function(c) { return !blacklist[c.id]; });
   const q = _scrSearch.toLowerCase();
   if (q) result = result.filter(function(c) { return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q); });
 
-  if (_scrFilters.jobType && _scrFilters.jobType.length) {
+  if (f.jobType.length) {
     result = result.filter(function(c) {
-      return _scrFilters.jobType.some(function(jt) { return (c.jobType||'').toLowerCase().includes(jt.toLowerCase()); });
+      return f.jobType.some(function(jt) { return (c.jobType||'').toLowerCase().includes(jt.toLowerCase()); });
     });
   }
-  if (_scrFilters.gender && _scrFilters.gender.length) {
-    result = result.filter(function(c) { return _scrFilters.gender.indexOf(c.gender||'') >= 0; });
-  }
-  if (_scrFilters.eraStage && _scrFilters.eraStage.length) {
-    const stageMap = { 'Not Ready': 'Not Ready', 'E — Eligibility': 'E', 'R — Responsiveness': 'R', 'A — Attitude': 'A', 'Ready': 'Ready' };
+  if (f.eraStage.length) {
+    const stageMap = { 'Not Ready': 'Not Ready', 'E \u2014 Eligibility': 'E', 'R \u2014 Responsiveness': 'R', 'A \u2014 Attitude': 'A', 'Ready': 'Ready' };
     result = result.filter(function(c) {
       const s = getEraStage(c.id);
-      return _scrFilters.eraStage.some(function(v) { return (stageMap[v] || v) === s; });
+      return f.eraStage.some(function(v) { return (stageMap[v] || v) === s; });
     });
   }
-  if (_scrFilters.location && _scrFilters.location.length) {
+  if (f.gender.length) {
     result = result.filter(function(c) {
-      return _scrFilters.location.some(function(loc) { return (c.location||'').includes(loc); });
-    });
-  }
-  if (_scrFilters.ageRange && _scrFilters.ageRange.length) {
-    result = result.filter(function(c) {
-      const age = parseInt(c.age) || 0;
-      return _scrFilters.ageRange.some(function(r) {
-        if (r === '18-24') return age >= 18 && age <= 24;
-        if (r === '25-35') return age >= 25 && age <= 35;
-        if (r === '36-45') return age >= 36 && age <= 45;
-        if (r === '46+') return age >= 46;
-        return false;
+      const g = c.gender || '';
+      return f.gender.some(function(gv) {
+        if (gv === 'Others') return ['Female','Male'].indexOf(g) < 0;
+        return g === gv;
       });
     });
   }
-  if (_scrFilters.lastContact && _scrFilters.lastContact.length) {
+  if (!(f.ageMin === 18 && f.ageMax === 65)) {
+    result = result.filter(function(c) {
+      const age = parseInt(c.age) || 0;
+      return age <= 0 || (age >= f.ageMin && age <= f.ageMax);
+    });
+  }
+  if (f.location.length) {
+    result = result.filter(function(c) {
+      const loc = c.location || '';
+      const known = ['Bacolod City','Talisay','Silay','Bago City'];
+      return f.location.some(function(l) {
+        if (l === 'Others') return !known.some(function(k) { return loc.includes(k); });
+        return loc.includes(l);
+      });
+    });
+  }
+  if (f.lastContact.length) {
     result = result.filter(function(c) {
       const last = getLastContact(c.id);
       const ds = last ? daysSince(last.date) : null;
-      return _scrFilters.lastContact.some(function(v) {
+      return f.lastContact.some(function(v) {
         if (v === 'Never contacted') return !last;
         if (v === 'Today') return ds !== null && ds === 0;
         if (v === 'Last 3 days') return ds !== null && ds <= 3;
@@ -6285,46 +6427,30 @@ function renderScreeningTab() {
   const el = document.getElementById('screening-inner');
   if (!el) return;
 
-  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) { return _scrFilters[k] && _scrFilters[k].length > 0; });
-  const filterBtnCls = hasActiveFilter ? 'active' : '';
-  const filterDot = hasActiveFilter ? '<span class="filter-dot"></span>' : '';
-
-  const filterOptions = [
-    ['Job type', 'jobType', ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter']],
-    ['Gender', 'gender', ['Female','Male']],
-    ['Age range', 'ageRange', ['18-24','25-35','36-45','46+']],
-    ['ERA stage', 'eraStage', ['Not Ready','E — Eligibility','R — Responsiveness','A — Attitude','Ready']],
-    ['Location', 'location', ['Bacolod City','Talisay','Silay','Bago City']],
-    ['Last contacted', 'lastContact', ['Never contacted','Today','Last 3 days','Last 7 days','Over 7 days ago']],
-  ];
-
-  const sfpRows = filterOptions.map(function(item) {
-    const label = item[0], key = item[1], opts = item[2];
-    const selected = _scrFilters[key] || [];
-    const checkboxes = opts.map(function(o) {
-      const checked = selected.indexOf(o) >= 0 ? 'checked' : '';
-      return '<label class="sfp-checkbox-item">' +
-        '<input type="checkbox" ' + checked + ' onchange="toggleScrFilterValue(\'' + key + '\',\'' + escAttr(o) + '\')">' +
-        escHtml(o) + '</label>';
-    }).join('');
-    return '<div><div class="sfp-label">' + label + '</div><div class="sfp-checkbox-list">' + checkboxes + '</div></div>';
-  }).join('');
-
   const viewBar = '<div class="screening-view-bar">' +
     '<div class="screening-views">' +
     '<button class="sv-btn ' + (_scrView==='nurture'?'active':'') + '" onclick="switchScreeningView(\'nurture\')">Nurture Queue</button>' +
     '<button class="sv-btn ' + (_scrView==='pipeline'?'active':'') + '" onclick="switchScreeningView(\'pipeline\')">Pipeline</button>' +
     '<button class="sv-btn ' + (_scrView==='all'?'active':'') + '" onclick="switchScreeningView(\'all\')">All Candidates</button>' +
     '</div>' +
-    '<div class="screening-toolbar-right">' +
-    '<input class="screening-search" type="text" placeholder="Search candidates…" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
-    '<div class="filter-btn-wrap">' +
-    '<button class="filter-toggle-btn ' + filterBtnCls + '" onclick="toggleScrFilter()">&#9881; Filter' + filterDot + '</button>' +
-    '<div class="screening-filter-panel" id="scr-filter-panel">' +
-    '<div class="sfp-grid">' + sfpRows + '</div>' +
-    '<div class="sfp-actions"><button class="btn btn-ghost" onclick="clearScrFilters()">Clear all</button><button class="btn btn-blue" onclick="applyScrFilters()">Apply</button></div>' +
-    '</div>' +
-    '</div></div></div>';
+    '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
+    '</div>';
+
+  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) {
+    if (k === 'ageMin' || k === 'ageMax') return false;
+    return _scrFilters[k] && _scrFilters[k].length > 0;
+  }) || !(_scrFilters.ageMin === 18 && _scrFilters.ageMax === 65);
+
+  const filterSummaryParts = [];
+  if (_scrFilters.jobType.length) filterSummaryParts.push(_scrFilters.jobType.join(', '));
+  if (_scrFilters.eraStage.length) filterSummaryParts.push(_scrFilters.eraStage.join(', '));
+  if (_scrFilters.gender.length) filterSummaryParts.push(_scrFilters.gender.join(', '));
+  if (!(_scrFilters.ageMin === 18 && _scrFilters.ageMax === 65)) filterSummaryParts.push('Age ' + _scrFilters.ageMin + '\u2013' + _scrFilters.ageMax);
+  if (_scrFilters.location.length) filterSummaryParts.push(_scrFilters.location.join(', '));
+  if (_scrFilters.lastContact.length) filterSummaryParts.push(_scrFilters.lastContact.join(', '));
+
+  const filterBarDiv = '<div class="cf-bar" id="scr-filter-bar"></div>' +
+    (filterSummaryParts.length ? '<div class="cf-summary">' + escHtml(filterSummaryParts.join(' \u00b7 ')) + '</div>' : '<div class="cf-summary"></div>');
 
   const stats = calcScreeningStats();
   const statsRow = '<div class="screening-stats-row">' +
@@ -6339,12 +6465,8 @@ function renderScreeningTab() {
   else if (_scrView === 'pipeline') viewHtml = renderPipelineView();
   else viewHtml = renderAllCandidatesView();
 
-  el.innerHTML = viewBar + statsRow + viewHtml;
-
-  if (_scrFilterOpen) {
-    const panel = document.getElementById('scr-filter-panel');
-    if (panel) panel.classList.add('open');
-  }
+  el.innerHTML = viewBar + filterBarDiv + statsRow + viewHtml;
+  buildScrFilterBar();
 }
 
 function renderNurtureView() {
@@ -6718,7 +6840,7 @@ function confirmBlacklistFromPanel(candId, name) {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-loadAll().then(function() { loadFromFirebase(); initCandFilters(); });
+loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilters(); });
 </script>
 
 <!-- ─── TEMPLATE PICKER MODAL ─── -->
