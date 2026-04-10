@@ -4581,16 +4581,19 @@ function calcERA(candId, joId) {
   else                       { E -= 1.0; eBreakdown.push({ label: 'Missing key information',   val: 1.0, sign: '-' }); }
   if (scores.workIntentConfirmed) { E += 1.0; eBreakdown.push({ label: 'Work intent confirmed', val: 1.0, sign: '+' }); }
   if (scores.availabilityConfirmed) { E += 1.0; eBreakdown.push({ label: 'Availability confirmed', val: 1.0, sign: '+' }); }
-  const completeDocSet = !!(docs.brgy && docs.police && docs.nbi);
-  if (completeDocSet) { E += 1.5; eBreakdown.push({ label: 'Complete document set (Brgy + Police + NBI)', val: 1.5, sign: '+' }); }
+  if (docs.brgy)    { E += 0.5; eBreakdown.push({ label: 'Brgy Clearance submitted',   val: 0.5, sign: '+' }); }
+  if (docs.police)  { E += 1.0; eBreakdown.push({ label: 'Police Clearance submitted', val: 1.0, sign: '+' }); }
+  if (docs.nbi)     { E += 0.5; eBreakdown.push({ label: 'NBI Clearance submitted',    val: 0.5, sign: '+' }); }
+  if (docs.resume)  { E += 0.5; eBreakdown.push({ label: 'Resume submitted',            val: 0.5, sign: '+' }); }
+  if (docs.medical) { E += 0.5; eBreakdown.push({ label: 'Medical Cert submitted',      val: 0.5, sign: '+' }); }
 
   // ── R: RESPONSIVENESS — Contact reliability ──
   let R = 0;
   const rBreakdown = [];
   const hasRActivity = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv || scores.lateReply || scores.noShow);
 
-  if (scores.repliedFast)   { R += 1.0; rBreakdown.push({ label: 'Replied within 24 hours', val: 1.0, sign: '+' }); }
-  if (scores.answeredCall)  { R += 1.0; rBreakdown.push({ label: 'Answered call',            val: 1.0, sign: '+' }); }
+  if (scores.repliedFast)   { R += 0.5; rBreakdown.push({ label: 'Replied within 24 hours', val: 0.5, sign: '+' }); }
+  if (scores.answeredCall)  { R += 0.5; rBreakdown.push({ label: 'Answered call',            val: 0.5, sign: '+' }); }
   if (scores.confirmedIntv) { R += 1.0; rBreakdown.push({ label: 'Confirmed availability',   val: 1.0, sign: '+' }); }
   if (scores.lateReply)     { R -= 1.0; rBreakdown.push({ label: 'Slow reply (3+ days)',     val: 1.0, sign: '-' }); }
   if (scores.noShow)        { R -= 2.5; rBreakdown.push({ label: 'No response',               val: 2.5, sign: '-' }); }
@@ -4604,7 +4607,7 @@ function calcERA(candId, joId) {
   const hasAActivity = !!(att > 0 || scores.polite || scores.willingToWork || scores.passedScreening || scores.hesitantAnswers);
 
   if (att >= 4) {
-    A += 1.0; aBreakdown.push({ label: 'Good call attitude', val: 1.0, sign: '+' });
+    A += 0.5; aBreakdown.push({ label: 'Good call attitude', val: 0.5, sign: '+' });
   } else if (att === 3) {
     aBreakdown.push({ label: 'Average call attitude', val: 0, sign: '=' });
   } else if (att === 2) {
@@ -4614,7 +4617,7 @@ function calcERA(candId, joId) {
   }
   if (scores.polite)           { A += 1.0; aBreakdown.push({ label: 'Clear communication',     val: 1.0, sign: '+' }); }
   if (scores.willingToWork)    { A += 1.0; aBreakdown.push({ label: 'Willing to work',          val: 1.0, sign: '+' }); }
-  if (scores.passedScreening)  { A += 1.0; aBreakdown.push({ label: 'Consistent answers', val: 1.0, sign: '+' }); }
+  if (scores.passedScreening)  { A += 0.5; aBreakdown.push({ label: 'Consistent answers', val: 0.5, sign: '+' }); }
   if (scores.hesitantAnswers)  { A -= 1.0; aBreakdown.push({ label: 'Hesitant answers',         val: 1.0, sign: '-' }); }
 
   A = Math.min(4.0, A);
@@ -4631,7 +4634,7 @@ function calcERA(candId, joId) {
   // ── READINESS GATE ──
   const hasValidId   = !!docs.validId;
   const hasRSignal   = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv);
-  const gateOk       = hasValidId && hasRSignal && !!scores.passedScreening;
+  const gateOk       = hasValidId && hasRSignal;
 
   // ── FINAL SCORE ──
   let total = 2.0 + E + R + A + bonus;
@@ -6762,7 +6765,7 @@ function buildScreeningPanelInner(candId) {
   else if (nextStage === 'Ready') { canAdvance = era.gateOk; advanceTip = canAdvance ? '' : 'Gate conditions not met'; }
 
   const markReadyOk = era.gateOk;
-  const missingList = [!docs.validId && 'Valid ID', !era.hasRSignal && 'R Signal', !scores.passedScreening && 'Passed Screening'].filter(Boolean).join(', ');
+  const missingList = [!docs.validId && 'Valid ID', !era.hasRSignal && 'R Signal'].filter(Boolean).join(', ');
   const markReadyTip = markReadyOk ? '' : 'Missing: ' + missingList;
 
   const bottomActions = '<div class="sp-bottom-actions">' +
