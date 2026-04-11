@@ -1773,6 +1773,19 @@
     flex-wrap: wrap;
   }
   .sp-bottom-actions .btn { flex: 1; min-width: 100px; justify-content: center; font-size: 12px; }
+  .sp-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 10px; }
+  .sp-profile-row { display: flex; flex-direction: column; gap: 1px; }
+  .sp-profile-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); }
+  .sp-profile-val { font-size: 12px; font-weight: 600; color: var(--text); }
+  .sp-profile-full { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; }
+  .sp-contact-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sp-contact-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+    border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card2); color: var(--text2);
+    text-decoration: none; transition: border-color .15s;
+  }
+  .sp-contact-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Pipeline view */
   .pipeline-layout {
@@ -6802,6 +6815,48 @@ function buildScreeningPanelInner(candId) {
     '<button class="btn btn-blue" onclick="submitLogEntry(\'' + safeId + '\')">Add</button>' +
     '</div></div></div></div></div>';
 
+  const profileInfoRows = [
+    ['Age',        c.age || '—'],
+    ['Gender',     c.gender || '—'],
+    ['Location',   c.location || '—'],
+    ['Expected Pay', c.expectedPay || '—'],
+    ['Civil Status', c.civilStatus || '—'],
+    ['Can Start',  c.startDate || '—'],
+  ];
+  const profileGrid = '<div class="sp-profile-grid">' +
+    profileInfoRows.map(function(r) {
+      return '<div class="sp-profile-row">' +
+        '<div class="sp-profile-label">' + r[0] + '</div>' +
+        '<div class="sp-profile-val">' + escHtml(r[1]) + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+
+  const contactBtns = [];
+  if (c.phone) {
+    contactBtns.push('<a class="sp-contact-btn" href="sms:' + escAttr(c.phone) + '">&#128172; SMS</a>');
+    contactBtns.push('<a class="sp-contact-btn" href="tel:' + escAttr(c.phone) + '">&#128222; Call</a>');
+  }
+  if (c.facebookName) {
+    contactBtns.push('<a class="sp-contact-btn" href="https://m.me/' + escAttr(c.facebookName.replace(/\s/g,'')) + '" target="_blank">&#128483; Messenger</a>');
+  }
+  if (c.email) {
+    contactBtns.push('<a class="sp-contact-btn" href="mailto:' + escAttr(c.email) + '">&#9993; Email</a>');
+  }
+  const contactBtnsHtml = contactBtns.length ? '<div class="sp-contact-btns">' + contactBtns.join('') + '</div>' : '';
+
+  const skillsHtml = c.skills ? '<div class="sp-profile-full"><div class="sp-profile-label">Skills</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.skills) + '</div></div>' : '';
+  const pastJobsHtml = c.pastJobs ? '<div class="sp-profile-full"><div class="sp-profile-label">Past Jobs</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.pastJobs) + '</div></div>' : '';
+  const resumeHtml = c.resumeLink ? '<a class="sp-contact-btn" href="' + escAttr(c.resumeLink) + '" target="_blank" style="width:fit-content">&#128196; View Resume</a>' : '';
+
+  const profileSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Candidate Profile</div>' +
+    profileGrid +
+    contactBtnsHtml +
+    skillsHtml +
+    pastJobsHtml +
+    (resumeHtml ? '<div style="margin-top:4px">' + resumeHtml + '</div>' : '') +
+    '</div>';
+
   const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
   const stageIdx = stageOrder.indexOf(stage);
   const nextStage = stageIdx < stageOrder.length - 1 ? stageOrder[stageIdx + 1] : null;
@@ -6823,7 +6878,7 @@ function buildScreeningPanelInner(candId) {
     (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
     '</div>';
 
-  return header + '<div class="sp-body">' + eraSection + docsSection + attitudeSection + flagsSection + contactSection + '</div>' + bottomActions;
+  return header + '<div class="sp-body">' + profileSection + eraSection + docsSection + attitudeSection + flagsSection + contactSection + '</div>' + bottomActions;
 }
 
 function showLogInline(candId, method) {
