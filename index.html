@@ -1624,37 +1624,25 @@
   }
   .sfp-actions { display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
   .screening-stats-row {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;
   }
   .scr-stat-card {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm);
     padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-card); cursor: pointer; transition: border-color .15s, box-shadow .15s;
   }
+  .scr-stat-card:hover { border-color: var(--accent); }
+  .scr-stat-card.active { border-width: 2px; box-shadow: 0 0 0 3px rgba(23,85,237,.08); }
   .scr-stat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .scr-stat-val { font-family: var(--mono); font-size: 22px; font-weight: 500; line-height: 1; }
   .scr-stat-label {
     font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px;
   }
 
-  /* Nurture Queue */
-  /* Pipeline tab bar */
-  .pl-tabs {
-    display: flex; background: var(--card); border: 1px solid var(--border);
-    border-bottom: none; border-radius: var(--radius) var(--radius) 0 0; overflow: hidden;
-  }
-  .pl-tab {
-    flex: 1; padding: 11px 12px; border: none; background: none; cursor: pointer;
-    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--text3);
-    border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
-    display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
-  }
-  .pl-tab:hover:not(.pl-tab-active) { color: var(--text2); background: var(--card2); }
-  .pl-tab-active { font-weight: 700; }
-  .pl-tab-count {
-    display: inline-flex; align-items: center; justify-content: center;
-    min-width: 20px; height: 18px; border-radius: 9px; padding: 0 5px;
-    background: var(--card2); font-size: 10px; font-weight: 800; transition: all .15s;
+  /* Pipeline list */
+  .pl-list-header {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--card2);
   }
   /* Pipeline candidate cards */
   .pl-card {
@@ -6596,12 +6584,21 @@ function renderScreeningTab() {
     (filterSummaryParts.length ? '<div class="cf-summary">' + escHtml(filterSummaryParts.join(' \u00b7 ')) + '</div>' : '<div class="cf-summary"></div>');
 
   const stats = calcScreeningStats();
+  const statDefs = [
+    { stage: 'Unscreened',         color: 'var(--text3)',  label: 'Unscreened',  valColor: '' },
+    { stage: 'Contacted',          color: 'var(--accent)', label: 'Contacted',   valColor: 'var(--accent)' },
+    { stage: 'In Progress',        color: 'var(--gold)',   label: 'In Progress', valColor: 'var(--gold)' },
+    { stage: 'Ready for Matching', color: 'var(--green)',  label: 'Ready',       valColor: 'var(--green)' },
+  ];
   const statsRow = '<div class="screening-stats-row">' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--text3)"></div><div><div class="scr-stat-val">' + stats['Unscreened'] + '</div><div class="scr-stat-label">Unscreened</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--accent)"></div><div><div class="scr-stat-val" style="color:var(--accent)">' + stats['Contacted'] + '</div><div class="scr-stat-label">Contacted</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--gold)"></div><div><div class="scr-stat-val" style="color:var(--gold)">' + stats['In Progress'] + '</div><div class="scr-stat-label">In progress</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--green)"></div><div><div class="scr-stat-val" style="color:var(--green)">' + stats['Ready for Matching'] + '</div><div class="scr-stat-label">Ready</div></div></div>' +
-    '</div>';
+    statDefs.map(function(d) {
+      const active = _scrPipelineTab === d.stage ? ' active' : '';
+      const borderCol = _scrPipelineTab === d.stage ? d.color : '';
+      return '<div class="scr-stat-card' + active + '" onclick="switchPipelineTab(\'' + escAttr(d.stage) + '\')" style="' + (borderCol ? 'border-color:' + borderCol : '') + '">' +
+        '<div class="scr-stat-dot" style="background:' + d.color + '"></div>' +
+        '<div><div class="scr-stat-val" style="' + (d.valColor ? 'color:' + d.valColor : '') + '">' + stats[d.stage] + '</div>' +
+        '<div class="scr-stat-label">' + d.label + '</div></div></div>';
+    }).join('') + '</div>';
 
   const viewHtml = renderPipelineBoard();
 
@@ -6611,26 +6608,6 @@ function renderScreeningTab() {
 
 function renderPipelineBoard() {
   const filtered = filterScrCandidates(candidates);
-
-  // Count per stage for tab badges
-  const counts = { 'Unscreened': 0, 'Contacted': 0, 'In Progress': 0, 'Ready for Matching': 0 };
-  filtered.forEach(function(c) {
-    const s = getPipelineStage(c.id);
-    if (counts[s] !== undefined) counts[s]++; else counts['Unscreened']++;
-  });
-
-  // Stage tab bar
-  const tabsHtml = '<div class="pl-tabs">' +
-    PL_STAGES.map(function(s) {
-      const active = _scrPipelineTab === s;
-      const col = PL_COLORS[s];
-      return '<button class="pl-tab' + (active ? ' pl-tab-active' : '') + '" ' +
-        (active ? 'style="color:' + col + ';border-bottom-color:' + col + '"' : '') +
-        ' onclick="switchPipelineTab(\'' + escAttr(s) + '\')">' +
-        escHtml(s) +
-        '<span class="pl-tab-count" style="' + (active ? 'background:' + col + '22;color:' + col : '') + '">' + counts[s] + '</span>' +
-        '</button>';
-    }).join('') + '</div>';
 
   // Candidates for selected stage
   const stageCands = filtered.filter(function(c) {
@@ -6645,6 +6622,13 @@ function renderPipelineBoard() {
     if (!lb) return -1;
     return new Date(lb.date) - new Date(la.date);
   });
+
+  const stageColor = PL_COLORS[_scrPipelineTab] || 'var(--text3)';
+  const listHeader = '<div class="pl-list-header">' +
+    '<span style="font-size:12px;font-weight:600;color:var(--text2)">Showing: </span>' +
+    '<span style="font-size:12px;font-weight:700;color:' + stageColor + '">' + escHtml(_scrPipelineTab) + '</span>' +
+    '<span style="font-size:12px;color:var(--text3)"> (' + stageCands.length + ')</span>' +
+    '</div>';
 
   const listHtml = stageCands.length ? stageCands.map(function(c) {
     const era = calcERA(c.id);
@@ -6667,8 +6651,8 @@ function renderPipelineBoard() {
     (_scrSelectedCand ? buildScreeningPanelInner(_scrSelectedCand) : '<div class="screening-panel-empty"><div style="font-size:20px;color:var(--text3)">Select a candidate</div></div>') +
     '</div>';
 
-  return tabsHtml + '<div class="nurture-layout">' +
-    '<div class="nurture-list" style="border-radius:0 0 var(--radius) var(--radius)">' + listHtml + '</div>' +
+  return '<div class="nurture-layout">' +
+    '<div class="nurture-list">' + listHeader + listHtml + '</div>' +
     panelHtml + '</div>';
 }
 
