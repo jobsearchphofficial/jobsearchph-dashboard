@@ -3281,7 +3281,7 @@ function saveNote(key, val) {
 // CANDIDATES — COMPACT FILTER BAR
 // ═══════════════════════════════════════════════
 
-let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], blacklist: 'hide' };
+let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], blacklist: 'hide', showHired: false };
 let _candActivePanel = null;
 let _candJobTypes = [];
 
@@ -3305,7 +3305,10 @@ function buildCandFilterBar() {
     { key: 'payRange',  neutral: 'All pay ranges',   prefix: 'Pay' },
     { key: 'eraScore',  neutral: 'All ERA scores',   prefix: 'ERA' },
   ];
-  const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') + buildCfBlWrap();
+  const hiredOn = _candFilters.showHired;
+  const hiredBtn = '<button class="cf-btn' + (hiredOn ? ' active' : '') + '" onclick="toggleShowHired()" title="' + (hiredOn ? 'Hide hired candidates' : 'Show hired candidates') + '">' +
+    (hiredOn ? '<span class="cf-dot"></span>' : '') + 'Hired' + '</button>';
+  const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') + hiredBtn + buildCfBlWrap();
   bar.innerHTML = btns;
   if (_candActivePanel === 'age') setTimeout(initAgeSlider, 0);
 }
@@ -3427,6 +3430,12 @@ function candFilterClear(key) {
 
 function setCandBlacklist(val) {
   _candFilters.blacklist = val;
+  renderCandidates();
+  buildCandFilterBar();
+}
+
+function toggleShowHired() {
+  _candFilters.showHired = !_candFilters.showHired;
   renderCandidates();
   buildCandFilterBar();
 }
@@ -3567,6 +3576,9 @@ function renderCandidates() {
       // Status + hired + blacklist
       const isBlacklisted = !!blacklist[c.id];
       const isHired = hiredIds.has(c.id);
+      // Hired: always exclude unless showHired is on
+      if (isHired && !f.showHired) return false;
+
       if (f.status.length) {
         const rl = getCandReadiness(c.id).level;
         const statusMatch = f.status.some(function(s) {
@@ -3578,13 +3590,11 @@ function renderCandidates() {
           return false;
         });
         if (!statusMatch) return false;
-        // Still apply blacklist toggle unless 'Blacklisted' is explicitly in status
         if (f.status.indexOf('Blacklisted') < 0) {
           if (f.blacklist === 'hide' && isBlacklisted) return false;
           if (f.blacklist === 'only' && !isBlacklisted) return false;
         }
       } else {
-        if (isHired) return false;
         if (f.blacklist === 'hide' && isBlacklisted) return false;
         if (f.blacklist === 'only' && !isBlacklisted) return false;
       }
@@ -3617,7 +3627,7 @@ function renderCandidates() {
     document.getElementById('cand-count').textContent = filtered.length;
 
     if (summaryEl) {
-      const hiddenHired = f.status.length ? 0 : hiredIds.size;
+      const hiddenHired = !f.showHired ? hiredIds.size : 0;
       const parts = [];
       if (f.jobType.length) parts.push(f.jobType.join(', '));
       if (f.gender.length) parts.push(f.gender.join(', '));
@@ -3626,6 +3636,7 @@ function renderCandidates() {
       if (!(f.ageMin === 18 && f.ageMax === 65)) parts.push('Age ' + f.ageMin + '\u2013' + f.ageMax);
       if (f.payRange.length) parts.push(f.payRange.length + ' pay range' + (f.payRange.length > 1 ? 's' : ''));
       if (f.eraScore.length) parts.push('ERA: ' + f.eraScore.join(', '));
+      if (f.showHired) parts.push('Hired included');
       summaryEl.textContent = 'Showing ' + filtered.length + ' candidates' +
         (hiddenHired > 0 ? ' \u00b7 ' + hiddenHired + ' hired hidden' : '') +
         ' \u00b7 Sorted highest rating first' +
@@ -6501,7 +6512,7 @@ function scrAgeReset() {
 
 function filterScrCandidates(cands) {
   const f = _scrFilters;
-  let result = cands.filter(function(c) { return !blacklist[c.id]; });
+  let result = cands.filter(function(c) { return !blacklist[c.id] && !isCandidateHired(c.id); });
   const q = _scrSearch.toLowerCase();
   if (q) result = result.filter(function(c) { return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q); });
 
