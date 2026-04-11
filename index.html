@@ -6826,6 +6826,8 @@ function buildScreeningPanelInner(candId) {
     ['Expected Pay', c.expectedPay || '—'],
     ['Civil Status', c.civilStatus || '—'],
     ['Can Start',    c.startDate || '—'],
+    ['Facebook',     c.facebook || '—'],
+    ['Phone',        c.phone || '—'],
   ];
   const profileGrid = '<div class="sp-profile-grid">' +
     profileInfoRows.map(function(row) {
@@ -6842,7 +6844,7 @@ function buildScreeningPanelInner(candId) {
   }
   if (c.facebook) {
     const fbUrl = 'https://www.facebook.com/search/people/?q=' + encodeURIComponent(c.facebook);
-    profContactBtns.push('<a class="sp-contact-btn" href="' + escAttr(fbUrl) + '" target="_blank">&#128483; ' + escHtml(c.facebook) + '</a>');
+    profContactBtns.push('<a class="sp-contact-btn" href="' + escAttr(fbUrl) + '" target="_blank">&#128483; Messenger</a>');
   }
   if (c.email) {
     profContactBtns.push('<a class="sp-contact-btn" href="mailto:' + escAttr(c.email) + '">&#9993; Email</a>');
