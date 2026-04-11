@@ -1695,6 +1695,7 @@
   .screening-panel {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
     box-shadow: var(--shadow-card); overflow: hidden;
+    position: sticky; top: 80px; align-self: start;
   }
   .screening-panel-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2388,6 +2389,9 @@ async function loadAll() {
         gender: r[11] || '',
         pastJobs,
         experienceFlag,
+        resumeLink: r[13] || '',
+        civilStatus: r[14] || '',
+        startDate: r[15] || '',
         status: r[16] || 'Unverified',
         candStatus: 'active', // runtime status: active | interview | hired | blacklisted
       };
@@ -6816,33 +6820,34 @@ function buildScreeningPanelInner(candId) {
     '</div></div></div></div></div>';
 
   const profileInfoRows = [
-    ['Age',        c.age || '—'],
-    ['Gender',     c.gender || '—'],
-    ['Location',   c.location || '—'],
+    ['Age',          c.age || '—'],
+    ['Gender',       c.gender || '—'],
+    ['Location',     c.location || '—'],
     ['Expected Pay', c.expectedPay || '—'],
     ['Civil Status', c.civilStatus || '—'],
-    ['Can Start',  c.startDate || '—'],
+    ['Can Start',    c.startDate || '—'],
   ];
   const profileGrid = '<div class="sp-profile-grid">' +
-    profileInfoRows.map(function(r) {
+    profileInfoRows.map(function(row) {
       return '<div class="sp-profile-row">' +
-        '<div class="sp-profile-label">' + r[0] + '</div>' +
-        '<div class="sp-profile-val">' + escHtml(r[1]) + '</div>' +
+        '<div class="sp-profile-label">' + row[0] + '</div>' +
+        '<div class="sp-profile-val">' + escHtml(row[1]) + '</div>' +
         '</div>';
     }).join('') + '</div>';
 
-  const contactBtns = [];
+  const profContactBtns = [];
   if (c.phone) {
-    contactBtns.push('<a class="sp-contact-btn" href="sms:' + escAttr(c.phone) + '">&#128172; SMS</a>');
-    contactBtns.push('<a class="sp-contact-btn" href="tel:' + escAttr(c.phone) + '">&#128222; Call</a>');
+    profContactBtns.push('<a class="sp-contact-btn" href="sms:' + escAttr(c.phone) + '">&#128172; SMS</a>');
+    profContactBtns.push('<a class="sp-contact-btn" href="tel:' + escAttr(c.phone) + '">&#128222; Call</a>');
   }
-  if (c.facebookName) {
-    contactBtns.push('<a class="sp-contact-btn" href="https://m.me/' + escAttr(c.facebookName.replace(/\s/g,'')) + '" target="_blank">&#128483; Messenger</a>');
+  if (c.facebook) {
+    const fbUrl = 'https://www.facebook.com/search/people/?q=' + encodeURIComponent(c.facebook);
+    profContactBtns.push('<a class="sp-contact-btn" href="' + escAttr(fbUrl) + '" target="_blank">&#128483; ' + escHtml(c.facebook) + '</a>');
   }
   if (c.email) {
-    contactBtns.push('<a class="sp-contact-btn" href="mailto:' + escAttr(c.email) + '">&#9993; Email</a>');
+    profContactBtns.push('<a class="sp-contact-btn" href="mailto:' + escAttr(c.email) + '">&#9993; Email</a>');
   }
-  const contactBtnsHtml = contactBtns.length ? '<div class="sp-contact-btns">' + contactBtns.join('') + '</div>' : '';
+  const contactBtnsHtml = profContactBtns.length ? '<div class="sp-contact-btns">' + profContactBtns.join('') + '</div>' : '';
 
   const skillsHtml = c.skills ? '<div class="sp-profile-full"><div class="sp-profile-label">Skills</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.skills) + '</div></div>' : '';
   const pastJobsHtml = c.pastJobs ? '<div class="sp-profile-full"><div class="sp-profile-label">Past Jobs</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.pastJobs) + '</div></div>' : '';
