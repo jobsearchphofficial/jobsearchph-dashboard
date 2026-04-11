@@ -4193,10 +4193,16 @@ function _openCandModalInner(candId) {
         <!-- Readiness Gate Status -->
         <div class="quality-flags-row">
           ${[
-            ['Valid ID',             ratingFull.era.hasValidId],
-            ['R Signal',             ratingFull.era.hasRSignal],
-            ['Passed Screening',     !!(candidateRatings[c.id]?.scores?.passedScreening)],
+            ['Valid ID',    ratingFull.era.hasValidId],
+            ['R Signal',    ratingFull.era.hasRSignal],
+            ['A Signal',    ratingFull.era.hasASignal],
+            ['Doc Cap',     ratingFull.era.docCap + ' / 10'],
           ].map(([label, met]) => {
+            if (typeof met === 'string') {
+              return `<div class="quality-flag-chip" style="border-color:var(--accent)20;background:var(--accent)10;color:var(--accent)">
+                ${label}: <strong>${met}</strong>
+              </div>`;
+            }
             const color = met ? 'var(--green)' : 'var(--red)';
             const text  = met ? 'Met' : 'Missing';
             return `<div class="quality-flag-chip" style="border-color:${color}20;background:${color}10;color:${color}">
@@ -4254,11 +4260,12 @@ function _openCandModalInner(candId) {
           <div class="era-flags-group-label" style="color:var(--green)">R — Responsiveness</div>
           <div class="rating-flags-grid">
             ${[
-              ['repliedFast',   'Replied within 24 hours',  'R +1.0', false],
-              ['answeredCall',  'Answered call',             'R +1.0', false],
-              ['confirmedIntv', 'Confirmed availability',   'R +1.0', false],
-              ['lateReply',     'Slow reply (3+ days)',     'R -1.0', true],
-              ['noShow',        'No response',              'R -2.5', true],
+              ['repliedFast',   'Replied within 24 hours',       'R +1.0', false],
+              ['answeredCall',  'Answered call',                  'R +1.0', false],
+              ['confirmedIntv', 'Confirmed availability',         'R +1.0', false],
+              ['lateReply',     'Slow reply (3+ days)',           'R -1.0', true],
+              ['noShow',        'No response',                    'R -2.5', true],
+              ['multiFollowup', 'Needed multiple follow-ups',     'R -1.0', true],
             ].map(([key,label,pts,bad]) => `
               <div class="rating-flag-card ${scores[key]?'flag-active':''} ${bad?'flag-bad':'flag-good'}" onclick="saveCandScore('${escAttr(c.id)}','${key}',${!scores[key]})">
                 <div class="flag-label" style="font-size:11px;font-weight:600">${label}</div>
@@ -4269,10 +4276,12 @@ function _openCandModalInner(candId) {
           <div class="era-flags-group-label" style="color:var(--purple);margin-top:10px">A — Attitude</div>
           <div class="rating-flags-grid">
             ${[
-              ['polite',           'Clear communication',        'A +1.0', false],
-              ['willingToWork',    'Willing to work',            'A +1.0', false],
-              ['passedScreening',  'Consistent answers',  'A +1.0', false],
-              ['hesitantAnswers',  'Hesitant answers',           'A -1.0', true],
+              ['polite',              'Clear communication',                  'A +1.0', false],
+              ['passedScreening',     'Consistent answers',                   'A +1.0', false],
+              ['willingToWork',       'Willing to work',                      'A +0.5', false],
+              ['followsInstructions', 'Follows instructions',                 'A +0.5', false],
+              ['hesitantAnswers',     'Hesitant answers',                     'A -1.0', true],
+              ['confusingAnswers',    'Confusing / inconsistent answers',     'A -1.0', true],
             ].map(([key,label,pts,bad]) => `
               <div class="rating-flag-card ${scores[key]?'flag-active':''} ${bad?'flag-bad':'flag-good'}" onclick="saveCandScore('${escAttr(c.id)}','${key}',${!scores[key]})">
                 <div class="flag-label" style="font-size:11px;font-weight:600">${label}</div>
@@ -4571,43 +4580,44 @@ function calcERA(candId, joId) {
     qualityFlags.ageMatch = candAge > 0 ? (candAge >= 20 && candAge <= 45) : null;
   }
 
-  // ── E: ELIGIBILITY — Pre-match readiness requirements ──
+  // ── E: ELIGIBILITY ──
   let E = 0;
   const eBreakdown = [];
 
   const basicInfoComplete = !!(c?.name && c?.phone && c?.jobType && c?.location);
-  if (docs.validId)          { E += 1.0; eBreakdown.push({ label: 'Valid ID submitted',       val: 1.0, sign: '+' }); }
-  if (basicInfoComplete)     { E += 1.0; eBreakdown.push({ label: 'Basic information complete', val: 1.0, sign: '+' }); }
-  else                       { E -= 1.0; eBreakdown.push({ label: 'Missing key information',   val: 1.0, sign: '-' }); }
-  if (scores.workIntentConfirmed) { E += 1.0; eBreakdown.push({ label: 'Work intent confirmed', val: 1.0, sign: '+' }); }
-  if (scores.availabilityConfirmed) { E += 1.0; eBreakdown.push({ label: 'Availability confirmed', val: 1.0, sign: '+' }); }
-  if (docs.brgy)    { E += 0.5; eBreakdown.push({ label: 'Brgy Clearance submitted',   val: 0.5, sign: '+' }); }
-  if (docs.police)  { E += 1.0; eBreakdown.push({ label: 'Police Clearance submitted', val: 1.0, sign: '+' }); }
-  if (docs.nbi)     { E += 0.5; eBreakdown.push({ label: 'NBI Clearance submitted',    val: 0.5, sign: '+' }); }
-  if (docs.resume)  { E += 0.5; eBreakdown.push({ label: 'Resume submitted',            val: 0.5, sign: '+' }); }
-  if (docs.medical) { E += 0.5; eBreakdown.push({ label: 'Medical Cert submitted',      val: 0.5, sign: '+' }); }
+  if (docs.validId)          { E += 1.0; eBreakdown.push({ label: 'Valid ID submitted',          val: 1.0, sign: '+' }); }
+  if (basicInfoComplete)     { E += 1.0; eBreakdown.push({ label: 'Basic information complete',  val: 1.0, sign: '+' }); }
+  else                       { E -= 1.0; eBreakdown.push({ label: 'Missing key information',     val: 1.0, sign: '-' }); }
+  if (scores.workIntentConfirmed)   { E += 1.0; eBreakdown.push({ label: 'Work intent confirmed',   val: 1.0, sign: '+' }); }
+  if (scores.availabilityConfirmed) { E += 1.0; eBreakdown.push({ label: 'Availability confirmed',  val: 1.0, sign: '+' }); }
+  if (docs.brgy)    { E += 0.5; eBreakdown.push({ label: 'Brgy Clearance',    val: 0.5, sign: '+' }); }
+  if (docs.police)  { E += 1.0; eBreakdown.push({ label: 'Police Clearance',  val: 1.0, sign: '+' }); }
+  if (docs.nbi)     { E += 0.5; eBreakdown.push({ label: 'NBI Clearance',     val: 0.5, sign: '+' }); }
+  if (docs.medical) { E += 0.5; eBreakdown.push({ label: 'Medical Cert',      val: 0.5, sign: '+' }); }
+  if (docs.resume)  { E += 0.5; eBreakdown.push({ label: 'Resume',            val: 0.5, sign: '+' }); }
 
-  // ── R: RESPONSIVENESS — Contact reliability ──
+  // ── R: RESPONSIVENESS ──
   let R = 0;
   const rBreakdown = [];
-  const hasRActivity = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv || scores.lateReply || scores.noShow);
+  const hasRActivity = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv || scores.lateReply || scores.noShow || scores.multiFollowup);
 
-  if (scores.repliedFast)   { R += 0.5; rBreakdown.push({ label: 'Replied within 24 hours', val: 0.5, sign: '+' }); }
-  if (scores.answeredCall)  { R += 0.5; rBreakdown.push({ label: 'Answered call',            val: 0.5, sign: '+' }); }
-  if (scores.confirmedIntv) { R += 1.0; rBreakdown.push({ label: 'Confirmed availability',   val: 1.0, sign: '+' }); }
-  if (scores.lateReply)     { R -= 1.0; rBreakdown.push({ label: 'Slow reply (3+ days)',     val: 1.0, sign: '-' }); }
-  if (scores.noShow)        { R -= 2.5; rBreakdown.push({ label: 'No response',               val: 2.5, sign: '-' }); }
+  if (scores.repliedFast)    { R += 1.0; rBreakdown.push({ label: 'Replied within 24 hours',      val: 1.0, sign: '+' }); }
+  if (scores.answeredCall)   { R += 1.0; rBreakdown.push({ label: 'Answered call',                 val: 1.0, sign: '+' }); }
+  if (scores.confirmedIntv)  { R += 1.0; rBreakdown.push({ label: 'Confirmed availability',        val: 1.0, sign: '+' }); }
+  if (scores.lateReply)      { R -= 1.0; rBreakdown.push({ label: 'Slow reply (3+ days)',          val: 1.0, sign: '-' }); }
+  if (scores.noShow)         { R -= 2.5; rBreakdown.push({ label: 'No response',                   val: 2.5, sign: '-' }); }
+  if (scores.multiFollowup)  { R -= 1.0; rBreakdown.push({ label: 'Needed multiple follow-ups',   val: 1.0, sign: '-' }); }
 
   R = Math.min(3.0, R);
 
-  // ── A: ATTITUDE — Screening quality ──
+  // ── A: ATTITUDE ──
   let A = 0;
   const aBreakdown = [];
   const att = parseInt(scores.callAttitude) || 0;
-  const hasAActivity = !!(att > 0 || scores.polite || scores.willingToWork || scores.passedScreening || scores.hesitantAnswers);
+  const hasAActivity = !!(att > 0 || scores.polite || scores.willingToWork || scores.passedScreening || scores.followsInstructions || scores.hesitantAnswers || scores.confusingAnswers);
 
   if (att >= 4) {
-    A += 0.5; aBreakdown.push({ label: 'Good call attitude', val: 0.5, sign: '+' });
+    A += 1.0; aBreakdown.push({ label: 'Good call attitude', val: 1.0, sign: '+' });
   } else if (att === 3) {
     aBreakdown.push({ label: 'Average call attitude', val: 0, sign: '=' });
   } else if (att === 2) {
@@ -4615,30 +4625,60 @@ function calcERA(candId, joId) {
   } else if (att === 1) {
     A -= 1.5; aBreakdown.push({ label: 'Poor attitude', val: 1.5, sign: '-' });
   }
-  if (scores.polite)           { A += 1.0; aBreakdown.push({ label: 'Clear communication',     val: 1.0, sign: '+' }); }
-  if (scores.willingToWork)    { A += 1.0; aBreakdown.push({ label: 'Willing to work',          val: 1.0, sign: '+' }); }
-  if (scores.passedScreening)  { A += 0.5; aBreakdown.push({ label: 'Consistent answers', val: 0.5, sign: '+' }); }
-  if (scores.hesitantAnswers)  { A -= 1.0; aBreakdown.push({ label: 'Hesitant answers',         val: 1.0, sign: '-' }); }
+  if (scores.polite)           { A += 1.0; aBreakdown.push({ label: 'Clear communication',              val: 1.0, sign: '+' }); }
+  if (scores.passedScreening)  { A += 1.0; aBreakdown.push({ label: 'Consistent answers',               val: 1.0, sign: '+' }); }
+  if (scores.willingToWork)    { A += 0.5; aBreakdown.push({ label: 'Willing to work',                  val: 0.5, sign: '+' }); }
+  if (scores.followsInstructions) { A += 0.5; aBreakdown.push({ label: 'Follows instructions',          val: 0.5, sign: '+' }); }
+  if (scores.hesitantAnswers)  { A -= 1.0; aBreakdown.push({ label: 'Hesitant answers',                 val: 1.0, sign: '-' }); }
+  if (scores.confusingAnswers) { A -= 1.0; aBreakdown.push({ label: 'Confusing / inconsistent answers', val: 1.0, sign: '-' }); }
 
   A = Math.min(4.0, A);
 
   // ── BONUSES — Track record ──
   let bonus = 0;
   const bonusBreakdown = [];
-  if (scores.showedUp)     { bonus += 1.5; bonusBreakdown.push({ label: 'Showed up to interview', val: 1.5, sign: '+' }); }
-  if (scores.completedJob) { bonus += 2.0; bonusBreakdown.push({ label: 'Completed a job',        val: 2.0, sign: '+' }); }
+  if (scores.showedUp)     { bonus += 1.5; bonusBreakdown.push({ label: 'Showed up to interview',     val: 1.5, sign: '+' }); }
+  if (scores.completedJob) { bonus += 2.0; bonusBreakdown.push({ label: 'Completed a job',            val: 2.0, sign: '+' }); }
   if (scores.backedOut)    { bonus -= 2.0; bonusBreakdown.push({ label: 'Backed out after accepting', val: 2.0, sign: '-' }); }
 
   const hasDocs = Object.values(docs).some(Boolean);
 
+  // ── DOCUMENT-BASED SCORE CAP ──
+  const hasValidId  = !!docs.validId;
+  const hasBrgy     = !!docs.brgy;
+  const hasPolice   = !!docs.police;
+  const hasNBI      = !!docs.nbi;
+  const hasMedical  = !!docs.medical;
+  const hasResume   = !!docs.resume;
+  const docCount    = [hasBrgy, hasPolice, hasNBI, hasMedical, hasResume].filter(Boolean).length;
+
+  let docCap;
+  if (!hasValidId) {
+    docCap = 6;
+  } else if (hasBrgy && hasPolice && (hasNBI || hasMedical)) {
+    docCap = 10;
+  } else if ((hasPolice || hasBrgy) && docCount >= 2) {
+    docCap = 9;
+  } else {
+    docCap = 8;
+  }
+
+  const docConfidence = (hasBrgy && hasPolice && (hasNBI || hasMedical)) ? 'Complete' :
+                        (docCount >= 2 ? 'Partial' : 'Incomplete');
+
   // ── READINESS GATE ──
-  const hasValidId   = !!docs.validId;
-  const hasRSignal   = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv);
-  const gateOk       = hasValidId && hasRSignal;
+  const hasRSignal = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv);
+  const hasASignal = hasAActivity;
+  const gateOk     = hasValidId && hasRSignal && hasASignal;
+
+  // ── READINESS STATUS ──
+  const readinessStatus = (E >= 3 && R >= 1 && A >= 1) ? 'Ready for Matching' :
+                          (hasValidId ? 'Needs Verification' : 'Not Ready');
 
   // ── FINAL SCORE ──
   let total = 2.0 + E + R + A + bonus;
-  if (!gateOk) total = Math.min(total, 6.0);
+  total = Math.min(total, docCap);
+  if (!hasAActivity) total = Math.min(total, 7.0);
   const isBlacklisted = !!blacklist[candId];
   if (isBlacklisted) total = Math.min(total, 2.0);
 
@@ -4653,7 +4693,8 @@ function calcERA(candId, joId) {
     eBreakdown, rBreakdown, aBreakdown, bonusBreakdown,
     isBlacklisted, qualityFlags,
     hasRActivity, hasAActivity, hasDocs,
-    gateOk, hasValidId, hasRSignal
+    gateOk, hasValidId, hasRSignal, hasASignal,
+    docCap, docConfidence, readinessStatus
   };
 }
 
@@ -6643,20 +6684,26 @@ function buildScreeningPanelInner(candId) {
     '<div class="sp-gate-pills">' +
     '<span class="sp-gate-pill ' + (docs.validId ? 'met' : 'missing') + '">Valid ID: ' + (docs.validId ? 'Met' : 'Missing') + '</span>' +
     '<span class="sp-gate-pill ' + (era.hasRSignal ? 'met' : 'missing') + '">R Signal: ' + (era.hasRSignal ? 'Met' : 'Missing') + '</span>' +
-    '<span class="sp-gate-pill ' + (scores.passedScreening ? 'met' : 'missing') + '">Passed Screening: ' + (scores.passedScreening ? 'Met' : 'Missing') + '</span>' +
-    '</div></div>';
+    '<span class="sp-gate-pill ' + (era.hasASignal ? 'met' : 'missing') + '">A Signal: ' + (era.hasASignal ? 'Met' : 'Missing') + '</span>' +
+    '</div>' +
+    '<div style="margin-top:8px;display:flex;align-items:center;gap:10px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--text3)">Max Score Cap:</span>' +
+    '<span style="font-size:13px;font-weight:800;color:var(--accent)">' + era.docCap + ' / 10</span>' +
+    '<span style="font-size:11px;font-weight:600;color:var(--text3)">&nbsp;&middot;&nbsp;Docs: ' + era.docConfidence + '</span>' +
+    '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:' + (era.readinessStatus === 'Ready for Matching' ? 'var(--green)18' : era.readinessStatus === 'Needs Verification' ? 'var(--gold)18' : 'var(--red)18') + ';color:' + (era.readinessStatus === 'Ready for Matching' ? 'var(--green)' : era.readinessStatus === 'Needs Verification' ? 'var(--gold)' : 'var(--red)') + '">' + era.readinessStatus + '</span>' +
+    '</div>' +
+    '</div>';
 
   const docList = [
+    ['validId', 'Valid ID',         '+1.0', true],
     ['brgy',    'Brgy Clearance',   '+0.5', true],
     ['police',  'Police Clearance', '+1.0', true],
     ['nbi',     'NBI Clearance',    '+0.5', true],
-    ['validId', 'Valid ID',         '+0.5', true],
+    ['medical', 'Medical Cert',     '+0.5', true],
     ['resume',  'Resume',           '+0.5', false],
-    ['medical', 'Medical Cert',     'info', true],
   ];
-  const allCoreDocs = ['brgy','police','nbi','validId'].every(function(k) { return docs[k]; });
   const docsSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Documents <span style="font-size:10px;font-weight:700;color:' + (allCoreDocs ? 'var(--green)' : 'var(--red)') + '">' + (allCoreDocs ? 'COMPLETE' : 'INCOMPLETE') + '</span></div>' +
+    '<div class="sp-section-title">Documents <span style="font-size:10px;font-weight:700;color:' + (era.docConfidence === 'Complete' ? 'var(--green)' : era.docConfidence === 'Partial' ? 'var(--gold)' : 'var(--red)') + '">' + era.docConfidence.toUpperCase() + '</span></div>' +
     '<div class="sp-docs-grid">' +
     docList.map(function(item) {
       const key = item[0], label = item[1], pts = item[2], verifies = item[3];
@@ -6700,17 +6747,20 @@ function buildScreeningPanelInner(candId) {
     '<div class="sp-section-title">Behavior Flags <span style="font-size:10px;font-weight:400;color:var(--text3)">click to toggle</span></div>' +
     '<div class="era-flags-section">' +
     buildFlagGroup('R — Responsiveness', 'var(--accent)', [
-      ['repliedFast',   'Replied within 24 hours', 'R +1.0', false],
-      ['answeredCall',  'Answered call',            'R +1.0', false],
-      ['confirmedIntv', 'Confirmed availability',  'R +1.0', false],
-      ['lateReply',     'Slow reply (3+ days)',    'R -1.0', true],
-      ['noShow',        'No response',             'R -2.5', true],
+      ['repliedFast',   'Replied within 24 hours',     'R +1.0', false],
+      ['answeredCall',  'Answered call',                'R +1.0', false],
+      ['confirmedIntv', 'Confirmed availability',      'R +1.0', false],
+      ['lateReply',     'Slow reply (3+ days)',         'R -1.0', true],
+      ['noShow',        'No response',                  'R -2.5', true],
+      ['multiFollowup', 'Needed multiple follow-ups',  'R -1.0', true],
     ]) +
     buildFlagGroup('A — Attitude', 'var(--purple)', [
-      ['polite',          'Clear communication',       'A +1.0', false],
-      ['willingToWork',   'Willing to work',           'A +1.0', false],
-      ['passedScreening', 'Consistent answers', 'A +1.0', false],
-      ['hesitantAnswers', 'Hesitant answers',          'A -1.0', true],
+      ['polite',              'Clear communication',               'A +1.0', false],
+      ['passedScreening',     'Consistent answers',                'A +1.0', false],
+      ['willingToWork',       'Willing to work',                   'A +0.5', false],
+      ['followsInstructions', 'Follows instructions',              'A +0.5', false],
+      ['hesitantAnswers',     'Hesitant answers',                  'A -1.0', true],
+      ['confusingAnswers',    'Confusing / inconsistent answers',  'A -1.0', true],
     ]) +
     buildFlagGroup('Track Record / Bonus', 'var(--green)', [
       ['showedUp',              'Showed up to interview',     'Bonus +1.5', false],
