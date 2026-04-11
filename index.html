@@ -1638,6 +1638,41 @@
   }
 
   /* Nurture Queue */
+  /* Pipeline tab bar */
+  .pl-tabs {
+    display: flex; background: var(--card); border: 1px solid var(--border);
+    border-bottom: none; border-radius: var(--radius) var(--radius) 0 0; overflow: hidden;
+  }
+  .pl-tab {
+    flex: 1; padding: 11px 12px; border: none; background: none; cursor: pointer;
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--text3);
+    border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
+  }
+  .pl-tab:hover:not(.pl-tab-active) { color: var(--text2); background: var(--card2); }
+  .pl-tab-active { font-weight: 700; }
+  .pl-tab-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 18px; border-radius: 9px; padding: 0 5px;
+    background: var(--card2); font-size: 10px; font-weight: 800; transition: all .15s;
+  }
+  /* Pipeline candidate cards */
+  .pl-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .15s;
+  }
+  .pl-card:hover { background: var(--card2); }
+  .pl-card-sel { background: var(--accent-dim); }
+  .pl-card:last-child { border-bottom: none; }
+  .pl-card-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .pl-card-id { font-size: 10px; color: var(--text3); font-family: var(--mono); font-weight: 400; }
+  .pl-card-sub { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
+  .pl-card-lc { font-size: 11px; color: var(--text3); }
+  .pl-card-era { font-family: var(--mono); font-size: 16px; font-weight: 700; text-align: center; flex-shrink: 0; width: 36px; }
+  .pl-card-era-lbl { font-size: 9px; font-weight: 600; color: var(--text3); font-family: var(--sans); }
+  .pl-empty { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 13px; }
+
   .nurture-layout {
     display: grid; grid-template-columns: minmax(340px,1fr) minmax(360px,460px);
     gap: 16px; align-items: start;
@@ -2209,6 +2244,7 @@ function loadLocal() {
   try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
   try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
   try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
+  try { pipelineStages = JSON.parse(localStorage.getItem('pipeline_stages') || '{}'); } catch(e){ pipelineStages={}; }
 }
 
 function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
@@ -4791,6 +4827,11 @@ function saveCandScore(candId, key, val) {
   if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
   candidateRatings[candId].scores[key] = val;
   saveCandidateRatings();
+  // Auto-advance pipeline: Contacted → In Progress when R signal set
+  const rSignals = ['repliedFast', 'answeredCall', 'confirmedIntv'];
+  if (val === true && rSignals.indexOf(key) >= 0 && getPipelineStage(candId) === 'Contacted') {
+    setPipelineStage(candId, 'In Progress', 'R signal: ' + key);
+  }
   const modal = document.getElementById('modal-cand-profile');
   if (modal?.classList.contains('open')) openCandModal(candId);
 }
@@ -6163,9 +6204,49 @@ async function syncForcePull() {
 
 let eraStages = {};
 let eraContactLogs = {};
+let pipelineStages = {};
 
 function saveEraStages() { localStorage.setItem('era_stages', JSON.stringify(eraStages)); }
 function saveEraContactLogs() { localStorage.setItem('era_contact_logs', JSON.stringify(eraContactLogs)); }
+function savePipelineStages() { localStorage.setItem('pipeline_stages', JSON.stringify(pipelineStages)); }
+
+const PL_STAGES = ['Unscreened', 'Contacted', 'In Progress', 'Ready for Matching'];
+const PL_COLORS = {
+  'Unscreened':         'var(--text3)',
+  'Contacted':          'var(--accent)',
+  'In Progress':        'var(--gold)',
+  'Ready for Matching': 'var(--green)',
+};
+
+function getPipelineStage(candId) {
+  return (pipelineStages[candId] && pipelineStages[candId].stage) || 'Unscreened';
+}
+
+function setPipelineStage(candId, newStage, reason) {
+  const current = getPipelineStage(candId);
+  if (current === newStage) return false;
+  if (!pipelineStages[candId]) pipelineStages[candId] = { history: [] };
+  if (!pipelineStages[candId].history) pipelineStages[candId].history = [];
+  pipelineStages[candId].history.push({ from: current, to: newStage, ts: Date.now(), reason: reason || '' });
+  pipelineStages[candId].stage = newStage;
+  pipelineStages[candId].changedAt = new Date().toISOString();
+  savePipelineStages();
+  return true;
+}
+
+function movePipelineStage(candId, stage) {
+  if (stage === 'Ready for Matching') {
+    const era = calcERA(candId);
+    if (!era.gateOk) { showToast('Needs: Valid ID + R signal + A signal', 'orange'); return; }
+  }
+  const moved = setPipelineStage(candId, stage, 'manual');
+  if (moved) {
+    const cand = candidates.find(function(c) { return c.id === candId; });
+    showToast((cand ? cand.name : candId) + ' moved to ' + stage, 'green');
+    _scrPipelineTab = stage;
+    renderScreeningTab();
+  }
+}
 
 function getEraStage(candId) {
   return (eraStages[candId] && eraStages[candId].stage) || 'Not Ready';
@@ -6236,6 +6317,7 @@ let _scrSearch = '';
 let _scrFilters = { jobType: [], eraStage: [], gender: [], ageMin: 18, ageMax: 65, location: [], lastContact: [] };
 let _scrActivePanel = null;
 let _scrSelectedCand = null;
+let _scrPipelineTab = 'Unscreened';
 
 function initScrFilters() {
   document.addEventListener('click', function(e) {
@@ -6251,17 +6333,21 @@ function switchScreeningView(view) {
   renderScreeningTab();
 }
 
+function switchPipelineTab(stage) {
+  _scrPipelineTab = stage;
+  _scrSelectedCand = null;
+  renderScreeningTab();
+}
+
 function calcScreeningStats() {
-  let notReady = 0, inProgress = 0, ready = 0, inQueue = 0;
+  const counts = { 'Unscreened': 0, 'Contacted': 0, 'In Progress': 0, 'Ready for Matching': 0 };
   candidates.forEach(function(c) {
     if (blacklist[c.id]) return;
-    const stage = getEraStage(c.id);
-    if (stage === 'Not Ready') notReady++;
-    else if (stage === 'Ready') ready++;
-    else inProgress++;
-    if (isInNurtureQueue(c.id)) inQueue++;
+    const s = getPipelineStage(c.id);
+    if (counts[s] !== undefined) counts[s]++;
+    else counts['Unscreened']++;
   });
-  return { notReady: notReady, inProgress: inProgress, ready: ready, inQueue: inQueue };
+  return counts;
 }
 
 function scrSearchChange(val) {
@@ -6511,68 +6597,79 @@ function renderScreeningTab() {
 
   const stats = calcScreeningStats();
   const statsRow = '<div class="screening-stats-row">' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--red)"></div><div><div class="scr-stat-val" style="color:var(--red)">' + stats.notReady + '</div><div class="scr-stat-label">Not ready</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--gold)"></div><div><div class="scr-stat-val" style="color:var(--gold)">' + stats.inProgress + '</div><div class="scr-stat-label">In progress</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--green)"></div><div><div class="scr-stat-val" style="color:var(--green)">' + stats.ready + '</div><div class="scr-stat-label">Ready</div></div></div>' +
-    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--text3)"></div><div><div class="scr-stat-val">' + stats.inQueue + '</div><div class="scr-stat-label">In queue today</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--text3)"></div><div><div class="scr-stat-val">' + stats['Unscreened'] + '</div><div class="scr-stat-label">Unscreened</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--accent)"></div><div><div class="scr-stat-val" style="color:var(--accent)">' + stats['Contacted'] + '</div><div class="scr-stat-label">Contacted</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--gold)"></div><div><div class="scr-stat-val" style="color:var(--gold)">' + stats['In Progress'] + '</div><div class="scr-stat-label">In progress</div></div></div>' +
+    '<div class="scr-stat-card"><div class="scr-stat-dot" style="background:var(--green)"></div><div><div class="scr-stat-val" style="color:var(--green)">' + stats['Ready for Matching'] + '</div><div class="scr-stat-label">Ready</div></div></div>' +
     '</div>';
 
-  const viewHtml = renderNurtureView();
+  const viewHtml = renderPipelineBoard();
 
   el.innerHTML = viewBar + filterBarDiv + statsRow + viewHtml;
   buildScrFilterBar();
 }
 
-function renderNurtureView() {
+function renderPipelineBoard() {
   const filtered = filterScrCandidates(candidates);
-  const inQueue = filtered.filter(function(c) { return isInNurtureQueue(c.id); });
 
-  inQueue.sort(function(a, b) {
-    const priority = function(id) {
-      const r = getNudgeReason(id);
-      if (!r) return 0;
-      if (r.cls === 'nudge-backed') return 4;
-      if (r.cls === 'nudge-new') return 3;
-      if (r.cls === '') return 2;
-      if (r.cls === 'nudge-stuck') return 1;
-      if (r.cls === 'nudge-ready') return 1;
-      return 0;
-    };
-    return priority(b.id) - priority(a.id);
+  // Count per stage for tab badges
+  const counts = { 'Unscreened': 0, 'Contacted': 0, 'In Progress': 0, 'Ready for Matching': 0 };
+  filtered.forEach(function(c) {
+    const s = getPipelineStage(c.id);
+    if (counts[s] !== undefined) counts[s]++; else counts['Unscreened']++;
   });
 
+  // Stage tab bar
+  const tabsHtml = '<div class="pl-tabs">' +
+    PL_STAGES.map(function(s) {
+      const active = _scrPipelineTab === s;
+      const col = PL_COLORS[s];
+      return '<button class="pl-tab' + (active ? ' pl-tab-active' : '') + '" ' +
+        (active ? 'style="color:' + col + ';border-bottom-color:' + col + '"' : '') +
+        ' onclick="switchPipelineTab(\'' + escAttr(s) + '\')">' +
+        escHtml(s) +
+        '<span class="pl-tab-count" style="' + (active ? 'background:' + col + '22;color:' + col : '') + '">' + counts[s] + '</span>' +
+        '</button>';
+    }).join('') + '</div>';
+
+  // Candidates for selected stage
+  const stageCands = filtered.filter(function(c) {
+    return getPipelineStage(c.id) === _scrPipelineTab;
+  });
+
+  stageCands.sort(function(a, b) {
+    const la = getLastContact(a.id);
+    const lb = getLastContact(b.id);
+    if (!la && !lb) return a.name.localeCompare(b.name);
+    if (!la) return 1;
+    if (!lb) return -1;
+    return new Date(lb.date) - new Date(la.date);
+  });
+
+  const listHtml = stageCands.length ? stageCands.map(function(c) {
+    const era = calcERA(c.id);
+    const last = getLastContact(c.id);
+    const sel = _scrSelectedCand === c.id ? ' pl-card-sel' : '';
+    const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
+    const lcText = last ? escHtml(fmtDate(last.date)) + ' &middot; ' + escHtml(last.method) : '<span style="font-style:italic;color:var(--text3)">Never contacted</span>';
+    return '<div class="pl-card' + sel + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
+      '<div style="flex:1;min-width:0">' +
+      '<div class="pl-card-name">' + escHtml(c.name) + ' <span class="pl-card-id">' + escHtml(c.id) + '</span></div>' +
+      '<div class="pl-card-sub">' + escHtml(c.jobType||'') + (c.location ? ' &middot; ' + escHtml(c.location) : '') + '</div>' +
+      '<div class="pl-card-lc">' + lcText + '</div>' +
+      '</div>' +
+      '<div class="pl-card-era" style="color:' + eraColor + '">' + era.score + '<div class="pl-card-era-lbl">ERA</div></div>' +
+      '</div>';
+  }).join('') :
+  '<div class="pl-empty">No candidates in this stage</div>';
+
   const panelHtml = '<div class="screening-panel" id="scr-panel">' +
-    (_scrSelectedCand ? buildScreeningPanelInner(_scrSelectedCand) : '<div class="screening-panel-empty"><div style="font-size:24px">&#128101;</div><div>Select a candidate to screen</div></div>') +
+    (_scrSelectedCand ? buildScreeningPanelInner(_scrSelectedCand) : '<div class="screening-panel-empty"><div style="font-size:20px;color:var(--text3)">Select a candidate</div></div>') +
     '</div>';
 
-  if (!inQueue.length) {
-    return '<div class="nurture-layout">' +
-      '<div class="nurture-list"><div style="padding:40px;text-align:center;color:var(--text3)">No candidates in nurture queue</div></div>' +
-      panelHtml + '</div>';
-  }
-
-  const rowsHtml = inQueue.map(function(c) {
-    const stage = getEraStage(c.id);
-    const nudge = renderNudgePill(c.id);
-    const last = getLastContact(c.id);
-    const sel = _scrSelectedCand === c.id ? 'selected' : '';
-    const actionLabel = (stage === 'Not Ready' || stage === 'E') ? 'Log contact' : 'Review ERA';
-    const sub = escHtml(c.jobType||'') + ' &middot; ' + escHtml(c.gender||'') + (c.age ? ', ' + escHtml(c.age) : '') + ' &middot; ' + escHtml(c.location||'');
-    const lcHtml = last
-      ? '<div class="nurture-lc-date">' + escHtml(fmtDate(last.date)) + '</div><div class="nurture-lc-via">' + escHtml(last.method) + '</div>'
-      : '<span style="color:var(--text3);font-style:italic;font-size:11px">Never</span>';
-    return '<div class="nurture-row ' + sel + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
-      '<div><div class="nurture-cand-name">' + escHtml(c.name) + '</div><div class="nurture-cand-sub">' + sub + '</div>' + nudge + '</div>' +
-      '<div>' + getStageBadge(stage) + '</div>' +
-      '<div class="nurture-lc">' + lcHtml + '</div>' +
-      '<div><button class="nurture-action-btn" onclick="event.stopPropagation();openScreeningPanel(\'' + escAttr(c.id) + '\')">' + actionLabel + '</button></div>' +
-      '</div>';
-  }).join('');
-
-  return '<div class="nurture-layout">' +
-    '<div class="nurture-list">' +
-    '<div class="nurture-list-header"><span>Candidate</span><span>Stage</span><span>Last Contact</span><span>Action</span></div>' +
-    rowsHtml + '</div>' + panelHtml + '</div>';
+  return tabsHtml + '<div class="nurture-layout">' +
+    '<div class="nurture-list" style="border-radius:0 0 var(--radius) var(--radius)">' + listHtml + '</div>' +
+    panelHtml + '</div>';
 }
 
 function openScreeningPanel(candId) {
@@ -6864,26 +6961,26 @@ function buildScreeningPanelInner(candId) {
     (resumeHtml ? '<div style="margin-top:4px">' + resumeHtml + '</div>' : '') +
     '</div>';
 
-  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
-  const stageIdx = stageOrder.indexOf(stage);
-  const nextStage = stageIdx < stageOrder.length - 1 ? stageOrder[stageIdx + 1] : null;
   const isBlacklisted = !!blacklist[candId];
+  const pStage = getPipelineStage(candId);
+  const pIdx = PL_STAGES.indexOf(pStage);
+  const pColor = PL_COLORS[pStage] || 'var(--text3)';
 
-  let canAdvance = false;
-  let advanceTip = '';
-  if (nextStage === 'E') { canAdvance = true; }
-  else if (nextStage === 'R') { canAdvance = !!docs.validId; advanceTip = canAdvance ? '' : 'Needs Valid ID to advance'; }
-  else if (nextStage === 'A') { canAdvance = era.hasRSignal; advanceTip = canAdvance ? '' : 'Needs R signal to advance'; }
-  else if (nextStage === 'Ready') { canAdvance = era.gateOk; advanceTip = canAdvance ? '' : 'Gate conditions not met'; }
-
-  const markReadyOk = era.gateOk;
-  const missingList = [!docs.validId && 'Valid ID', !era.hasRSignal && 'R Signal'].filter(Boolean).join(', ');
-  const markReadyTip = markReadyOk ? '' : 'Missing: ' + missingList;
+  const nextPlStage = pIdx < PL_STAGES.length - 1 ? PL_STAGES[pIdx + 1] : null;
+  const prevPlStage = pIdx > 0 ? PL_STAGES[pIdx - 1] : null;
+  const canAdvancePl = !nextPlStage ? false : (nextPlStage !== 'Ready for Matching' || era.gateOk);
+  const advancePlTip = nextPlStage === 'Ready for Matching' && !era.gateOk ? 'Needs: Valid ID + R signal + A signal' : '';
 
   const bottomActions = '<div class="sp-bottom-actions">' +
-    (stage !== 'Ready' ? '<button class="btn btn-green" ' + (!markReadyOk ? 'disabled title="' + escAttr(markReadyTip) + '"' : '') + ' onclick="markEraReady(\'' + safeId + '\')">Mark Ready ✓</button>' : '') +
+    '<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:8px">' +
+    '<span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Pipeline:</span>' +
+    '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:' + pColor + '22;color:' + pColor + '">' + escHtml(pStage) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;width:100%">' +
+    (nextPlStage ? '<button class="btn btn-green" style="flex:2" ' + (!canAdvancePl ? 'disabled title="' + escAttr(advancePlTip) + '"' : '') + ' onclick="movePipelineStage(\'' + safeId + '\',\'' + escAttr(nextPlStage) + '\')">Move to ' + escHtml(nextPlStage) + '</button>' : '') +
+    (prevPlStage ? '<button class="btn btn-ghost" onclick="movePipelineStage(\'' + safeId + '\',\'' + escAttr(prevPlStage) + '\')">Back</button>' : '') +
     (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
-    '</div>';
+    '</div></div>';
 
   return header + '<div class="sp-body">' + profileSection + eraSection + docsSection + attitudeSection + flagsSection + contactSection + '</div>' + bottomActions;
 }
@@ -6913,6 +7010,11 @@ function submitLogEntry(candId) {
   if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
   eraContactLogs[candId].push({ method: method, outcome: outcome, date: date, ts: Date.now() });
   saveEraContactLogs();
+  // Auto-advance pipeline: Unscreened → Contacted on first contact
+  if (getPipelineStage(candId) === 'Unscreened') {
+    setPipelineStage(candId, 'Contacted', 'contact logged');
+    _scrPipelineTab = 'Contacted';
+  }
   showToast('Contact logged', 'green');
   renderScreeningTab();
 }
@@ -6934,8 +7036,10 @@ function markEraReady(candId) {
   const era = calcERA(candId);
   if (!era.gateOk) { showToast('Gate conditions not met', 'orange'); return; }
   setEraStage(candId, 'Ready');
+  setPipelineStage(candId, 'Ready for Matching', 'gate passed');
+  _scrPipelineTab = 'Ready for Matching';
   const cand = candidates.find(function(c) { return c.id === candId; });
-  showToast((cand ? cand.name : candId) + ' marked as Ready', 'green');
+  showToast((cand ? cand.name : candId) + ' marked Ready for Matching', 'green');
   renderScreeningTab();
 }
 
