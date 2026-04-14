@@ -2366,6 +2366,7 @@ async function loadAll() {
     }
     const allJobOrders = rows.slice(joDataStart).filter(r => r[0] && /^JO/i.test(r[0].trim())).map(r => ({
       id: r[0].trim() || '',
+      timestamp: r[1] || '',
       company: r[2] || '',
       contactPerson: r[3] || '',
       contactPhone: r[4] || '',
@@ -3897,48 +3898,89 @@ async function runMatcher() {
     return calcERA(b.id, joId).score - calcERA(a.id, joId).score;
   });
 
+  // Helper: extract numeric salary
+  const parseSalary = val => { const n = parseInt((val||'').replace(/[^0-9]/g,'')); return isNaN(n)?null:n; };
+  const joSalaryNum = parseSalary(jo.salary);
+
   const candSummaries = eligibleSorted.map(c => {
     const era = calcERA(c.id, joId);
     const docs = (candidateRatings[c.id]?.docs)||{};
-    const docStr = ['brgy','police','resume','nbi','validId'].filter(k=>docs[k]).join(',');
+    const docStr = ['brgy','police','resume','nbi','validId'].filter(k=>docs[k]).join(',') || 'none';
     const effVer = getEffectiveVerified(c);
     const rLabel = getRatingLabel(era.score).label;
     const qf = era.qualityFlags || {};
     const readiness = getCandReadiness(c.id);
-    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age} | Gender: ${c.gender} | Job: ${c.jobTypeFormatted||c.jobType} | City: ${c.cityFormatted||c.location} | Pay: ${c.expectedPay} | Skills: ${c.skills} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr||'none'} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'}`;
+    const candNotes = getCandNotes(c.id);
+    const latestNote = candNotes.length ? candNotes[0].text : '';
+    const intakeData = (() => { try { return JSON.parse(localStorage.getItem('quick_intake_' + c.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')) || 'null'); } catch(e){return null;} })();
+    const setupPref = (intakeData && intakeData.setup) ? intakeData.setup : '';
+    const candSalaryNum = parseSalary(c.expectedPay);
+    const salaryFlag = joSalaryNum && candSalaryNum && candSalaryNum > joSalaryNum ? 'SalaryHigh' : (joSalaryNum && candSalaryNum && candSalaryNum <= joSalaryNum ? 'SalaryOK' : 'SalaryUnknown');
+    const missing = [];
+    if (!c.phone && !c.facebook) missing.push('no contact');
+    if (!c.location) missing.push('no location');
+    if (!c.expectedPay) missing.push('no salary');
+    if (!c.jobType) missing.push('no job type');
+    if (!effVer && !docs.validId) missing.push('no ID');
+    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age||'?'} | Gender: ${c.gender||'?'} | Job: ${c.jobTypeFormatted||c.jobType||'?'} | Setup: ${setupPref||'?'} | City: ${c.cityFormatted||c.location||'?'} | Pay: ${c.expectedPay||'?'} | SalaryFlag: ${salaryFlag} | Skills: ${c.skills||'none'} | PastJobs: ${c.pastJobs||'none'} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'} | MissingFields: ${missing.join(',')||'none'} | Note: ${latestNote||''}`;
   }).join('\n');
 
-  const prompt = `You are a job matching assistant for Job Search PH, a blue-collar matching platform in Bacolod City, Philippines.
+  // Job type equivalents for context
+  const JOB_GROUPS = [
+    'Yaya / Babysitter, Kasambahay, Housekeeper, Nanny, Household Helper, All-around helper',
+    'Cook / Kitchen Staff, Dishwasher, Barista',
+    'Driver (Personal / Company), Delivery Rider',
+    'Security Guard',
+    'Office Admin / Secretary, Encoder / Data Entry',
+  ];
+
+  const prompt = `You are a job matching assistant for Job Search PH, a DOLE-compliant blue-collar placement agency in Bacolod City, Philippines specializing in household workers (Yaya, Kasambahay, All-around helpers).
 
 JOB ORDER:
 ID: ${jo.id}
-Company: ${jo.company}
+Company/Employer: ${jo.company}
 Position: ${jo.position}
 Slots: ${jo.slots}
-Salary: ${jo.salary}
+Offered Salary: ${jo.salary}
+Location: ${jo.address||'Bacolod area'}
+Setup: ${jo.workSchedule||'not specified'}
+Gender Preference: ${jo.genderPref||'any'}
+Skills Needed: ${jo.skillsNeeded||'none specified'}
+Other Notes: ${jo.otherNotes||''}
+
+EQUIVALENT JOB TYPE GROUPS (treat roles in the same group as matching):
+${JOB_GROUPS.join('\n')}
 
 ELIGIBLE CANDIDATES:
 ${candSummaries}
 
-Rank the TOP 3 best-fit candidates for this job order based on ERA score, job match, and location match. 
+Rank the TOP 3 best-fit candidates. Apply these matching rules in order:
+1. JOB MATCH — candidate job type must match or be equivalent to the position. Treat similar roles as matching (e.g. Yaya = Kasambahay = Nanny = Household Helper).
+2. LOCATION — prefer candidates in the same city as the employer. Flag if location is far or unknown.
+3. SALARY — if SalaryFlag is SalaryHigh, flag it as a concern. If SalaryOK, note it positively. If SalaryUnknown, flag as TBD.
+4. SETUP — prefer candidates whose setup preference (stay-in/stay-out) matches the job.
+5. READINESS — Ready > Partial > Unproven. Never rank Unproven #1 unless no other option.
+6. MISSING FIELDS — if MissingFields is not "none", list them as gaps in the flags field.
 
-RULES:
-- Prioritize Ready candidates (verified + has engagement data) over Partial and Unproven
-- Never rank an Unproven candidate #1 unless there are no better options
-- Prefer candidates with actual calls, replies, or interviews on record
-- Consider job type match, location, expected pay vs salary, skills, past jobs
-- Return ONLY valid JSON array, no markdown, no preamble
+For each ranked candidate, include a "checklist" object with these exact keys (true/false/null):
+- jobMatch: does candidate job type match the position?
+- locationMatch: is candidate location same city as employer?
+- salaryOk: is expected pay within offered salary?
+- setupMatch: does setup preference match?
+- hasDocuments: has at least one document verified?
+- profileComplete: are MissingFields empty?
 
-Return this exact JSON format:
+Return ONLY valid JSON array, no markdown, no preamble:
 [
   {
     "rank": 1,
     "id": "C-xxx",
     "name": "Full Name",
     "fit": "Excellent|Good|Fair|Poor",
-    "reason": "Short reason why this candidate fits",
-    "flags": "Any concerns or flags (or empty string)",
-    "nextStep": "Recommended next step"
+    "reason": "Short reason why this candidate fits (2-3 sentences)",
+    "flags": "Specific concerns or missing info (or empty string)",
+    "nextStep": "Recommended next action",
+    "checklist": { "jobMatch": true, "locationMatch": true, "salaryOk": true, "setupMatch": null, "hasDocuments": false, "profileComplete": true }
   }
 ]`;
 
@@ -3992,6 +4034,23 @@ function renderMatcherResults(ranked, joId) {
       'Poor': 'fit-poor'
     }[r.fit] || 'fit-fair';
 
+    // Build readiness checklist
+    const cl = r.checklist || {};
+    const checkItems = [
+      { key: 'jobMatch',        label: 'Job match' },
+      { key: 'locationMatch',   label: 'Location' },
+      { key: 'salaryOk',        label: 'Salary' },
+      { key: 'setupMatch',      label: 'Setup' },
+      { key: 'hasDocuments',    label: 'Documents' },
+      { key: 'profileComplete', label: 'Profile complete' },
+    ];
+    const checklistHtml = checkItems.map(item => {
+      const val = cl[item.key];
+      const icon = val === true ? '\u2705' : val === false ? '\u274c' : '\u26a0\ufe0f';
+      const color = val === true ? 'var(--green)' : val === false ? 'var(--red)' : 'var(--gold)';
+      return `<span style="font-size:11px;color:${color};white-space:nowrap">${icon} ${item.label}</span>`;
+    }).join(' ');
+
     const card = document.createElement('div');
     card.className = 'ai-result-card';
     card.innerHTML = `
@@ -4002,9 +4061,10 @@ function renderMatcherResults(ranked, joId) {
           <span class="fit-badge ${fitClass}">${escHtml(r.fit)}</span>
           <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escHtml(r.id)}</span>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;padding:8px;background:var(--card2);border-radius:8px;border:1px solid var(--border)">${checklistHtml}</div>
         <div class="ai-reason">${escHtml(r.reason)}</div>
-        ${r.flags ? `<div class="ai-flags">⚑ ${escHtml(r.flags)}</div>` : ''}
-        ${r.nextStep ? `<div class="ai-next">→ ${escHtml(r.nextStep)}</div>` : ''}
+        ${r.flags ? `<div class="ai-flags">&#9873; ${escHtml(r.flags)}</div>` : ''}
+        ${r.nextStep ? `<div class="ai-next">&rarr; ${escHtml(r.nextStep)}</div>` : ''}
       </div>
       <div>
         <button class="btn btn-green" onclick="addFromMatcher('${escAttr(joId)}','${escAttr(r.id)}','${escAttr(r.name)}')">+ Add</button>
@@ -4037,6 +4097,7 @@ function _openCandModalInner(candId) {
     alert('Candidate details not found in current data.');
     return;
   }
+  importPendingIntakeNotes(candId, c.name);
 
   const isBlacklisted = !!blacklist[c.id];
   const effectiveVerified = getEffectiveVerified(c);
@@ -5227,6 +5288,24 @@ function saveCandNote(candId, text) {
   openCandModal(candId); // re-render modal
 }
 
+function importPendingIntakeNotes(candId, name) {
+  var key = 'quick_intake_' + name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  var pending = localStorage.getItem(key);
+  if (!pending) return;
+  try {
+    var data = JSON.parse(pending);
+    if (data.notes) {
+      var notes = getCandNotes(candId);
+      var alreadyIn = notes.some(function(n) { return n.text === data.notes && n.source === 'intake'; });
+      if (!alreadyIn) {
+        notes.unshift({ text: data.notes, ts: data.ts || new Date().toISOString(), source: 'intake' });
+        localStorage.setItem('cand_notes_' + candId, JSON.stringify(notes.slice(0, 50)));
+      }
+      localStorage.removeItem(key);
+    }
+  } catch(e) {}
+}
+
 function deleteCandNote(candId, idx) {
   const notes = getCandNotes(candId);
   notes.splice(idx, 1);
@@ -6059,7 +6138,13 @@ function calcScreeningStats() {
 
 function scrSearchChange(val) {
   _scrSearch = val;
-  renderScreeningTab();
+  var boardEl = document.getElementById('scr-board');
+  if (boardEl) {
+    // Only re-render the candidate board — leave the search input untouched
+    boardEl.innerHTML = renderPipelineBoard();
+  } else {
+    renderScreeningTab();
+  }
 }
 
 function buildScrFilterBar() {
@@ -6222,7 +6307,12 @@ function filterScrCandidates(cands) {
   const f = _scrFilters;
   let result = cands.filter(function(c) { return !blacklist[c.id] && !isCandidateHired(c.id); });
   const q = _scrSearch.toLowerCase();
-  if (q) result = result.filter(function(c) { return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q); });
+  if (q) result = result.filter(function(c) {
+    return c.name.toLowerCase().includes(q) ||
+      c.id.toLowerCase().includes(q) ||
+      (c.jobType || '').toLowerCase().includes(q) ||
+      (c.location || '').toLowerCase().includes(q);
+  });
 
   if (f.jobType.length) {
     result = result.filter(function(c) {
@@ -6321,7 +6411,7 @@ function renderScreeningTab() {
 
   const viewHtml = renderPipelineBoard();
 
-  el.innerHTML = viewBar + filterBarDiv + statsRow + viewHtml;
+  el.innerHTML = viewBar + filterBarDiv + statsRow + '<div id="scr-board">' + viewHtml + '</div>';
   buildScrFilterBar();
 }
 
@@ -6685,7 +6775,23 @@ function buildScreeningPanelInner(candId) {
     (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
     '</div></div>';
 
-  return header + '<div class="sp-body">' + profileSection + eraSection + docsSection + attitudeSection + flagsSection + contactSection + '</div>' + bottomActions;
+  importPendingIntakeNotes(candId, c.name);
+  var spNotes = getCandNotes(candId);
+  var spNoteItems = spNotes.length ? spNotes.map(function(n, i) {
+    return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:12px">' +
+      '<div style="color:var(--text3);font-size:10px;margin-bottom:3px">' + new Date(n.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) + (n.source === 'intake' ? ' · Intake' : '') + '</div>' +
+      '<div style="color:var(--text);line-height:1.4">' + escHtml(n.text) + '</div>' +
+      '</div>';
+  }).join('') : '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:4px 0">No notes yet.</div>';
+  var notesSection = '<div class="sp-section">' +
+    '<div class="sp-section-title">Notes</div>' +
+    spNoteItems +
+    '<div style="display:flex;gap:6px;margin-top:8px">' +
+    '<input type="text" id="sp-note-input-' + safeId + '" placeholder="Add a note..." style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:7px;font-family:var(--sans);font-size:12px;outline:none" onkeydown="if(event.key===\'Enter\'){saveCandNoteFromPanel(\'' + safeId + '\')}">' +
+    '<button class="btn btn-accent" style="font-size:12px;padding:7px 12px" onclick="saveCandNoteFromPanel(\'' + safeId + '\')">Add</button>' +
+    '</div></div>';
+
+  return header + '<div class="sp-body">' + profileSection + eraSection + docsSection + attitudeSection + flagsSection + contactSection + notesSection + '</div>' + bottomActions;
 }
 
 function showLogInline(candId, method) {
@@ -6719,6 +6825,17 @@ function submitLogEntry(candId) {
     _scrPipelineTab = 'Contacted';
   }
   showToast('Contact logged', 'green');
+  renderScreeningTab();
+}
+
+function saveCandNoteFromPanel(candId) {
+  var inp = document.getElementById('sp-note-input-' + candId);
+  if (!inp || !inp.value.trim()) return;
+  var notes = getCandNotes(candId);
+  notes.unshift({ text: inp.value.trim(), ts: new Date().toISOString() });
+  localStorage.setItem('cand_notes_' + candId, JSON.stringify(notes.slice(0, 50)));
+  fbSync('cand_notes/' + candId, notes.slice(0, 50));
+  showToast('Note saved', 'green');
   renderScreeningTab();
 }
 

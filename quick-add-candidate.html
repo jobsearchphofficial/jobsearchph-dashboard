@@ -700,17 +700,23 @@ async function submitCandidate() {
 
   const prefilledUrl = FORM_ACTION.replace('formResponse', 'viewform') + '?' + params.toString();
 
+  // Save internal notes + setup to localStorage so the dashboard can import them
+  // when this candidate appears in the sheet (matched by name)
+  const notesVal = document.getElementById('f_notes').value.trim();
+  const setupVal = document.getElementById('f_setup').value.trim();
+  if (notesVal || setupVal) {
+    const pendingKey = 'quick_intake_' + name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    localStorage.setItem(pendingKey, JSON.stringify({ notes: notesVal, setup: setupVal, ts: new Date().toISOString() }));
+  }
+
   // Open prefilled form in new tab — user clicks Submit once
   const win = window.open(prefilledUrl, '_blank');
 
-  showToast('✓ Form opened — click Submit in the new tab', 'warn');
+  showToast('Form opened — click Submit in the new tab', 'warn');
   clearForm();
   document.getElementById('statusDot').className = 'status-dot';
   btn.disabled = false;
-  btn.innerHTML = '✚ Open Prefilled Form';
-
-  btn.disabled = false;
-  btn.innerHTML = '✚ Open Prefilled Form';
+  btn.innerHTML = '&#x271A; Open Prefilled Form';
 }
 </script>
 </body>
