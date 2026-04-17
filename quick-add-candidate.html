@@ -524,22 +524,27 @@ var JOB_ALIASES = {
   'driver':        'Driver (Personal / Company)',
   'cook':          'Cook / Kitchen Staff',
   'kitchen':       'Cook / Kitchen Staff',
+  'lutuan':        'Cook / Kitchen Staff',
   'dishwasher':    'Dishwasher / Kitchen Helper',
+  'dish':          'Dishwasher / Kitchen Helper',
   'laborer':       'Construction Laborer',
   'construction':  'Construction Laborer',
   'mason':         'Carpenter / Mason',
   'carpenter':     'Carpenter / Mason',
   'admin':         'Office Admin / Secretary',
   'secretary':     'Office Admin / Secretary',
+  'office':        'Office Admin / Secretary',
   'sales':         'Sales Agent / Promodiser',
   'promodiser':    'Sales Agent / Promodiser',
   'security':      'Security Guard',
   'guard':         'Security Guard',
   'warehouse':     'Warehouse Staff',
   'laundry':       'Laundry / Cleaning Staff',
+  'cleaning':      'Laundry / Cleaning Staff',
   'janitor':       'Janitor / Cleaner',
   'cleaner':       'Janitor / Cleaner',
   'encoder':       'Encoder / Data Entry',
+  'data entry':    'Encoder / Data Entry',
   'cashier':       'Cashier / Retail Staff',
   'retail':        'Cashier / Retail Staff',
   'welder':        'Welder',
@@ -572,6 +577,46 @@ var LOC_ALIASES = {
   'negros':        'Anywhere in Neg. Occ.',
   'anywhere':      'Anywhere in Neg. Occ.',
 };
+
+// Gender aliases
+var GENDER_ALIASES = {
+  'female': 'Female',
+  'babae':  'Female',
+  'male':   'Male',
+  'lalaki': 'Male',
+};
+
+// Civil status aliases
+var CIVIL_ALIASES = {
+  'single parent': 'Single Parent',
+  'solo parent':   'Single Parent',
+  'widowed':       'Widowed',
+  'balo':          'Widowed',
+  'separated':     'Separated',
+  'married':       'Married',
+  'single':        'Single',
+};
+
+// ── Normalize "When can you start" free text to a standard value ──
+function normalizeAvailability(val) {
+  if (!val) return '';
+  var lower = val.toLowerCase().trim();
+  var DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday',
+              'linggo','lunes','martes','miyerkules','huwebes','biyernes','sabado'];
+  if (lower === 'asap' || lower === 'agad' || lower === 'immediately' ||
+      lower.indexOf('immediately') !== -1 || lower.indexOf('agad') !== -1) {
+    return 'Immediately / ASAP';
+  }
+  for (var d = 0; d < DAYS.length; d++) {
+    if (lower.indexOf(DAYS[d]) !== -1) return 'Immediately / ASAP';
+  }
+  if (lower.indexOf('2 week') !== -1 || lower.indexOf('two week') !== -1) return 'Within 2 weeks';
+  if (lower.indexOf('1 week') !== -1 || lower.indexOf('one week') !== -1 ||
+      lower.indexOf('isang linggo') !== -1) return 'Within 1 week';
+  if (lower.indexOf('1 month') !== -1 || lower.indexOf('one month') !== -1 ||
+      lower.indexOf('isang buwan') !== -1) return 'Within 1 month';
+  return val;
+}
 
 // ── Parse the NEW CANDIDATE block ──
 function parseBlock() {
@@ -619,14 +664,29 @@ function parseBlock() {
     var el = document.getElementById(id);
     if (!el) return;
     var lower = val.toLowerCase().trim();
-    var aliases = (id === 'f_jobtype') ? JOB_ALIASES : (id === 'f_location') ? LOC_ALIASES : {};
 
+    // Pick the right alias map for this field
+    var aliases = {};
+    if (id === 'f_jobtype')  aliases = JOB_ALIASES;
+    if (id === 'f_location') aliases = LOC_ALIASES;
+    if (id === 'f_gender')   aliases = GENDER_ALIASES;
+    if (id === 'f_civil')    aliases = CIVIL_ALIASES;
+
+    // Single-char gender shorthand: "f" = Female, "m" = Male
+    if (id === 'f_gender') {
+      if (lower === 'f') { el.value = 'Female'; el.classList.add('filled'); el.classList.remove('warn-field'); return; }
+      if (lower === 'm') { el.value = 'Male';   el.classList.add('filled'); el.classList.remove('warn-field'); return; }
+    }
+
+    // Alias lookup (substring match, case-insensitive)
     for (var alias in aliases) {
       if (lower.indexOf(alias) !== -1) {
         el.value = aliases[alias];
         if (el.value === aliases[alias]) { el.classList.add('filled'); el.classList.remove('warn-field'); return; }
       }
     }
+
+    // Direct match against option text
     for (var j = 0; j < el.options.length; j++) {
       var ov = el.options[j].value.toLowerCase();
       if (ov === lower || ov.indexOf(lower) !== -1 || lower.indexOf(ov) !== -1) {
@@ -635,13 +695,20 @@ function parseBlock() {
         return;
       }
     }
+
+    // No match: fall back to "Other" if the dropdown has it, and flag yellow
+    for (var k = 0; k < el.options.length; k++) {
+      if (el.options[k].value === 'Other') {
+        el.value = 'Other';
+        el.classList.add('warn-field');
+        return;
+      }
+    }
+
+    // Last resort: set raw value and flag yellow for manual review
     el.value = val;
     el.classList.add('warn-field');
   }
-
-  // Normalize gender to proper case: "female" -> "Female"
-  var rawGender = get('gender');
-  if (rawGender) rawGender = rawGender.charAt(0).toUpperCase() + rawGender.slice(1).toLowerCase();
 
   setField('f_name',       get('full name'));
   setField('f_facebook',   get('facebook name'));
@@ -649,14 +716,14 @@ function parseBlock() {
   setField('f_contact',    get('contact number'));
   setField('f_email',      get('email'));
   setField('f_salary',     get('expected salary').replace(/[^0-9.]/g, ''));
-  setField('f_available',  get('when can you start'));
+  setField('f_available',  normalizeAvailability(get('when can you start')));
   setField('f_skills',     get('skills / qualifications'));
   setField('f_experience', get('past jobs / work experience'));
   setField('f_resume',     get('resume'));
   setField('f_notes',      get('experience summary'));
 
   setSelect('f_jobtype',   get('preferred job type'));
-  setSelect('f_gender',    rawGender);
+  setSelect('f_gender',    get('gender'));
   setSelect('f_civil',     get('civil status'));
   setSelect('f_location',  get('preferred location'));
   // "Setup" is parsed but never mapped to any field
