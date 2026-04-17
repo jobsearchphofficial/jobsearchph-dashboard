@@ -377,15 +377,6 @@
           </select>
         </div>
         <div class="field">
-          <label>Setup</label>
-          <select id="f_setup">
-            <option value="">&#x2014; select &#x2014;</option>
-            <option>Stay-in</option>
-            <option>Stay-out</option>
-            <option>Either</option>
-          </select>
-        </div>
-        <div class="field">
           <label>Preferred Location <span class="req">*</span></label>
           <select id="f_location">
             <option value="">&#x2014; select &#x2014;</option>
@@ -434,7 +425,7 @@
           <textarea id="f_experience" placeholder="e.g. Yaya, Santos Family, 2 years&#10;Kasambahay, Reyes Household, 1 year"></textarea>
         </div>
         <div class="field">
-          <label>Resume / GDrive Link <span class="pill-local">local only</span></label>
+          <label>Resume / GDrive Link</label>
           <input type="text" id="f_resume" placeholder="https://drive.google.com/..." />
         </div>
       </div>
@@ -498,8 +489,7 @@
         <tr><td>When can you start</td><td>entry.1119101128</td></tr>
         <tr><td>Civil Status</td><td>entry.941768457</td></tr>
         <tr><td>Consent</td><td>entry.1199976305</td></tr>
-        <tr><td>Resume / GDrive Link <span class="pill-local">local only</span></td><td style="color:var(--text3)">not in form</td></tr>
-        <tr><td>Setup <span class="pill-local">local only</span></td><td style="color:var(--text3)">not in form</td></tr>
+        <tr><td>Resume / GDrive Link</td><td id="resume-entry-td">see RESUME_ENTRY_ID constant</td></tr>
         <tr><td>Internal Notes <span class="pill-local">local only</span></td><td style="color:var(--text3)">not in form</td></tr>
       </table>
     </div>
@@ -584,17 +574,62 @@ var LOC_ALIASES = {
 };
 
 // ── Parse the NEW CANDIDATE block ──
+// Handles both:
+//   (a) Botcake one-liner: all fields concatenated with no line breaks
+//   (b) Line-break format: one "Label: value" per line, multiline values supported
+// Strategy: split on known label keywords so the parser is format-agnostic.
 function parseBlock() {
   var raw = document.getElementById('pasteBox').value.trim();
   if (!raw) { showToast('Paste a candidate block first', 'warn'); return; }
 
-  function get(keys) {
-    for (var i = 0; i < keys.length; i++) {
-      var rx = new RegExp('(?:^|\\n)' + keys[i] + '\\s*:\\s*(.+)', 'i');
-      var m = raw.match(rx);
-      if (m) return m[1].trim();
+  // Known labels sorted longest-first so longer matches win
+  // e.g. "Facebook Name" matches before "Name", "Contact Number" before "Contact"
+  var LABELS = [
+    'Past Jobs / Work Experience',
+    'Skills / Qualifications',
+    'Experience Summary',
+    'Preferred Job Type',
+    'Preferred Location',
+    'When can you start',
+    'Expected Salary',
+    'Contact Number',
+    'Facebook Name',
+    'Civil Status',
+    'Full Name',
+    'Consent',
+    'Gender',
+    'Email',
+    'Setup',
+    'Age'
+  ];
+
+  var escaped = LABELS.map(function(l) {
+    return l.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  });
+  var rx = new RegExp('(' + escaped.join('|') + ')\\s*:', 'gi');
+
+  // split() with a capturing group gives [prefix, label1, value1, label2, value2, ...]
+  var parts = raw.split(rx);
+  var parsed = {};
+
+  for (var i = 1; i + 1 < parts.length; i += 2) {
+    var key = parts[i].trim().toLowerCase();
+    var val = (parts[i + 1] || '').trim();
+
+    // Strip trailing Salamat message Botcake appends right after Consent value
+    if (key === 'consent') {
+      val = val.replace(/Salamat\b.*/i, '').trim();
     }
-    return '';
+
+    // Treat "(not provided)" as empty
+    if (val.toLowerCase() === '(not provided)') val = '';
+
+    parsed[key] = val;
+  }
+
+  function get(key) {
+    var v = parsed[key.toLowerCase()];
+    return (v !== undefined && v !== '') ? v : '';
   }
 
   function setField(id, val) {
@@ -612,44 +647,54 @@ function parseBlock() {
     var lower = val.toLowerCase().trim();
     var aliases = (id === 'f_jobtype') ? JOB_ALIASES : (id === 'f_location') ? LOC_ALIASES : {};
 
-    // Check aliases first
     for (var alias in aliases) {
-      if (lower.includes(alias)) {
+      if (lower.indexOf(alias) !== -1) {
         el.value = aliases[alias];
         if (el.value === aliases[alias]) { el.classList.add('filled'); el.classList.remove('warn-field'); return; }
       }
     }
-    // Direct match against option values
-    for (var i = 0; i < el.options.length; i++) {
-      var ov = el.options[i].value.toLowerCase();
-      if (ov === lower || ov.includes(lower) || lower.includes(ov)) {
-        el.value = el.options[i].value;
+    for (var j = 0; j < el.options.length; j++) {
+      var ov = el.options[j].value.toLowerCase();
+      if (ov === lower || ov.indexOf(lower) !== -1 || lower.indexOf(ov) !== -1) {
+        el.value = el.options[j].value;
         el.classList.add('filled'); el.classList.remove('warn-field');
         return;
       }
     }
-    // No match — set raw value and highlight yellow for manual review
     el.value = val;
     el.classList.add('warn-field');
   }
 
-  setField('f_name',       get(['Name', 'Full Name', 'Full name']));
-  setField('f_facebook',   get(['Facebook', 'FB', 'Facebook name', 'Facebook Name']));
-  setField('f_age',        get(['Age']));
-  setField('f_contact',    get(['Contact', 'Contact #', 'Contact Number', 'Phone', 'Number']));
-  setField('f_email',      get(['Email']));
-  setField('f_salary',     get(['Salary', 'Expected Salary', 'Pay', 'Rate']).replace(/[^0-9.]/g, ''));
-  setField('f_available',  get(['Available', 'Start', 'Start date', 'When can you start']));
-  setField('f_experience', get(['Experience', 'Past Jobs', 'Work Experience']));
-  setField('f_skills',     get(['Skills', 'Qualifications']));
-  setField('f_resume',     get(['Resume', 'GDrive', 'Drive']));
-  setField('f_notes',      get(['Notes', 'Tags', 'TAGS']));
+  // Normalize gender: "female" -> "Female", "male" -> "Male"
+  var rawGender = get('gender');
+  if (rawGender) rawGender = rawGender.charAt(0).toUpperCase() + rawGender.slice(1).toLowerCase();
 
-  setSelect('f_jobtype',   get(['Job', 'Job Type', 'Preferred Job', 'Position']));
-  setSelect('f_setup',     get(['Setup', 'Stay']));
-  setSelect('f_gender',    get(['Gender']));
-  setSelect('f_civil',     get(['Civil Status', 'Civil', 'Marital']));
-  setSelect('f_location',  get(['Location', 'Area', 'Address', 'City']));
+  setField('f_name',       get('full name'));
+  setField('f_facebook',   get('facebook name'));
+  setField('f_age',        get('age'));
+  setField('f_contact',    get('contact number'));
+  setField('f_email',      get('email'));
+  setField('f_salary',     get('expected salary').replace(/[^0-9.]/g, ''));
+  setField('f_available',  get('when can you start'));
+  setField('f_skills',     get('skills / qualifications'));
+  setField('f_experience', get('past jobs / work experience'));
+  setField('f_resume',     get('resume'));
+  setField('f_notes',      get('experience summary'));
+
+  setSelect('f_jobtype',   get('preferred job type'));
+  setSelect('f_gender',    rawGender);
+  setSelect('f_civil',     get('civil status'));
+  setSelect('f_location',  get('preferred location'));
+  // "Setup" is in LABELS so it parses cleanly but is never written to any field
+
+  // Consent: auto-check if value is "Yes"
+  if (get('consent').toLowerCase() === 'yes') {
+    var cb = document.getElementById('f_consent');
+    if (cb) {
+      cb.checked = true;
+      document.getElementById('consentBlock').classList.remove('error-consent');
+    }
+  }
 
   showToast('Fields filled — review and submit', 'green');
 }
@@ -683,6 +728,11 @@ function validate() {
   return ok;
 }
 
+// TODO: Replace with the actual Google Form entry ID for the Resume / GDrive Link field.
+// Find it by opening the form, right-clicking the Resume field, and inspecting the
+// input name attribute (e.g. entry.1234567890). Leave empty to skip until confirmed.
+var RESUME_ENTRY_ID = '';
+
 // ── Build the Google Form prefill URL ──
 function buildPrefilledUrl() {
   var BASE = 'https://docs.google.com/forms/d/e/1FAIpQLSdOLkZmlQTG_jlHz1d9Kggs-nB9U0z2tsK2U4qVGfEv0Y2iwA/viewform';
@@ -704,21 +754,21 @@ function buildPrefilledUrl() {
   p.append('entry.941768457',  document.getElementById('f_civil').value.trim());
   p.append('entry.1199976305', CONSENT_TEXT);
 
+  // Resume / GDrive Link — added once RESUME_ENTRY_ID is confirmed
+  var resumeVal = document.getElementById('f_resume').value.trim();
+  if (RESUME_ENTRY_ID && resumeVal) p.append(RESUME_ENTRY_ID, resumeVal);
+
   return BASE + '?' + p.toString();
 }
 
 // ── Save internal-only data to localStorage ──
 function savePendingIntake(name) {
   var notesVal  = document.getElementById('f_notes').value.trim();
-  var setupVal  = document.getElementById('f_setup').value.trim();
-  var resumeVal = document.getElementById('f_resume').value.trim();
-  if (!notesVal && !setupVal && !resumeVal) return;
+  if (!notesVal) return;
   var key = 'quick_intake_' + name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
   localStorage.setItem(key, JSON.stringify({
-    notes:  notesVal,
-    setup:  setupVal,
-    resume: resumeVal,
-    ts:     new Date().toISOString()
+    notes: notesVal,
+    ts:    new Date().toISOString()
   }));
 }
 
@@ -754,7 +804,7 @@ function resetToForm() {
 // ── Clear form ──
 var TEXT_FIELDS    = ['f_name','f_facebook','f_age','f_contact','f_email',
                       'f_salary','f_available','f_skills','f_experience','f_resume','f_notes'];
-var SELECT_FIELDS  = ['f_gender','f_jobtype','f_setup','f_location','f_civil'];
+var SELECT_FIELDS  = ['f_gender','f_jobtype','f_location','f_civil'];
 
 function clearForm() {
   TEXT_FIELDS.forEach(function(id) {
