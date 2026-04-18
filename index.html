@@ -1132,6 +1132,7 @@
   .tl-contact { background:var(--orange)!important;border-color:var(--orange)!important; }
   .tl-intv    { background:#a855f7!important;border-color:#a855f7!important; }
   .tl-hired   { background:var(--green)!important;border-color:var(--green)!important; }
+  .tl-issue   { background:var(--red)!important;border-color:var(--red)!important; }
   .hired-tl-date { font-size:10px;color:var(--text3);margin-bottom:2px;font-family:var(--mono); }
   .hired-tl-label { font-size:13px;font-weight:600;color:var(--text); }
   .hired-tl-sub { font-size:11px;color:var(--text2);margin-top:2px; }
@@ -1147,6 +1148,23 @@
     color: var(--orange); border-radius: 8px; padding: 6px 12px;
     font-size: 11px; font-weight: 600;
   }
+  .hired-card.issue-urgent {
+    border-left: 3px solid var(--red);
+    background: linear-gradient(135deg, rgba(220,38,38,0.04) 0%, var(--card) 40%);
+  }
+  .ri-info-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 16px;
+  }
+  .ri-info-item { display: flex; flex-direction: column; gap: 2px; }
+  .ri-info-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+  .ri-info-value { font-size: 12px; color: var(--text); font-weight: 600; }
+  .ri-urgency-group { display: flex; flex-direction: column; gap: 6px; }
+  .ri-urgency-radio { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card2); transition: border-color .15s; }
+  .ri-urgency-radio:has(input:checked) { border-color: var(--accent); background: var(--accent-dim); }
+  .ri-urgency-radio input { accent-color: var(--accent); }
+  .badge-flagged { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.3); color: var(--red); }
 
   /* ─── CANDIDATE NOTES ─── */
   .cand-notes-list { display: flex; flex-direction: column; gap: 6px; }
@@ -2103,6 +2121,64 @@
   </div>
 </div>
 
+<!-- ─── REPORT ISSUE MODAL ─── -->
+<div class="modal-overlay" id="modal-report-issue">
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <h3>⚠️ Report Placement Issue</h3>
+    <input type="hidden" id="ri-pid">
+    <input type="hidden" id="ri-jo-id">
+    <input type="hidden" id="ri-cand-id">
+    <div class="ri-info-grid">
+      <div class="ri-info-item"><div class="ri-info-label">Candidate</div><div id="ri-cand-name" class="ri-info-value"></div></div>
+      <div class="ri-info-item"><div class="ri-info-label">Candidate ID</div><div id="ri-cand-id-display" class="ri-info-value"></div></div>
+      <div class="ri-info-item"><div class="ri-info-label">Job Order</div><div id="ri-jo-display" class="ri-info-value"></div></div>
+      <div class="ri-info-item"><div class="ri-info-label">Employer</div><div id="ri-employer" class="ri-info-value"></div></div>
+      <div class="ri-info-item"><div class="ri-info-label">Position</div><div id="ri-position" class="ri-info-value"></div></div>
+      <div class="ri-info-item"><div class="ri-info-label">Hire Date</div><div id="ri-hire-date" class="ri-info-value"></div></div>
+      <div class="ri-info-item" style="grid-column:1/-1"><div class="ri-info-label">Days Remaining in Guarantee</div><div id="ri-days-remaining" class="ri-info-value"></div></div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Issue Type <span style="color:var(--red)">*</span></div>
+      <select id="ri-type">
+        <option value="">— Select Issue Type —</option>
+        <option>Candidate Abandonment / No-Show</option>
+        <option>Candidate Misconduct</option>
+        <option>Employer Complaint</option>
+        <option>Replacement Requested</option>
+        <option>Salary Dispute</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Urgency</div>
+      <div class="ri-urgency-group">
+        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Urgent"> <span>🔴 Urgent (within 30-day guarantee)</span></label>
+        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Normal" checked> <span>🟡 Normal</span></label>
+        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Low"> <span>⚪ Low</span></label>
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Issue Description <span style="color:var(--red)">*</span></div>
+      <textarea id="ri-description" placeholder="Describe what happened..." style="min-height:90px"></textarea>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Recommended Action</div>
+      <select id="ri-action">
+        <option value="">— Select Action —</option>
+        <option>Activate Replacement Guarantee</option>
+        <option>Blacklist Candidate</option>
+        <option>Contact Employer</option>
+        <option>Monitor Situation</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-report-issue')">Cancel</button>
+      <button class="btn btn-red" onclick="submitIssueReport()">⚠️ Submit Report</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 // CONFIG
@@ -2142,6 +2218,7 @@ let candidates = [];
 let jobOrders = [];
 let placements = [];
 let blacklist = {};
+let flaggedCands = {};
 let manualPlacements = [];
 let candidateNotes = {};
 let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
@@ -2152,6 +2229,7 @@ let candidateRatings = {};    // { candId: { rating, docs, notes } }
 // ═══════════════════════════════════════════════
 function loadLocal() {
   try { blacklist = JSON.parse(localStorage.getItem('blacklist') || '{}'); } catch(e){ blacklist={}; }
+  try { flaggedCands = JSON.parse(localStorage.getItem('flagged_cands') || '{}'); } catch(e){ flaggedCands={}; }
   try { manualPlacements = JSON.parse(localStorage.getItem('manual_placements') || '[]'); } catch(e){ manualPlacements=[]; }
   try { candidateNotes = JSON.parse(localStorage.getItem('candidate_notes') || '{}'); } catch(e){ candidateNotes={}; }
   try { joStatusOverrides = JSON.parse(localStorage.getItem('jo_status_overrides') || '{}'); } catch(e){ joStatusOverrides={}; }
@@ -2162,6 +2240,7 @@ function loadLocal() {
 }
 
 function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
+function saveFlaggedCands() { localStorage.setItem('flagged_cands', JSON.stringify(flaggedCands)); fbSync('flagged_cands', flaggedCands); }
 function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); fbSync('manual_placements', manualPlacements); }
 function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); fbSync('candidate_notes', candidateNotes); }
 function saveJOStatusOverrides() { localStorage.setItem('jo_status_overrides', JSON.stringify(joStatusOverrides)); fbSync('jo_status_overrides', joStatusOverrides); }
@@ -3647,6 +3726,8 @@ function createCandCard(c) {
   const blBadge = isBlacklisted
     ? `<span class="cand-badge badge-blacklisted">Blacklisted: ${escHtml(bl.reason||'')}</span>`
     : '';
+  const isFlagged = !!flaggedCands[c.id];
+  const flagBadge = isFlagged ? `<span class="cand-badge badge-flagged">⚠️ Flagged: ${escHtml(flaggedCands[c.id].reason||'Issue Reported')}</span>` : '';
 
   const cardReadiness = getCandReadiness(c.id);
   const cardAutoTags = getAutoTags(c.id);
@@ -3659,7 +3740,7 @@ function createCandCard(c) {
       <div style="flex:1">
         <div class="cand-name">${escHtml(c.name)}</div>
         <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
-        <div class="cand-badges">${verifiedBadge}${blBadge}${autoTagBadges}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}${flagBadge}${autoTagBadges}</div>
       </div>
       <div style="color:var(--text3);font-size:11px;padding-top:2px">👁 View</div>
     </div>
@@ -5013,6 +5094,10 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
     events.push({ date: ex.interviewDate || contactDate, label: 'Interview completed', sub: intResult, cls: 'tl-intv', pri: 5 });
   }
   if (hiredDate) events.push({ date: hiredDate, label: 'Hired', sub: escHtml(jo ? (jo.company||'') : (p.company||'')), cls: 'tl-hired', pri: 6 });
+  (hireData.issues || []).forEach(function(iss) {
+    var urgBadge = iss.urgency === 'Urgent' ? ' 🔴' : iss.urgency === 'Normal' ? ' 🟡' : ' ⚪';
+    events.push({ date: iss.ts ? iss.ts.split('T')[0] : '', label: '⚠️ Issue Reported — ' + escHtml(iss.type) + urgBadge, sub: escHtml(iss.description), cls: 'tl-issue', pri: 7 });
+  });
 
   // Sort oldest→newest using real Date ms; same timestamp uses logical priority
   events.sort(function(a,b){
@@ -5171,7 +5256,8 @@ function getGuaranteeStatus({ hireData, pid }) {
 
 function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
   const card = document.createElement('div');
-  card.className = 'hired-card';
+  const hasUrgentIssue = hireData.issueUrgent || ((hireData.issues||[]).some(function(i){ return i.urgency === 'Urgent'; }));
+  card.className = 'hired-card' + (hasUrgentIssue ? ' issue-urgent' : '');
 
   const gStatus = getGuaranteeStatus({ hireData, pid });
   const feeStatus = hireData.feeStatus || 'Pending';
@@ -5255,9 +5341,16 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
     </div>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${!hireData.issueReported
-        ? `<button class="btn btn-ghost" style="flex:1" onclick="reportGuaranteeIssue('${escAttr(pid)}')">⚠️ Report Issue</button>`
-        : `<div class="hired-issue-badge">⚠️ Issue: ${escHtml(hireData.issueNote||'Reported')}</div>`}
+      ${(function(){
+        const issues = hireData.issues || [];
+        if (!hireData.issueReported && !issues.length) {
+          return `<button class="btn btn-ghost" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">⚠️ Report Issue</button>`;
+        }
+        const count = issues.length;
+        const urgLabel = hasUrgentIssue ? ' style="color:var(--red);border-color:rgba(220,38,38,.4);background:var(--red-dim)"' : '';
+        return `<div class="hired-issue-badge"${urgLabel} style="flex:1;cursor:pointer" onclick="openIssueModal('${escAttr(pid)}')" title="View or add issues">` +
+          `⚠️ ${count > 1 ? count + ' Issues' : ('Issue: ' + escHtml(issues[0]?.type || hireData.issueNote || 'Reported'))}</div>`;
+      })()}
       <button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
     </div>
 
@@ -5278,13 +5371,77 @@ function saveHireData(pid, field, value) {
   fbSyncDebounced('hire_data/' + pid, d);
 }
 
-function reportGuaranteeIssue(pid) {
-  const note = prompt('Describe the issue (e.g. candidate no-showed, employer complaint):');
-  if (note === null) return;
+function openIssueModal(pid) {
+  const allP = [...placements, ...manualPlacements];
+  const p = allP.find(function(pl) { return (pl.placementId || pl.candidateId) === pid; });
+  if (!p) return;
+  const jo = jobOrders.find(function(j) { return j.id === p.jobOrderId; });
+  let hireData = {};
+  try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+  const hireDate = hireData.hireDate || '';
+  const daysRemaining = hireDate ? Math.max(0, 30 - Math.round((new Date() - new Date(hireDate)) / 86400000)) : null;
+
+  document.getElementById('ri-pid').value = pid;
+  document.getElementById('ri-jo-id').value = p.jobOrderId;
+  document.getElementById('ri-cand-id').value = p.candidateId;
+  document.getElementById('ri-cand-name').textContent = p.candidateName;
+  document.getElementById('ri-cand-id-display').textContent = p.candidateId;
+  document.getElementById('ri-jo-display').textContent = p.jobOrderId;
+  document.getElementById('ri-employer').textContent = jo ? jo.company : (p.company || '—');
+  document.getElementById('ri-position').textContent = p.position || (jo && jo.position) || '—';
+  document.getElementById('ri-hire-date').textContent = hireDate ? fmtDate(hireDate) : '—';
+  document.getElementById('ri-days-remaining').textContent = daysRemaining !== null ? daysRemaining + ' days' : '—';
+
+  document.getElementById('ri-type').value = '';
+  document.getElementById('ri-description').value = '';
+  document.getElementById('ri-action').value = '';
+  var radios = document.querySelectorAll('input[name="ri-urgency"]');
+  radios.forEach(function(r) { r.checked = r.value === 'Normal'; });
+
+  openModal('modal-report-issue');
+}
+
+function submitIssueReport() {
+  const pid = document.getElementById('ri-pid').value;
+  const joId = document.getElementById('ri-jo-id').value;
+  const candId = document.getElementById('ri-cand-id').value;
+  const issueType = document.getElementById('ri-type').value;
+  const urgencyEl = document.querySelector('input[name="ri-urgency"]:checked');
+  const urgency = urgencyEl ? urgencyEl.value : 'Normal';
+  const description = document.getElementById('ri-description').value.trim();
+  const action = document.getElementById('ri-action').value;
+
+  if (!issueType) { showToast('Please select an Issue Type.', 'orange'); return; }
+  if (!description) { showToast('Please describe the issue.', 'orange'); return; }
+
+  const ts = new Date().toISOString();
+  const issue = { ts: ts, type: issueType, urgency: urgency, description: description, action: action };
+
+  let hireData = {};
+  try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+  const issues = hireData.issues ? hireData.issues.slice() : [];
+  issues.push(issue);
+
+  saveHireData(pid, 'issues', issues);
   saveHireData(pid, 'issueReported', true);
-  saveHireData(pid, 'issueNote', note);
+  saveHireData(pid, 'issueNote', issueType);
+  if (urgency === 'Urgent') saveHireData(pid, 'issueUrgent', true);
+
+  flaggedCands[candId] = { ts: ts, reason: issueType, pid: pid };
+  saveFlaggedCands();
+
+  closeModal('modal-report-issue');
   renderHiredTab();
-  showToast('Issue reported. Candidate flagged for replacement.', 'orange');
+  showToast('Issue reported and saved.', urgency === 'Urgent' ? 'red' : 'orange');
+
+  const replacementTypes = ['Candidate Abandonment / No-Show', 'Replacement Requested'];
+  if (replacementTypes.includes(issueType)) {
+    setTimeout(function() {
+      if (confirm('Do you want to open AI Matcher now to find a replacement?')) {
+        openMatcherForJO(joId);
+      }
+    }, 350);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -5853,6 +6010,7 @@ async function loadFromFirebase() {
     if (!data) { setSyncStatus('synced'); return; }
 
     if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
+    if (data.flagged_cands)       localStorage.setItem('flagged_cands',       JSON.stringify(data.flagged_cands));
     if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
     if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
     if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
