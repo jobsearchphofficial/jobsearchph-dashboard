@@ -1853,6 +1853,7 @@
       <div>
         <div class="stat-val" id="stat-candidates">—</div>
         <div class="stat-label">Total Candidates</div>
+        <div id="stat-hidden-note" style="font-size:9px;color:var(--text3);margin-top:1px;line-height:1.3"></div>
       </div>
     </div>
     <div class="stat">
@@ -2220,6 +2221,8 @@ let placements = [];
 let blacklist = {};
 let flaggedCands = {};
 let manualPlacements = [];
+let _hiddenDuplicates = [];   // candidate IDs skipped as duplicates
+let _hiddenUnderage   = [];   // candidate IDs skipped as underage
 let candidateNotes = {};
 let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
 let candidateRatings = {};    // { candId: { rating, docs, notes } }
@@ -2349,17 +2352,21 @@ async function loadAll() {
       if (!val) return '';
       const v = val.trim();
       const vl = v.toLowerCase();
-      // Employment-type entries → unified label
-      if (vl.includes('full time') || vl.includes('fulltime') || vl.includes('part time') ||
-          vl.includes('partime') || vl.includes('kahit ano')) return 'Full Time / Part Time';
+      // Drop preference qualifiers that are not job types
+      if (vl.startsWith('if may') || vl.startsWith('kung may') || vl.includes('overtime ok')) return '';
+      // Employment-type detection
+      const hasFull = vl.includes('full time') || vl.includes('fulltime') || vl === 'ft';
+      const hasPart = vl.includes('part time') || vl.includes('partime') || vl === 'pt';
+      const hasAny  = vl === 'any' || vl === 'kahit ano' || vl.includes('kahit ano') || vl.includes('any type') || vl.includes('both');
+      if (hasAny || (hasFull && hasPart)) return 'Any / Open';
+      if (hasFull) return 'Full Time';
+      if (hasPart) return 'Part Time';
       // Role merges
       if (vl === 'housekeeping' || vl === 'sulod balay') return 'Housekeeper / Household Helper';
       if (vl.includes('housekeeper') || vl.includes('household helper')) return 'Housekeeper / Household Helper';
-      if (vl === 'kitchen staff') return 'Cook / Kitchen Staff';
-      if (vl.includes('cook') || vl.includes('kitchen')) return 'Cook / Kitchen Staff';
-      if (vl === 'sales lady' || vl === 'saleslady') return 'Sales Agent / Promodiser';
-      // Preferences entered as job type — not a valid job type, drop
-      if (vl.startsWith('if may') || vl.startsWith('kung may') || vl.includes('overtime ok')) return '';
+      if (vl === 'canteen helper' || vl.includes('canteen')) return 'Cook / Kitchen Staff';
+      if (vl === 'kitchen staff' || vl.includes('cook') || vl.includes('kitchen')) return 'Cook / Kitchen Staff';
+      if (vl === 'sales lady' || vl === 'saleslady' || vl.includes('sales')) return 'Sales Agent / Promodiser';
       return v;
     };
 
@@ -2437,6 +2444,34 @@ async function loadAll() {
         candStatus: 'active', // runtime status: active | interview | hired | blacklisted
       };
     });
+    // ── Deduplicate: hide all but the first occurrence of a phone/email ──
+    const _seenPhone = new Set();
+    const _seenEmail = new Set();
+    _hiddenDuplicates = [];
+    candidates = candidates.filter(function(c) {
+      const ph = (c.phone || '').replace(/\D/g, '').slice(-10);
+      const em = (c.email || '').trim().toLowerCase();
+      const dupPhone = ph.length >= 7 && _seenPhone.has(ph);
+      const dupEmail = em.includes('@') && _seenEmail.has(em);
+      if (dupPhone || dupEmail) { _hiddenDuplicates.push(c.id); return false; }
+      if (ph.length >= 7) _seenPhone.add(ph);
+      if (em.includes('@')) _seenEmail.add(em);
+      return true;
+    });
+
+    // ── Underage: hide candidates below 18 ──
+    _hiddenUnderage = [];
+    candidates = candidates.filter(function(c) {
+      if (c.ageInt > 0 && c.ageInt < 18) { _hiddenUnderage.push(c.id); return false; }
+      return true;
+    });
+
+    // ── Console report ──
+    console.group('%c🔍 Data Quality Filters', 'color:#1755ED;font-weight:700;font-size:13px');
+    console.log('🔁 Duplicates hidden:', _hiddenDuplicates.length, _hiddenDuplicates.length ? _hiddenDuplicates : '(none)');
+    console.log('🔞 Underage hidden:', _hiddenUnderage.length, _hiddenUnderage.length ? _hiddenUnderage : '(none)');
+    console.groupEnd();
+
     document.getElementById('cand-error').classList.add('hidden');
   } else {
     showError('cand-error', 'Failed to load candidates: ' + results[0].reason?.message);
@@ -2558,6 +2593,13 @@ function updateStats() {
   document.getElementById('stat-verified').textContent = candidates.filter(c => getEffectiveVerified(c)).length;
   document.getElementById('stat-active-jobs').textContent = jobOrders.length;
   document.getElementById('stat-placements').textContent = allPlacements.length;
+  const totalHidden = _hiddenDuplicates.length + _hiddenUnderage.length;
+  const noteEl = document.getElementById('stat-hidden-note');
+  if (noteEl) {
+    noteEl.textContent = totalHidden > 0
+      ? `${totalHidden} hidden (${_hiddenDuplicates.length} dup · ${_hiddenUnderage.length} underage)`
+      : '';
+  }
 }
 
 // ═══════════════════════════════════════════════
