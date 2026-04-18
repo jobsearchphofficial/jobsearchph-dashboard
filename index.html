@@ -5185,12 +5185,17 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
   // Days remaining: MAX(0, 30 - days since hire date)
   const daysRemaining = hireDate ? Math.max(0, 30 - Math.round((new Date() - new Date(hireDate)) / 86400000)) : null;
 
+  const displayName = ex.candidateNameOverride || p.candidateName;
+
   card.innerHTML = `
     <div class="hired-card-header">
       <div style="display:flex;align-items:center;gap:10px;flex:1">
         <div class="cand-avatar" style="width:40px;height:40px;font-size:18px">${genderEmoji(c?.gender||'')}</div>
         <div>
-          <div style="font-size:15px;font-weight:700">${escHtml(p.candidateName)}</div>
+          <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px">
+            ${escHtml(displayName)}
+            <button onclick="editHiredName('${escAttr(pid)}','${escAttr(displayName)}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:0;line-height:1" title="Edit name">&#9998;</button>
+          </div>
           <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escHtml(p.candidateId)}</div>
         </div>
       </div>
@@ -5272,6 +5277,13 @@ function saveHireData(pid, field, value) {
   d[field] = value;
   localStorage.setItem(key, JSON.stringify(d));
   fbSyncDebounced('hire_data/' + pid, d);
+}
+
+function editHiredName(pid, currentName) {
+  const newName = prompt('Edit candidate name:', currentName);
+  if (newName === null || newName.trim() === '') return;
+  saveProwExtra(pid, 'candidateNameOverride', newName.trim());
+  renderHiredTab();
 }
 
 function reportGuaranteeIssue(pid) {
