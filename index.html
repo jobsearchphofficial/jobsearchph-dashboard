@@ -6384,6 +6384,10 @@ function renderScreeningTab() {
   const el = document.getElementById('screening-inner');
   if (!el) return;
 
+  const _winScroll = window.scrollY;
+  const _spBody = document.querySelector('#scr-panel .sp-body');
+  const _panelScroll = _spBody ? _spBody.scrollTop : 0;
+
   const viewBar = '<div class="screening-view-bar">' +
     '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
     '</div>';
@@ -6425,6 +6429,10 @@ function renderScreeningTab() {
 
   el.innerHTML = viewBar + filterBarDiv + statsRow + '<div id="scr-board">' + viewHtml + '</div>';
   buildScrFilterBar();
+
+  window.scrollTo(0, _winScroll);
+  const _newSpBody = document.querySelector('#scr-panel .sp-body');
+  if (_newSpBody && _panelScroll) _newSpBody.scrollTop = _panelScroll;
 }
 
 function renderPipelineBoard() {
