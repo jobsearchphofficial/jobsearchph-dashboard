@@ -698,6 +698,31 @@
     color: var(--text2); font-size: 13px;
   }
 
+  /* ─── PROFILE MESSAGE GENERATOR ─── */
+  .prof-msg-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, var(--purple-dim) 0%, var(--accent-dim) 100%);
+    border: 1px solid rgba(124,58,237,0.3); color: var(--purple);
+    padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .18s; font-family: var(--sans);
+  }
+  .prof-msg-btn:hover { background: rgba(124,58,237,0.15); box-shadow: 0 0 14px rgba(124,58,237,0.15); }
+  .prof-msg-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .prof-msg-textarea {
+    width: 100%; min-height: 260px; background: var(--card2); border: 1px solid var(--border2);
+    color: var(--text); padding: 12px 14px; border-radius: 10px;
+    font-family: var(--sans); font-size: 12px; line-height: 1.6; outline: none;
+    resize: vertical; box-sizing: border-box; margin-top: 10px;
+  }
+  .prof-msg-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23,85,237,0.08); }
+  .prof-msg-copy-btn {
+    width: 100%; margin-top: 8px; background: var(--green-dim);
+    border: 1px solid rgba(5,150,105,0.3); color: var(--green);
+    padding: 9px; border-radius: 9px; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: var(--sans); transition: all .18s;
+  }
+  .prof-msg-copy-btn:hover { background: rgba(5,150,105,0.2); }
+
   /* ─── RESPONSIVE ─── */
   @media (max-width: 640px) {
     header { padding: 0 16px; }
@@ -4545,6 +4570,13 @@ function _openCandModalInner(candId) {
 
       ${buildCandNotesSection(c.id)}
 
+      <div class="cand-modal-section" id="prof-msg-section-${escAttr(c.id)}">
+        <div class="cand-modal-section-title">Profile Message</div>
+        <button class="prof-msg-btn" onclick="generateCandidateProfile('${escAttr(c.id)}')">
+          ✨ Generate Profile Message
+        </button>
+      </div>
+
       <div style="display:flex;gap:8px;padding-top:4px">
         ${!isBlacklisted
           ? `<button class="btn btn-red" style="flex:1" onclick="closeCandModal();openBlacklistModal('${escAttr(c.id)}','${escAttr(c.name)}')">Blacklist</button>`
@@ -4559,6 +4591,165 @@ function _openCandModalInner(candId) {
 
 function closeCandModal() {
   document.getElementById('modal-cand-profile').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════
+// PROFILE MESSAGE GENERATOR
+// ═══════════════════════════════════════════════
+async function generateCandidateProfile(candId) {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    promptApiKey();
+    if (!getApiKey()) return;
+  }
+
+  const section = document.getElementById('prof-msg-section-' + candId);
+  if (!section) return;
+
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return;
+
+  const ratingFull  = calcCandRatingFull(candId);
+  const era         = ratingFull.era;
+  const rating      = ratingFull.score;
+  const ratingLabel = getRatingLabel(rating).label;
+  const stored      = candidateRatings[candId] || {};
+  const docs        = stored.docs   || {};
+  const scores      = stored.scores || {};
+  const readiness   = getCandReadiness(candId);
+  const tags        = getAutoTags(candId).map(function(t) { return t.label; });
+  const effectiveVerified = getEffectiveVerified(c);
+
+  // Build doc/signal lists for prompt context
+  const verifiedDocs = [
+    docs.brgy     && 'Barangay Clearance',
+    docs.police   && 'Police Clearance',
+    docs.nbi      && 'NBI Clearance',
+    docs.validId  && 'Valid ID',
+    docs.resume   && 'Resume',
+    docs.medical  && 'Medical Certificate',
+  ].filter(Boolean);
+
+  const missingDocs = [
+    !docs.validId  && 'Valid ID',
+    !docs.brgy     && 'Barangay Clearance',
+    !docs.police   && 'Police Clearance',
+    !docs.nbi      && 'NBI Clearance',
+  ].filter(Boolean);
+
+  const positiveSignals = [
+    scores.repliedFast           && 'replied within 24 hours',
+    scores.answeredCall          && 'answered call',
+    scores.confirmedIntv         && 'confirmed availability',
+    scores.polite                && 'clear communicator',
+    scores.passedScreening       && 'consistent answers during screening',
+    scores.willingToWork         && 'willing to work',
+    scores.followsInstructions   && 'follows instructions',
+    scores.showedUp              && 'showed up to interview',
+    scores.completedJob          && 'completed a previous job placement',
+    scores.workIntentConfirmed   && 'work intent confirmed',
+    scores.availabilityConfirmed && 'availability confirmed',
+  ].filter(Boolean);
+
+  // Show loading state
+  section.innerHTML = `
+    <div class="cand-modal-section-title">Profile Message</div>
+    <div class="ai-loading">
+      <div class="pulse" style="width:10px;height:10px;border-radius:50%;background:var(--purple);animation:pulse 1s infinite"></div>
+      <span>Generating profile with Claude AI…</span>
+    </div>`;
+
+  const prompt = `You are an assistant for Job Search PH, a domestic worker placement agency in Bacolod City, Philippines (DOLE-registered, no-placement-no-fee model). Write a concise, professional candidate profile message in English that the agency can copy-paste to send to a potential employer via Facebook Messenger or Viber.
+
+Use EXACTLY this format (keep the emoji headers):
+
+👤 Candidate Profile – ${c.name}
+
+- ${c.gender || 'Female'}, ${c.age || '—'} years old
+- From ${c.location || c.locationRaw || 'Bacolod City'}
+- Applying as ${c.jobTypeFormatted || c.jobType || '—'}
+
+💼 Experience & Skills
+- [2-3 bullet points generated from the data below. Be specific but brief. Mention relevant skills and experience level.]
+
+📅 Availability
+- [1 sentence based on availability and readiness data below.]
+
+💰 Expected Salary
+- ${c.expectedPay ? c.expectedPay : 'To be discussed'}
+
+📌 Note
+- [1-2 sentences. Mention documents status. If any key documents are missing list them. If all docs are present say so briefly.]
+
+---
+CANDIDATE DATA (do not copy this verbatim — use it to write the profile):
+Skills & Qualifications: ${c.skills || 'Not specified'}
+Past Work History: ${c.pastJobs || 'Not specified'}
+Job Type Applied For: ${c.jobTypeFormatted || c.jobType || 'Not specified'}
+ERA Score: ${rating} / 10 (${ratingLabel})
+Verified: ${effectiveVerified ? 'Yes' : 'No'}
+Submitted Documents: ${verifiedDocs.length ? verifiedDocs.join(', ') : 'None on file'}
+Missing Documents: ${missingDocs.length ? missingDocs.join(', ') : 'None — all key docs present'}
+Positive Signals: ${positiveSignals.length ? positiveSignals.join(', ') : 'None recorded yet'}
+Readiness Status: ${readiness.level}
+Badges: ${tags.length ? tags.join(', ') : 'None'}
+Availability Confirmed: ${scores.availabilityConfirmed ? 'Yes' : 'Not yet confirmed'}
+
+Keep the tone professional but warm. Do not invent specific employer names or salary figures not provided. Write in plain English, no Tagalog/Bisaya.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5-20251001',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(function() { return {}; });
+      throw new Error(err.error?.message || 'API error ' + resp.status);
+    }
+
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '';
+
+    const safeId = candId.replace(/[^a-zA-Z0-9_-]/g, '');
+    section.innerHTML = `
+      <div class="cand-modal-section-title">Profile Message</div>
+      <textarea class="prof-msg-textarea" id="prof-msg-ta-${safeId}" spellcheck="false">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      <button class="prof-msg-copy-btn" onclick="copyProfMsg('${safeId}', this)">📋 Copy to Clipboard</button>
+      <button class="prof-msg-btn" style="margin-top:8px" onclick="generateCandidateProfile('${candId}')">↺ Regenerate</button>`;
+
+  } catch (err) {
+    section.innerHTML = `
+      <div class="cand-modal-section-title">Profile Message</div>
+      <div style="color:var(--red);font-size:12px;padding:10px;background:var(--red-dim);border-radius:8px;margin-bottom:8px">
+        Error: ${escHtml(err.message)}
+      </div>
+      <button class="prof-msg-btn" onclick="generateCandidateProfile('${candId}')">↺ Retry</button>`;
+  }
+}
+
+function copyProfMsg(safeId, btn) {
+  const ta = document.getElementById('prof-msg-ta-' + safeId);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.background = 'rgba(5,150,105,0.25)';
+    setTimeout(function() { btn.textContent = orig; btn.style.background = ''; }, 2000);
+  }).catch(function() {
+    ta.select();
+    document.execCommand('copy');
+  });
 }
 
 // ═══════════════════════════════════════════════
