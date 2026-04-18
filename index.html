@@ -6387,6 +6387,8 @@ function renderScreeningTab() {
   const _winScroll = window.scrollY;
   const _spBody = document.querySelector('#scr-panel .sp-body');
   const _panelScroll = _spBody ? _spBody.scrollTop : 0;
+  const _noteInp = _scrSelectedCand ? document.getElementById('sp-note-input-' + _scrSelectedCand) : null;
+  const _noteDraft = _noteInp ? _noteInp.value : '';
 
   const viewBar = '<div class="screening-view-bar">' +
     '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
@@ -6433,6 +6435,10 @@ function renderScreeningTab() {
   window.scrollTo(0, _winScroll);
   const _newSpBody = document.querySelector('#scr-panel .sp-body');
   if (_newSpBody && _panelScroll) _newSpBody.scrollTop = _panelScroll;
+  if (_noteDraft && _scrSelectedCand) {
+    const _newNoteInp = document.getElementById('sp-note-input-' + _scrSelectedCand);
+    if (_newNoteInp) _newNoteInp.value = _noteDraft;
+  }
 }
 
 function renderPipelineBoard() {
