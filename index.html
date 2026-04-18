@@ -2419,7 +2419,7 @@ async function loadAll() {
     const rows = results[2].value;
     let plDataStart = 1;
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i][1] && /^JO/i.test(rows[i][1].trim())) { plDataStart = i; break; }
+      if (rows[i][1] && /^JOO?-\d/i.test(rows[i][1].trim())) { plDataStart = i; break; }
     }
     placements = rows.slice(plDataStart).filter(r => r[0]).map(r => {
       const rawStatus = r[7] || '';
