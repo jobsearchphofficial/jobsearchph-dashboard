@@ -4596,13 +4596,7 @@ function closeCandModal() {
 // ═══════════════════════════════════════════════
 // PROFILE MESSAGE GENERATOR
 // ═══════════════════════════════════════════════
-async function generateCandidateProfile(candId) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    promptApiKey();
-    if (!getApiKey()) return;
-  }
-
+function generateCandidateProfile(candId) {
   const section = document.getElementById('prof-msg-section-' + candId);
   if (!section) return;
 
@@ -4610,132 +4604,66 @@ async function generateCandidateProfile(candId) {
   if (!c) return;
 
   const ratingFull  = calcCandRatingFull(candId);
-  const era         = ratingFull.era;
   const rating      = ratingFull.score;
   const ratingLabel = getRatingLabel(rating).label;
   const stored      = candidateRatings[candId] || {};
-  const docs        = stored.docs   || {};
-  const scores      = stored.scores || {};
-  const readiness   = getCandReadiness(candId);
-  const tags        = getAutoTags(candId).map(function(t) { return t.label; });
-  const effectiveVerified = getEffectiveVerified(c);
+  const docs        = stored.docs  || {};
 
-  // Build doc/signal lists for prompt context
-  const verifiedDocs = [
-    docs.brgy     && 'Barangay Clearance',
-    docs.police   && 'Police Clearance',
-    docs.nbi      && 'NBI Clearance',
-    docs.validId  && 'Valid ID',
-    docs.resume   && 'Resume',
-    docs.medical  && 'Medical Certificate',
-  ].filter(Boolean);
+  // First name only
+  const firstName = (c.name || '').split(' ')[0] || c.name || '';
 
-  const missingDocs = [
-    !docs.validId  && 'Valid ID',
-    !docs.brgy     && 'Barangay Clearance',
-    !docs.police   && 'Police Clearance',
-    !docs.nbi      && 'NBI Clearance',
-  ].filter(Boolean);
+  // Location — use city or fall back to "Bacolod City"
+  const location = c.cityFormatted || c.location || 'Bacolod City';
 
-  const positiveSignals = [
-    scores.repliedFast           && 'replied within 24 hours',
-    scores.answeredCall          && 'answered call',
-    scores.confirmedIntv         && 'confirmed availability',
-    scores.polite                && 'clear communicator',
-    scores.passedScreening       && 'consistent answers during screening',
-    scores.willingToWork         && 'willing to work',
-    scores.followsInstructions   && 'follows instructions',
-    scores.showedUp              && 'showed up to interview',
-    scores.completedJob          && 'completed a previous job placement',
-    scores.workIntentConfirmed   && 'work intent confirmed',
-    scores.availabilityConfirmed && 'availability confirmed',
-  ].filter(Boolean);
+  // Job type — use formatted value
+  const jobType = c.jobTypeFormatted || c.jobType || 'Details to be confirmed';
 
-  // Show loading state
-  section.innerHTML = `
-    <div class="cand-modal-section-title">Profile Message</div>
-    <div class="ai-loading">
-      <div class="pulse" style="width:10px;height:10px;border-radius:50%;background:var(--purple);animation:pulse 1s infinite"></div>
-      <span>Generating profile with Claude AI…</span>
-    </div>`;
+  // Skills line — use skills field, fall back to past jobs, then placeholder
+  const skillsLine = (c.skills && c.skills.trim())
+    ? c.skills.trim()
+    : (c.pastJobs && c.pastJobs.trim())
+      ? c.pastJobs.trim()
+      : 'Details to be confirmed';
 
-  const prompt = `You are an assistant for Job Search PH, a domestic worker placement agency in Bacolod City, Philippines (DOLE-registered, no-placement-no-fee model). Write a concise, professional candidate profile message in English that the agency can copy-paste to send to a potential employer via Facebook Messenger or Viber.
+  // Salary
+  const salary = (c.expectedPay && c.expectedPay.trim()) ? c.expectedPay.trim() : 'To be discussed';
 
-Use EXACTLY this format (keep the emoji headers):
+  // Documents note
+  const allKeyDocs = docs.validId && docs.brgy && docs.police && docs.nbi;
+  const docNote = allKeyDocs
+    ? 'All key documents on file.'
+    : 'Still completing documents.';
 
-👤 Candidate Profile – ${c.name}
+  const msg =
+`👤 Candidate Profile – ${firstName}
 
 - ${c.gender || 'Female'}, ${c.age || '—'} years old
-- From ${c.location || c.locationRaw || 'Bacolod City'}
-- Applying as ${c.jobTypeFormatted || c.jobType || '—'}
+- From ${location}
+- Applying as ${jobType}
 
 💼 Experience & Skills
-- [2-3 bullet points generated from the data below. Be specific but brief. Mention relevant skills and experience level.]
+- ${skillsLine}
 
 📅 Availability
-- [1 sentence based on availability and readiness data below.]
+- Ready for interview
+- Can start once requirements are completed
 
 💰 Expected Salary
-- ${c.expectedPay ? c.expectedPay : 'To be discussed'}
+- ${salary}
 
 📌 Note
-- [1-2 sentences. Mention documents status. If any key documents are missing list them. If all docs are present say so briefly.]
+- ${docNote}
+- ERA Score: ${rating}/10 (${ratingLabel})
 
----
-CANDIDATE DATA (do not copy this verbatim — use it to write the profile):
-Skills & Qualifications: ${c.skills || 'Not specified'}
-Past Work History: ${c.pastJobs || 'Not specified'}
-Job Type Applied For: ${c.jobTypeFormatted || c.jobType || 'Not specified'}
-ERA Score: ${rating} / 10 (${ratingLabel})
-Verified: ${effectiveVerified ? 'Yes' : 'No'}
-Submitted Documents: ${verifiedDocs.length ? verifiedDocs.join(', ') : 'None on file'}
-Missing Documents: ${missingDocs.length ? missingDocs.join(', ') : 'None — all key docs present'}
-Positive Signals: ${positiveSignals.length ? positiveSignals.join(', ') : 'None recorded yet'}
-Readiness Status: ${readiness.level}
-Badges: ${tags.length ? tags.join(', ') : 'None'}
-Availability Confirmed: ${scores.availabilityConfirmed ? 'Yes' : 'Not yet confirmed'}
+Referred by Job Search PH — Bacolod City | DOLE-Compliant | No Placement, No Fee`;
 
-Keep the tone professional but warm. Do not invent specific employer names or salary figures not provided. Write in plain English, no Tagalog/Bisaya.`;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': getApiKey(),
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(function() { return {}; });
-      throw new Error(err.error?.message || 'API error ' + resp.status);
-    }
-
-    const data = await resp.json();
-    const text = data.content?.[0]?.text || '';
-
-    const safeId = candId.replace(/[^a-zA-Z0-9_-]/g, '');
-    section.innerHTML = `
-      <div class="cand-modal-section-title">Profile Message</div>
-      <textarea class="prof-msg-textarea" id="prof-msg-ta-${safeId}" spellcheck="false">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
-      <button class="prof-msg-copy-btn" onclick="copyProfMsg('${safeId}', this)">📋 Copy to Clipboard</button>
-      <button class="prof-msg-btn" style="margin-top:8px" onclick="generateCandidateProfile('${candId}')">↺ Regenerate</button>`;
-
-  } catch (err) {
-    section.innerHTML = `
-      <div class="cand-modal-section-title">Profile Message</div>
-      <div style="color:var(--red);font-size:12px;padding:10px;background:var(--red-dim);border-radius:8px;margin-bottom:8px">
-        Error: ${escHtml(err.message)}
-      </div>
-      <button class="prof-msg-btn" onclick="generateCandidateProfile('${candId}')">↺ Retry</button>`;
-  }
+  const safeId = candId.replace(/[^a-zA-Z0-9_-]/g, '');
+  section.innerHTML =
+    '<div class="cand-modal-section-title">Profile Message</div>' +
+    '<textarea class="prof-msg-textarea" id="prof-msg-ta-' + safeId + '" spellcheck="false">' +
+    msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+    '</textarea>' +
+    '<button class="prof-msg-copy-btn" onclick="copyProfMsg(\'' + safeId + '\',this)">📋 Copy to Clipboard</button>';
 }
 
 function copyProfMsg(safeId, btn) {
