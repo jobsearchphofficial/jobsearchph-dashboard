@@ -2774,6 +2774,9 @@ function buildJOPanel(jo, joPlacements) {
         <div style="display:flex;gap:6px">
           ${statusBtns}
         </div>
+        <div style="display:flex;gap:6px">
+          <button id="copy-jo-btn-${jo.id.replace(/[^a-z0-9]/gi,'')}" class="btn btn-ghost" onclick="copyJobDetails('${escAttr(jo.id)}')">📋 Copy Job Details</button>
+        </div>
       </div>
     </div>
   `;
@@ -4698,6 +4701,68 @@ function changeJOStatus(joId, newStatus) {
   showToast(`Job Order ${joId} → ${newStatus}`, newStatus === 'Active' ? 'green' : 'orange');
 }
 
+function copyJobDetails(joId) {
+  const jo = jobOrders.find(j => j.id === joId);
+  if (!jo) return;
+  const toBullets = (text) => {
+    if (!text || !text.trim()) return '';
+    const items = text.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
+    return items.map(s => '• ' + s).join('\n');
+  };
+  const sep = '━━━━━━━━━━━━━━━━━━━━';
+  const text = [
+    '💼 *JOB OPENING \u2014 Job Search PH* ✅',
+    sep,
+    '',
+    '📋 *Position:* ' + (jo.position || 'N/A'),
+    '📍 *Location:* ' + (jo.address || 'N/A'),
+    '💰 *Salary:* ₱' + (jo.salary || 'N/A') + '/month',
+    '🏠 *Setup:* ' + (jo.workSchedule || 'N/A'),
+    '🍽️ *Benefits:* ' + (jo.benefits || 'N/A'),
+    '⏰ *Type:* Full-time',
+    '',
+    sep,
+    '📝 *DUTIES*',
+    toBullets(jo.skillsNeeded) || '• N/A',
+    '',
+    sep,
+    '✅ *REQUIREMENTS*',
+    toBullets(jo.experience) || '• N/A',
+    '',
+    sep,
+    'ℹ️ *ABOUT THE EMPLOYER*',
+    (jo.otherNotes || jo.company || 'N/A'),
+    '',
+    sep,
+    '📩 *Interested? Reply NOW to apply!*'
+  ].join('\n');
+  const btnId = 'copy-jo-btn-' + joId.replace(/[^a-z0-9]/gi, '');
+  const finish = () => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.textContent = 'Copied!';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(finish).catch(() => {
+      fallbackCopy(text); finish();
+    });
+  } else {
+    fallbackCopy(text); finish();
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
 function confirmAddOverride(joId, company, position) {
   const jo = jobOrders.find(j => j.id === joId);
   const slots = parseInt(jo?.slots)||1;
@@ -5313,6 +5378,7 @@ function renderHiredTab() {
   const hiredRows = [];
 
   allP.forEach(p => {
+    if (blacklist[p.candidateId]) return;
     const pid = p.placementId || p.candidateId;
     let ex = {};
     try { ex = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e) {}
