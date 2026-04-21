@@ -2513,7 +2513,7 @@ async function loadAll() {
       return {
         id: r[0].trim() || '',
         timestamp: r[1] || '',
-        name: r[2] || '',
+        name: (r[3] && r[3].trim()) ? r[3].trim() : (r[2] || '').trim(),
         facebook: r[3] || '',
         age: ageRaw,
         ageInt,
@@ -3975,7 +3975,7 @@ function savePlacement() {
       placementId: `M-${Date.now()}`,
       jobOrderId: joId,
       candidateId: candId || `M-${Date.now().toString(36)}`,
-      candidateName: candName,
+      candidateName: (() => { const cObj = candidates.find(x => x.id === candId) || candidates.find(x => x.name.trim().toLowerCase() === candName.trim().toLowerCase()); return cObj ? cObj.name : candName; })(),
       company, position, response, status, date, notes,
       source: 'manual'
     };
@@ -4040,7 +4040,7 @@ function saveAtjPlacement() {
     placementId: `M-${Date.now()}`,
     jobOrderId: joId,
     candidateId: candId,
-    candidateName: candName,
+    candidateName: (() => { const cObj = candidates.find(x => x.id === candId); return cObj ? cObj.name : candName; })(),
     company, position, response, status, date, notes,
     source: 'manual'
   };
