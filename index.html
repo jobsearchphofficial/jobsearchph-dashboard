@@ -4771,7 +4771,7 @@ function copyJobDetails(joId) {
   const parts = ['💼 JOB OPENING — Job Search PH', ''];
   if (jo.position) parts.push('📋 Position: ' + jo.position);
   if (jo.address) parts.push('📍 Location: ' + jo.address);
-  if (jo.salary) parts.push('💰 Salary: ₱' + jo.salary + '/month');
+  if (jo.salary) parts.push('💰 Salary: ₱' + jo.salary.replace(/^₱+/, '') + '/month');
   if (jo.workSchedule) parts.push('🏠 Setup: ' + jo.workSchedule);
   const reqBullets = toBullets(jo.experience);
   if (reqBullets) { parts.push(''); parts.push('✅ QUALIFICATIONS'); parts.push(reqBullets); }
