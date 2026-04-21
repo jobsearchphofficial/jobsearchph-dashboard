@@ -2781,6 +2781,13 @@ function buildJOPanel(jo, joPlacements) {
 
   const canAdd = joStatus === 'Active' && !isFulfilled;
 
+  const replacementCtx = (() => {
+    try {
+      const val = localStorage.getItem('pending_replacement_jo_' + jo.id);
+      return val ? JSON.parse(val) : null;
+    } catch(e){ return null; }
+  })();
+
   panel.innerHTML = `
     <div class="jo-panel-header">
       <div class="jo-panel-left">
@@ -2822,6 +2829,13 @@ function buildJOPanel(jo, joPlacements) {
         </div>
       </div>
     </div>
+    ${replacementCtx ? `
+    <div style="background:rgba(234,88,12,.08);border-bottom:1px solid rgba(234,88,12,.2);padding:10px 22px;display:flex;align-items:center;gap:10px;font-size:12px">
+      <span style="font-size:16px">🔄</span>
+      <span style="font-weight:700;color:var(--orange)">Replacement Needed</span>
+      <span style="color:var(--text2)">Previous candidate: <strong>${escHtml(replacementCtx.candName)}</strong> · ${escHtml(replacementCtx.issueType)}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto">${escHtml(new Date(replacementCtx.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric'}))}</span>
+    </div>` : ''}
   `;
 
   // If newly fulfilled, trigger popup
@@ -2921,6 +2935,7 @@ function getStatusPillClass(status, response) {
 
 function createPlacementRow(p, idx, joId) {
   const pid = p.placementId || `${joId}_${p.candidateId}_${idx}`;
+  const isReplacement = p.isReplacement === true;
   const noteKey = `${joId}_${p.candidateId}`;
   const extraKey = `prow_extra_${pid}`;
 
@@ -2961,6 +2976,7 @@ function createPlacementRow(p, idx, joId) {
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
+  if (isReplacement) row.style.borderLeft = '3px solid var(--orange)';
   row.id = `prow-${pid}`;
 
   const contactVia = extra.contactVia || '';
@@ -2988,6 +3004,7 @@ function createPlacementRow(p, idx, joId) {
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px">
           <div class="prow-name">${escHtml(p.candidateName)}</div>
+          ${isReplacement ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--orange-dim);color:var(--orange);border:1px solid rgba(234,88,12,.3)">🔄 Replacement</span>' : ''}
           <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModal('${escAttr(p.candidateId)}')" title="View profile">Profile</button>
         </div>
         <div class="prow-id">${escHtml(p.candidateId)}${fmtLastContact ? ' · ' + escHtml(fmtLastContact) : ''}</div>
@@ -3961,6 +3978,13 @@ function savePlacement() {
       company, position, response, status, date, notes,
       source: 'manual'
     };
+    const replacementCtx = (() => { try { return JSON.parse(localStorage.getItem('pending_replacement_jo_' + joId) || 'null'); } catch(e){ return null; } })();
+    if (replacementCtx) {
+      placement.isReplacement = true;
+      placement.replacesCandidate = replacementCtx.candId;
+      placement.replacementReason = replacementCtx.issueType;
+      localStorage.removeItem('pending_replacement_jo_' + joId);
+    }
     manualPlacements.push(placement);
     saveManualPlacements();
     closeModal('modal-add-placement');
@@ -4019,6 +4043,13 @@ function saveAtjPlacement() {
     company, position, response, status, date, notes,
     source: 'manual'
   };
+  const replacementCtxAtj = (() => { try { return JSON.parse(localStorage.getItem('pending_replacement_jo_' + joId) || 'null'); } catch(e){ return null; } })();
+  if (replacementCtxAtj) {
+    placement.isReplacement = true;
+    placement.replacesCandidate = replacementCtxAtj.candId;
+    placement.replacementReason = replacementCtxAtj.issueType;
+    localStorage.removeItem('pending_replacement_jo_' + joId);
+  }
 
   manualPlacements.push(placement);
   saveManualPlacements();
@@ -5371,6 +5402,20 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
     events.push({ date: iss.ts ? iss.ts.split('T')[0] : '', label: '⚠️ Issue Reported — ' + escHtml(iss.type) + urgBadge, sub: escHtml(iss.description), cls: 'tl-issue', pri: 7 });
   });
 
+  var allP2 = [...placements, ...manualPlacements].filter(function(p2) {
+    return p2.jobOrderId === p.jobOrderId && p2.isReplacement === true && p2.replacesCandidate === p.candidateId;
+  });
+  allP2.forEach(function(p2) {
+    var pid2 = p2.placementId || p2.candidateId;
+    var ex2 = {}; try { ex2 = JSON.parse(localStorage.getItem('prow_extra_' + pid2) || '{}'); } catch(e) {}
+    var hireData2 = {}; try { hireData2 = JSON.parse(localStorage.getItem('hire_data_' + pid2) || '{}'); } catch(e) {}
+    if ((ex2.status || p2.status) === 'Hired' || hireData2.hireDate) {
+      events.push({ date: hireData2.hireDate || ex2.lastContacted || '', label: '🔄 Replacement Hired — ' + escHtml(p2.candidateName), sub: 'Replaced due to: ' + escHtml(p2.replacementReason || 'Issue reported'), cls: 'tl-hired', pri: 8 });
+    } else {
+      events.push({ date: p2.date || '', label: '🔄 Replacement In Progress — ' + escHtml(p2.candidateName), sub: 'Currently being matched/interviewed', cls: 'tl-intv', pri: 8 });
+    }
+  });
+
   // Sort oldest→newest using real Date ms; same timestamp uses logical priority
   events.sort(function(a,b){
     var ta = tlMs(a.date), tb = tlMs(b.date);
@@ -5549,7 +5594,12 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
 
   const gStatus = getGuaranteeStatus({ hireData, pid });
   const feeStatus = hireData.feeStatus || 'Pending';
-  const feeColors = { 'Paid':'var(--green)', 'Pending':'var(--orange)', 'Waived':'var(--text3)' };
+  const feeColors = { 'Paid': ['#059669','rgba(5,150,105,.12)'], 'Pending': ['#ea580c','rgba(234,88,12,.12)'], 'Waived': ['#64748b','rgba(100,116,139,.12)'] };
+  const feePillsHtml = ['Paid','Pending','Waived'].map(v => {
+    const [col, bg] = feeColors[v];
+    const active = v === feeStatus;
+    return `<button onclick="saveHireData('${escAttr(pid)}','feeStatus','${v}');renderHiredTab()" style="padding:5px 14px;border-radius:99px;border:1.5px solid ${active ? col : 'var(--border2)'};background:${active ? bg : 'transparent'};color:${active ? col : 'var(--text3)'};font-weight:700;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s">${v}</button>`;
+  }).join('');
   const hireDate = hireData.hireDate || '';
   const feeAmount = hireData.feeAmount || '';
   const c = candidates.find(x => x.id === p.candidateId);
@@ -5606,10 +5656,9 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
         <input type="text" value="${escAttr(feeAmount)}" placeholder="e.g. 1400" class="hired-inline-input"
           onchange="saveHireData('${escAttr(pid)}','feeAmount',this.value)">
       </div>
-      <div class="hired-meta-item"><span class="hm-label">Fee Status</span>
-        <select class="hired-inline-select" onchange="saveHireData('${escAttr(pid)}','feeStatus',this.value);renderHiredTab()">
-          ${['Pending','Paid','Waived'].map(v=>`<option${v===feeStatus?' selected':''}>${v}</option>`).join('')}
-        </select>
+      <div class="hired-meta-item" style="grid-column:1/-1">
+        <span class="hm-label">Fee Status</span>
+        <div style="display:flex;gap:6px;margin-top:4px">${feePillsHtml}</div>
       </div>
     </div>
 
@@ -5742,6 +5791,7 @@ function submitIssueReport() {
 
   const replacementTypes = ['Candidate Abandonment / No-Show', 'Replacement Requested'];
   if (replacementTypes.includes(issueType)) {
+    localStorage.setItem('pending_replacement_jo_' + joId, JSON.stringify({ candId: candId, candName: document.getElementById('ri-cand-name').textContent, issueType: issueType, ts: new Date().toISOString() }));
     setTimeout(function() {
       if (confirm('Do you want to open AI Matcher now to find a replacement?')) {
         openMatcherForJO(joId);
