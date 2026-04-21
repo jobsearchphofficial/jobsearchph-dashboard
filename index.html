@@ -2392,8 +2392,37 @@ async function fetchCSV(url) {
 // ═══════════════════════════════════════════════
 // DATA LOAD
 // ═══════════════════════════════════════════════
+function repairShiftedPlacements() {
+  const flag = 'placements_shift_repaired_v1';
+  if (localStorage.getItem(flag)) return;
+
+  const nameToId = {};
+  candidates.forEach(c => {
+    if (c.name) nameToId[c.name.trim().toLowerCase()] = c.id;
+  });
+
+  let changed = false;
+  manualPlacements.forEach(p => {
+    if (!p.candidateName) return;
+    const correctId = nameToId[p.candidateName.trim().toLowerCase()];
+    if (correctId && correctId !== p.candidateId) {
+      console.log(`Repairing: ${p.candidateName} — ${p.candidateId} → ${correctId}`);
+      p.candidateId = correctId;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    saveManualPlacements();
+    showToast('Candidate IDs repaired — refreshing data', 'green');
+  }
+
+  localStorage.setItem(flag, '1');
+}
+
 async function loadAll() {
   loadLocal();
+  repairShiftedPlacements();
 
   document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
   document.getElementById('cand-container').innerHTML = loadingHTML('Loading candidates…');
