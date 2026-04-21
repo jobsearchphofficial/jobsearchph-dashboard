@@ -1839,9 +1839,73 @@
   }
   .scr-all-table tr:hover td { background: var(--card2); }
 </style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBmiUGO-mKqxZVlrfonbr8sFkpHydZltQ8",
+    authDomain: "job-search-ph.firebaseapp.com",
+    databaseURL: "https://job-search-ph-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "job-search-ph",
+    storageBucket: "job-search-ph.firebasestorage.app",
+    messagingSenderId: "467012907646",
+    appId: "1:467012907646:web:8988ac3aa22265eb589e2f"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  window._fbSignIn  = (e, p) => signInWithEmailAndPassword(auth, e, p);
+  window._fbSignOut = () => signOut(auth);
+  onAuthStateChanged(auth, user => {
+    document.getElementById('login-screen').style.display = user ? 'none' : 'flex';
+    document.getElementById('app-shell').style.display    = user ? 'block' : 'none';
+    const el = document.getElementById('header-user-email');
+    if (el && user) el.textContent = user.email;
+  });
+</script>
 </head>
 <body>
+<div id="login-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:#f0f4ff;align-items:center;justify-content:center">
+  <div style="background:#fff;border:1px solid #dde5f5;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(23,85,237,0.15)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#1755ed,#1245cc);border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px">JS</div>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#0f172a">Job Search PH</div>
+        <div style="font-size:10px;color:#64748b;font-family:monospace;text-transform:uppercase">Operations Dashboard</div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:5px">EMAIL</div>
+      <input id="login-email" type="email" placeholder="your@email.com" autocomplete="email"
+        style="width:100%;box-sizing:border-box;background:#f5f8ff;border:1px solid #c8d6f0;color:#0f172a;padding:10px 14px;border-radius:9px;font-family:inherit;font-size:13px;outline:none"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:5px">PASSWORD</div>
+      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password"
+        style="width:100%;box-sizing:border-box;background:#f5f8ff;border:1px solid #c8d6f0;color:#0f172a;padding:10px 14px;border-radius:9px;font-family:inherit;font-size:13px;outline:none"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="login-error" style="display:none;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:9px;padding:10px 14px;font-size:12px;color:#dc2626;margin-bottom:14px"></div>
+    <button id="login-btn" onclick="doLogin()" style="width:100%;background:#1755ed;border:none;color:#fff;padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer">Sign In</button>
+  </div>
+</div>
+<script>
+function doLogin(){
+  var e=document.getElementById('login-email').value.trim(),p=document.getElementById('login-password').value;
+  var err=document.getElementById('login-error'),btn=document.getElementById('login-btn');
+  err.style.display='none';
+  if(!e||!p){err.textContent='Please enter your email and password.';err.style.display='block';return;}
+  btn.textContent='Signing in…';btn.disabled=true;
+  window._fbSignIn(e,p).catch(function(ex){
+    btn.textContent='Sign In';btn.disabled=false;
+    var m={'auth/invalid-credential':'Incorrect email or password.','auth/wrong-password':'Incorrect password.','auth/user-not-found':'No account found.','auth/too-many-requests':'Too many attempts. Try later.'};
+    err.textContent=m[ex.code]||'Sign in failed. Try again.';err.style.display='block';
+  });
+}
+</script>
 
+<div id="app-shell" style="display:none">
 <!-- ─── HEADER ─── -->
 <header>
   <div class="header-top">
@@ -1865,6 +1929,10 @@
       </button>
 <button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
         <span class="sync-dot" id="sync-dot"></span><span id="sync-label">☁ Sync</span>
+      </button>
+      <button class="btn-refresh" onclick="window._fbSignOut()" style="display:flex;align-items:center;gap:5px">
+        <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
+        <span>Sign out</span>
       </button>
       <button class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
         + Quick Add
@@ -7340,5 +7408,6 @@ loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilter
   </div>
 </div>
 
+</div>
 </body>
 </html>
