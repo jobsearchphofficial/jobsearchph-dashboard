@@ -2245,11 +2245,12 @@ function doLogin(){
     </div>
     <div class="modal-field">
       <div class="modal-label">Urgency</div>
-      <div class="ri-urgency-group">
-        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Urgent"> <span>🔴 Urgent (within 30-day guarantee)</span></label>
-        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Normal" checked> <span>🟡 Normal</span></label>
-        <label class="ri-urgency-radio"><input type="radio" name="ri-urgency" value="Low"> <span>⚪ Low</span></label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="button" id="urg-urgent" onclick="setUrgency('Urgent')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--border2);background:transparent;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;color:var(--text2)">🔴 Urgent</button>
+        <button type="button" id="urg-normal" onclick="setUrgency('Normal')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--orange);background:rgba(234,88,12,.08);font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;color:var(--orange)">🟡 Normal</button>
+        <button type="button" id="urg-low"    onclick="setUrgency('Low')"    style="flex:1;padding:9px;border-radius:9px;border:1.5px solid var(--border2);background:transparent;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;color:var(--text2)">⚪ Low</button>
       </div>
+      <input type="hidden" id="ri-urgency-val" value="Normal">
     </div>
     <div class="modal-field">
       <div class="modal-label">Issue Description <span style="color:var(--red)">*</span></div>
@@ -5684,19 +5685,46 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
         onchange="saveHireData('${escAttr(pid)}','notes',this.value)">
     </div>
 
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${(function(){
-        const issues = hireData.issues || [];
-        if (!hireData.issueReported && !issues.length) {
-          return `<button class="btn btn-ghost" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">⚠️ Report Issue</button>`;
-        }
-        const count = issues.length;
-        const urgLabel = hasUrgentIssue ? ' style="color:var(--red);border-color:rgba(220,38,38,.4);background:var(--red-dim)"' : '';
-        return `<div class="hired-issue-badge"${urgLabel} style="flex:1;cursor:pointer" onclick="openIssueModal('${escAttr(pid)}')" title="View or add issues">` +
-          `⚠️ ${count > 1 ? count + ' Issues' : ('Issue: ' + escHtml(issues[0]?.type || hireData.issueNote || 'Reported'))}</div>`;
-      })()}
-      <button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
-    </div>
+    ${(() => {
+      const issues = hireData.issues || [];
+      if (!issues.length) {
+        return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">⚠️ Report Issue</button><button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button></div>`;
+      }
+      const latest = issues[issues.length - 1];
+      const urgIcon  = latest.urgency === 'Urgent' ? '🔴' : latest.urgency === 'Normal' ? '🟡' : '⚪';
+      const isReopened = joStatusOverrides[p.jobOrderId] === 'Active' && hireData.issueReported;
+      return `
+        <div style="grid-column:1/-1;background:rgba(234,88,12,.06);border:1px solid rgba(234,88,12,.2);border-radius:12px;overflow:hidden;margin-top:4px">
+          <div onclick="toggleIssuePanel('${escAttr(pid)}')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer">
+            <span style="font-size:16px">⚠️</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--orange)">${escHtml(latest.type)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:1px">${urgIcon} ${latest.urgency} · ${escHtml(new Date(latest.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}))}</div>
+            </div>
+            <span style="font-size:10px;color:var(--text3);font-weight:600">${issues.length > 1 ? issues.length + ' issues' : ''}</span>
+            <span id="issue-chevron-${escAttr(pid)}" style="font-size:11px;color:var(--text3);transition:transform .2s">▾</span>
+          </div>
+          <div id="issue-panel-${escAttr(pid)}" style="display:none;border-top:1px solid rgba(234,88,12,.15);padding:12px 14px;background:rgba(255,255,255,.6)">
+            ${issues.map((iss, i) => `
+              <div style="${i > 0 ? 'border-top:1px solid var(--border);margin-top:10px;padding-top:10px' : ''}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:11px;font-weight:700;color:var(--orange)">${escHtml(iss.type)}</span>
+                  <span style="font-size:10px;color:var(--text3)">${iss.urgency === 'Urgent' ? '🔴' : iss.urgency === 'Normal' ? '🟡' : '⚪'} ${iss.urgency}</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">${escHtml(new Date(iss.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric'}))}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text2);line-height:1.5;background:var(--card2);border-radius:8px;padding:8px 10px;border:1px solid var(--border)">${escHtml(iss.description)}</div>
+                ${iss.action ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">Action: <strong>${escHtml(iss.action)}</strong></div>` : ''}
+              </div>`).join('')}
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <button class="btn btn-ghost" style="flex:1;font-size:11px" onclick="openIssueModal('${escAttr(pid)}')">+ Add Issue</button>
+              ${!isReopened
+                ? `<button class="btn" style="flex:1;font-size:11px;background:rgba(234,88,12,.1);border-color:rgba(234,88,12,.3);color:var(--orange);font-weight:700" onclick="reopenJOForReplacement('${escAttr(p.jobOrderId)}','${escAttr(pid)}','${escAttr(p.candidateName)}','${escAttr(latest.type)}')">🔄 Reopen JO for Replacement</button>`
+                : `<span style="font-size:11px;font-weight:700;color:var(--green);padding:6px 10px;background:var(--green-dim);border-radius:8px;border:1px solid rgba(5,150,105,.3)">✓ JO Reopened</span>`}
+              <button class="btn btn-blue" style="flex:1;font-size:11px" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
+            </div>
+          </div>
+        </div>`;
+    })()}
 
     <button class="hired-expand-btn" id="hdb-${escAttr(pid)}" onclick="toggleHiredDetails('${escAttr(pid)}')">▼ View Timeline &amp; Notes</button>
     <div class="hired-details" id="hd-${escAttr(pid)}">
@@ -5739,8 +5767,7 @@ function openIssueModal(pid) {
   document.getElementById('ri-type').value = '';
   document.getElementById('ri-description').value = '';
   document.getElementById('ri-action').value = '';
-  var radios = document.querySelectorAll('input[name="ri-urgency"]');
-  radios.forEach(function(r) { r.checked = r.value === 'Normal'; });
+  setUrgency('Normal');
 
   openModal('modal-report-issue');
 }
@@ -5750,8 +5777,7 @@ function submitIssueReport() {
   const joId = document.getElementById('ri-jo-id').value;
   const candId = document.getElementById('ri-cand-id').value;
   const issueType = document.getElementById('ri-type').value;
-  const urgencyEl = document.querySelector('input[name="ri-urgency"]:checked');
-  const urgency = urgencyEl ? urgencyEl.value : 'Normal';
+  const urgency = document.getElementById('ri-urgency-val')?.value || 'Normal';
   const description = document.getElementById('ri-description').value.trim();
   const action = document.getElementById('ri-action').value;
 
@@ -7416,6 +7442,44 @@ function confirmBlacklistFromPanel(candId, name) {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
+function toggleIssuePanel(pid) {
+  const panel   = document.getElementById('issue-panel-' + pid);
+  const chevron = document.getElementById('issue-chevron-' + pid);
+  if (!panel) return;
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function reopenJOForReplacement(joId, pid, candName, issueType) {
+  if (!confirm('Reopen ' + joId + ' for replacement?\n\nThis will set the job order back to Active and flag it as needing a replacement for ' + candName + '.')) return;
+  joStatusOverrides[joId] = 'Active';
+  saveJOStatusOverrides();
+  const jo = jobOrders.find(j => j.id === joId);
+  if (jo) jo.status = 'Active';
+  localStorage.setItem('pending_replacement_jo_' + joId, JSON.stringify({
+    candId: pid, candName, issueType, ts: new Date().toISOString()
+  }));
+  fbSync('pending_replacement/' + joId, { candName, issueType, ts: new Date().toISOString() });
+  renderHiredTab();
+  renderJobOrders([...placements, ...manualPlacements]);
+  showToast(joId + ' reopened for replacement — check Job Orders tab', 'orange');
+}
+
+function setUrgency(val) {
+  document.getElementById('ri-urgency-val').value = val;
+  ['Urgent','Normal','Low'].forEach(v => {
+    const btn = document.getElementById('urg-' + v.toLowerCase());
+    if (!btn) return;
+    const isActive = v === val;
+    const colors = { Urgent: ['var(--red)','rgba(220,38,38,.08)'], Normal: ['var(--orange)','rgba(234,88,12,.08)'], Low: ['var(--text3)','rgba(100,116,139,.06)'] };
+    btn.style.borderColor = isActive ? colors[v][0] : 'var(--border2)';
+    btn.style.background  = isActive ? colors[v][1] : 'transparent';
+    btn.style.color       = isActive ? colors[v][0] : 'var(--text2)';
+    btn.style.fontWeight  = isActive ? '700' : '600';
+  });
+}
+
 loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilters(); });
 </script>
 
