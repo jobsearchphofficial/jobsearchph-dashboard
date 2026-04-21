@@ -5497,6 +5497,10 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
   const feeAmount = hireData.feeAmount || '';
   const c = candidates.find(x => x.id === p.candidateId);
 
+  const eraResult = calcERA(p.candidateId);
+  const eraScore = eraResult.score;
+  const eraColor = eraScore >= 7 ? 'var(--green)' : eraScore >= 5 ? 'var(--gold)' : 'var(--red)';
+
   // Days to hire: JO placed date (jo.timestamp) → candidate hire date
   const joPlacedDate = jo?.timestamp ? jo.timestamp.split(' ')[0] : '';
   const daysToHire = (joPlacedDate && hireDate)
@@ -5512,7 +5516,10 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
         <div class="cand-avatar" style="width:40px;height:40px;font-size:18px">${genderEmoji(c?.gender||'')}</div>
         <div>
           <div style="font-size:15px;font-weight:700">${escHtml(p.candidateName)}</div>
-          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${escHtml(p.candidateId)}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px">
+            ${escHtml(p.candidateId)}
+            <span style="padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${eraColor}18;color:${eraColor};border:1px solid ${eraColor}40">ERA: ${eraScore}</span>
+          </div>
         </div>
       </div>
       <div style="text-align:right">
@@ -5664,6 +5671,17 @@ function submitIssueReport() {
   closeModal('modal-report-issue');
   renderHiredTab();
   showToast('Issue reported and saved.', urgency === 'Urgent' ? 'red' : 'orange');
+
+  const hireDateVal = hireData.hireDate || '';
+  const daysSinceHire = hireDateVal ? Math.round((new Date() - new Date(hireDateVal)) / 86400000) : 999;
+  const withinGuarantee = hireDateVal && daysSinceHire < 30;
+  const triggersReopen = urgency === 'Urgent' || issueType.includes('Replacement');
+  if (withinGuarantee && triggersReopen && joId) {
+    delete joStatusOverrides[joId];
+    saveJOStatusOverrides();
+    renderJobOrders([...placements, ...manualPlacements]);
+    showToast('Job order ' + joId + ' reopened automatically — within 30-day guarantee', 'green');
+  }
 
   const replacementTypes = ['Candidate Abandonment / No-Show', 'Replacement Requested'];
   if (replacementTypes.includes(issueType)) {
