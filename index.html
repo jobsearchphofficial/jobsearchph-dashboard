@@ -2393,28 +2393,92 @@ async function fetchCSV(url) {
 // DATA LOAD
 // ═══════════════════════════════════════════════
 function repairShiftedPlacements() {
-  const flag = 'placements_shift_repaired_v1';
+  const flag = 'placements_shift_repaired_v2';
   if (localStorage.getItem(flag)) return;
 
+  // Build name→id lookup from current candidates sheet
   const nameToId = {};
   candidates.forEach(c => {
     if (c.name) nameToId[c.name.trim().toLowerCase()] = c.id;
   });
 
-  let changed = false;
+  // 1. Fix manual placements
+  let placementsChanged = false;
+  const idRemapping = {};
   manualPlacements.forEach(p => {
     if (!p.candidateName) return;
     const correctId = nameToId[p.candidateName.trim().toLowerCase()];
     if (correctId && correctId !== p.candidateId) {
-      console.log(`Repairing: ${p.candidateName} — ${p.candidateId} → ${correctId}`);
+      console.log(`Repairing placement: ${p.candidateName} — ${p.candidateId} → ${correctId}`);
+      idRemapping[p.candidateId] = correctId;
       p.candidateId = correctId;
-      changed = true;
+      placementsChanged = true;
+    }
+  });
+  if (placementsChanged) saveManualPlacements();
+
+  // 2. Migrate all localStorage data from wrong IDs to correct IDs
+  Object.entries(idRemapping).forEach(([wrongId, correctId]) => {
+    console.log(`Migrating data: ${wrongId} → ${correctId}`);
+
+    if (candidateRatings[wrongId]) {
+      candidateRatings[correctId] = candidateRatings[wrongId];
+      delete candidateRatings[wrongId];
+      saveCandidateRatings();
+    }
+
+    const notesKey = `cand_notes_${wrongId}`;
+    const notes = localStorage.getItem(notesKey);
+    if (notes) {
+      localStorage.setItem(`cand_notes_${correctId}`, notes);
+      localStorage.removeItem(notesKey);
+      fbSync('cand_notes/' + correctId, JSON.parse(notes));
+    }
+
+    if (eraStages[wrongId]) {
+      eraStages[correctId] = eraStages[wrongId];
+      delete eraStages[wrongId];
+      saveEraStages();
+    }
+
+    if (eraContactLogs[wrongId]) {
+      eraContactLogs[correctId] = eraContactLogs[wrongId];
+      delete eraContactLogs[wrongId];
+      saveEraContactLogs();
+    }
+
+    if (pipelineStages[wrongId]) {
+      pipelineStages[correctId] = pipelineStages[wrongId];
+      delete pipelineStages[wrongId];
+      savePipelineStages();
+    }
+
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('prow_extra_') && key.includes(wrongId)) {
+        const val = localStorage.getItem(key);
+        localStorage.setItem(key.replace(wrongId, correctId), val);
+        localStorage.removeItem(key);
+      }
+    });
+
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('hire_data_') && key.includes(wrongId)) {
+        const val = localStorage.getItem(key);
+        localStorage.setItem(key.replace(wrongId, correctId), val);
+        localStorage.removeItem(key);
+      }
+    });
+
+    if (flaggedCands[wrongId]) {
+      flaggedCands[correctId] = flaggedCands[wrongId];
+      delete flaggedCands[wrongId];
+      saveFlaggedCands();
     }
   });
 
-  if (changed) {
-    saveManualPlacements();
-    showToast('Candidate IDs repaired — refreshing data', 'green');
+  if (Object.keys(idRemapping).length > 0) {
+    fbSync('candidate_ratings', candidateRatings);
+    showToast(`Repaired ${Object.keys(idRemapping).length} candidate ID(s) and migrated all data`, 'green');
   }
 
   localStorage.setItem(flag, '1');
