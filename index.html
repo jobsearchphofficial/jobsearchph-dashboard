@@ -4700,33 +4700,22 @@ function copyJobDetails(joId) {
     const items = text.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
     return items.map(s => '• ' + s).join('\n');
   };
-  const sep = '━━━━━━━━━━━━━━━━━━━━';
-  const text = [
-    '💼 *JOB OPENING \u2014 Job Search PH* ✅',
-    sep,
-    '',
-    '📋 *Position:* ' + (jo.position || 'N/A'),
-    '📍 *Location:* ' + (jo.address || 'N/A'),
-    '💰 *Salary:* ₱' + (jo.salary || 'N/A') + '/month',
-    '🏠 *Setup:* ' + (jo.workSchedule || 'N/A'),
-    '🍽️ *Benefits:* ' + (jo.benefits || 'N/A'),
-    '⏰ *Type:* Full-time',
-    '',
-    sep,
-    '📝 *DUTIES*',
-    toBullets(jo.skillsNeeded) || '• N/A',
-    '',
-    sep,
-    '✅ *REQUIREMENTS*',
-    toBullets(jo.experience) || '• N/A',
-    '',
-    sep,
-    'ℹ️ *ABOUT THE EMPLOYER*',
-    (jo.otherNotes || jo.company || 'N/A'),
-    '',
-    sep,
-    '📩 *Interested? Reply NOW to apply!*'
-  ].join('\n');
+  const parts = ['💼 JOB OPENING — Job Search PH', ''];
+  if (jo.position) parts.push('📋 Position: ' + jo.position);
+  if (jo.address) parts.push('📍 Location: ' + jo.address);
+  if (jo.salary) parts.push('💰 Salary: ₱' + jo.salary + '/month');
+  if (jo.workSchedule) parts.push('🏠 Setup: ' + jo.workSchedule);
+  const reqBullets = toBullets(jo.experience);
+  if (reqBullets) { parts.push(''); parts.push('✅ QUALIFICATIONS'); parts.push(reqBullets); }
+  const dutiesBullets = toBullets(jo.skillsNeeded);
+  if (dutiesBullets) { parts.push(''); parts.push('📝 DUTIES & RESPONSIBILITIES'); parts.push(dutiesBullets); }
+  const benefitsBullets = toBullets(jo.benefits);
+  if (benefitsBullets) { parts.push(''); parts.push('🎁 BENEFITS'); parts.push(benefitsBullets); }
+  const employerNotes = jo.otherNotes || jo.company || '';
+  if (employerNotes) { parts.push(''); parts.push('ℹ️ ABOUT THE EMPLOYER'); parts.push(employerNotes); }
+  parts.push('');
+  parts.push('📩 Interested? Message us to apply!');
+  const text = parts.join('\n');
   const btnId = 'copy-jo-btn-' + joId.replace(/[^a-z0-9]/gi, '');
   const finish = () => {
     const btn = document.getElementById(btnId);
