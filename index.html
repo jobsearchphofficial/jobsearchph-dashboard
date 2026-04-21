@@ -1863,10 +1863,7 @@
       <button class="btn-refresh" onclick="promptApiKey()" id="api-key-btn" title="Set Anthropic API Key">
         API Key
       </button>
-      <button class="btn-refresh" onclick="toggleSheetSync()" id="sheet-sync-btn" title="Toggle Placements Sheet sync">
-        Sheet Sync: <span id="sheet-sync-state">ON</span>
-      </button>
-      <button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
+<button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
         <span class="sync-dot" id="sync-dot"></span><span id="sync-label">☁ Sync</span>
       </button>
       <button class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
@@ -2335,7 +2332,7 @@ async function loadAll() {
   const results = await Promise.allSettled([
     fetchCSV(SHEET_CANDIDATES),
     fetchCSV(SHEET_JOB_REQUESTS),
-    fetchCSV(SHEET_PLACEMENTS)
+    Promise.resolve([])
   ]);
 
   // CANDIDATES (Row 1 = title "JOB SEEKERS", Row 2 = merged header, Row 3 = actual headers, data from Row 4)
@@ -2557,35 +2554,8 @@ async function loadAll() {
   // Statuses that should be treated as "Dropped"
   const DROPPED_STATUSES = ['ineligible','rejected by employer','rejected','cancelled','blacklisted','withdrawn','no show','no show for interview','not qualified','failed interview','backed out'];
 
-  if (localStorage.getItem('disable_sheet_placements') === 'true') {
-    placements = [];
-  } else if (results[2].status === 'fulfilled') {
-    const rows = results[2].value;
-    let plDataStart = 1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i][1] && /^JOO?-\d/i.test(rows[i][1].trim())) { plDataStart = i; break; }
-    }
-    placements = rows.slice(plDataStart).filter(r => r[0]).map(r => {
-      const rawStatus = r[7] || '';
-      const normalizedStatus = DROPPED_STATUSES.includes(rawStatus.toLowerCase().trim()) ? 'Dropped' : rawStatus;
-      return {
-        placementId: r[0] || '',
-        jobOrderId: r[1] || '',
-        candidateId: r[2] || '',
-        candidateName: r[3] || '',
-        company: r[4] || '',
-        response: r[5] || '',
-        position: r[6] || '',
-        status: normalizedStatus,
-        originalStatus: rawStatus,
-        date: r[8] || '',
-        notes: r[9] || '',
-        source: 'sheet'
-      };
-    });
-  } else {
-    placements = [];
-  }
+  // Placements sheet disabled — all placements come from manualPlacements (localStorage/Firebase)
+  placements = [];
 
   // Merge manual placements
   const allPlacements = [...placements, ...manualPlacements];
@@ -7319,36 +7289,9 @@ function confirmBlacklistFromPanel(candId, name) {
 }
 
 // ═══════════════════════════════════════════════
-// SHEET SYNC TOGGLE
-// ═══════════════════════════════════════════════
-function updateSheetSyncBtn() {
-  const disabled = localStorage.getItem('disable_sheet_placements') === 'true';
-  const btn = document.getElementById('sheet-sync-btn');
-  const state = document.getElementById('sheet-sync-state');
-  if (!btn || !state) return;
-  if (disabled) {
-    state.textContent = 'OFF';
-    btn.style.color = 'var(--red)';
-    btn.style.borderColor = 'var(--red)';
-    btn.style.opacity = '0.7';
-  } else {
-    state.textContent = 'ON';
-    btn.style.color = '';
-    btn.style.borderColor = '';
-    btn.style.opacity = '';
-  }
-}
-function toggleSheetSync() {
-  const disabled = localStorage.getItem('disable_sheet_placements') === 'true';
-  localStorage.setItem('disable_sheet_placements', disabled ? 'false' : 'true');
-  updateSheetSyncBtn();
-  loadAll();
-}
-
-// ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilters(); updateSheetSyncBtn(); });
+loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilters(); });
 </script>
 
 <!-- ─── TEMPLATE PICKER MODAL ─── -->
