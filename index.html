@@ -3006,7 +3006,7 @@ function createPlacementRow(p, idx, joId) {
         <div style="display:flex;align-items:center;gap:6px">
           <div class="prow-name">${escHtml(p.candidateName)}</div>
           ${isReplacement ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--orange-dim);color:var(--orange);border:1px solid rgba(234,88,12,.3)">🔄 Replacement</span>' : ''}
-          <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModal('${escAttr(p.candidateId)}')" title="View profile">Profile</button>
+          <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')" title="View profile">Profile</button>
         </div>
         <div class="prow-id">${escHtml(p.candidateId)}${fmtLastContact ? ' · ' + escHtml(fmtLastContact) : ''}</div>
       </div>
@@ -3078,7 +3078,7 @@ function createPlacementRow(p, idx, joId) {
       </div>
 
       <div style="margin-top:10px">
-        <button class="btn btn-blue" style="width:100%" onclick="openCandModal('${escAttr(p.candidateId)}')">View Full Candidate Profile</button>
+        <button class="btn btn-blue" style="width:100%" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">View Full Candidate Profile</button>
       </div>
     </div>
   `;
@@ -4332,25 +4332,46 @@ function addFromMatcher(joId, candId, candName) {
 function openCandModal(candId) {
   try { _openCandModalInner(candId); } catch(err) { alert('Profile error: ' + err.message); console.error(err); }
 }
+function openCandModalByName(name, fallbackId) {
+  const byId = candidates.find(x => x.id === fallbackId);
+  if (byId) { openCandModal(fallbackId); return; }
+  const byName = candidates.find(x =>
+    x.name.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+  if (byName) { openCandModal(byName.id); return; }
+  alert('Candidate not found: ' + name);
+}
 function _openCandModalInner(candId) {
+  // Primary lookup by ID
   let c = candidates.find(x => x.id === candId);
-  let _idMismatch = null;
+
+  // Fallback: if ID not found, try matching by name from placements
   if (!c) {
     const allPlacements = [...placements, ...manualPlacements];
     const matchedPlacement = allPlacements.find(p => p.candidateId === candId);
-    if (matchedPlacement && matchedPlacement.candidateName) {
-      const fallback = candidates.find(x => x.name === matchedPlacement.candidateName);
-      if (fallback) {
-        console.warn(`ID mismatch: placement has "${candId}" but candidate sheet has "${fallback.id}" for ${fallback.name}`);
-        showToast(`⚠️ ID mismatch for ${fallback.name} — see profile for fix instructions`, 'orange');
-        _idMismatch = { badId: candId, correctId: fallback.id };
-        c = fallback;
+    if (matchedPlacement?.candidateName) {
+      c = candidates.find(x =>
+        x.name.trim().toLowerCase() === matchedPlacement.candidateName.trim().toLowerCase()
+      );
+      if (c) {
+        allPlacements.forEach(p => {
+          if (p.candidateId === candId && p.candidateName.trim().toLowerCase() === c.name.trim().toLowerCase()) {
+            p.candidateId = c.id;
+          }
+        });
+        manualPlacements.forEach(p => {
+          if (p.candidateId === candId && p.candidateName.trim().toLowerCase() === c.name.trim().toLowerCase()) {
+            p.candidateId = c.id;
+          }
+        });
+        saveManualPlacements();
       }
     }
-    if (!c) {
-      alert('Candidate details not found in current data.');
-      return;
-    }
+  }
+
+  if (!c) {
+    alert('Candidate details not found in current data.');
+    return;
   }
   importPendingIntakeNotes(candId, c.name);
 
@@ -4413,11 +4434,6 @@ function _openCandModalInner(candId) {
 
   const inner = document.getElementById('cand-modal-inner');
   inner.innerHTML = `
-    ${_idMismatch ? `<div style="background:#fff7ed;border:1.5px solid #f97316;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#7c2d12;line-height:1.5">
-      <strong style="color:#c2410c">ID Mismatch in Placements Sheet:</strong>
-      Column C has <code style="font-family:var(--mono);background:#ffedd5;padding:1px 5px;border-radius:3px">${escHtml(_idMismatch.badId)}</code> — matched by name to <code style="font-family:var(--mono);background:#ffedd5;padding:1px 5px;border-radius:3px">${escHtml(_idMismatch.correctId)}</code>.
-      Please fix column C of the Placements sheet to use the correct ID.
-    </div>` : ''}
     <div class="cand-modal-hero">
       <div class="cand-modal-avatar">${genderEmoji(c.gender)}</div>
       <div style="flex:1">
@@ -5690,7 +5706,7 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
     ${(() => {
       const issues = hireData.issues || [];
       if (!issues.length) {
-        return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">⚠️ Report Issue</button><button class="btn btn-blue" style="flex:1" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button></div>`;
+        return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">⚠️ Report Issue</button><button class="btn btn-blue" style="flex:1" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">👤 Profile</button></div>`;
       }
       const latest = issues[issues.length - 1];
       const urgIcon  = latest.urgency === 'Urgent' ? '🔴' : latest.urgency === 'Normal' ? '🟡' : '⚪';
@@ -5722,7 +5738,7 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
               ${!isReopened
                 ? `<button class="btn" style="flex:1;font-size:11px;background:rgba(234,88,12,.1);border-color:rgba(234,88,12,.3);color:var(--orange);font-weight:700" onclick="reopenJOForReplacement('${escAttr(p.jobOrderId)}','${escAttr(pid)}','${escAttr(p.candidateName)}','${escAttr(latest.type)}')">🔄 Reopen JO for Replacement</button>`
                 : `<span style="font-size:11px;font-weight:700;color:var(--green);padding:6px 10px;background:var(--green-dim);border-radius:8px;border:1px solid rgba(5,150,105,.3)">✓ JO Reopened</span>`}
-              <button class="btn btn-blue" style="flex:1;font-size:11px" onclick="openCandModal('${escAttr(p.candidateId)}')">👤 Profile</button>
+              <button class="btn btn-blue" style="flex:1;font-size:11px" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">👤 Profile</button>
             </div>
           </div>
         </div>`;
