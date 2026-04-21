@@ -4341,6 +4341,8 @@ function _openCandModalInner(candId) {
     if (matchedPlacement && matchedPlacement.candidateName) {
       const fallback = candidates.find(x => x.name === matchedPlacement.candidateName);
       if (fallback) {
+        console.warn(`ID mismatch: placement has "${candId}" but candidate sheet has "${fallback.id}" for ${fallback.name}`);
+        showToast(`⚠️ ID mismatch for ${fallback.name} — see profile for fix instructions`, 'orange');
         _idMismatch = { badId: candId, correctId: fallback.id };
         c = fallback;
       }
