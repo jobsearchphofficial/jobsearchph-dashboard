@@ -6521,6 +6521,9 @@ async function loadFromFirebase() {
       Object.entries(data.jo_delayed_close).forEach(function(e) { localStorage.setItem('jo_delayed_close_' + e[0], e[1]); });
     if (data.reflections)
       Object.entries(data.reflections).forEach(function(e) { localStorage.setItem('reflection_' + e[0], JSON.stringify(e[1])); });
+    if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
+    if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
+    if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
 
     loadLocal();
     const allP = [...placements, ...manualPlacements];
@@ -6556,6 +6559,9 @@ async function pushAllToFirebase() {
     candidate_notes:     candidateNotes      || {},
     jo_status_overrides: joStatusOverrides   || {},
     candidate_ratings:   candidateRatings    || {},
+    era_stages:          eraStages           || {},
+    era_contact_logs:    eraContactLogs      || {},
+    pipeline_stages:     pipelineStages      || {},
     templates:           getTemplates(),
     prow_extras:         prowExtras,
     hire_data:           hireData,
@@ -6659,9 +6665,9 @@ let eraStages = {};
 let eraContactLogs = {};
 let pipelineStages = {};
 
-function saveEraStages() { localStorage.setItem('era_stages', JSON.stringify(eraStages)); }
-function saveEraContactLogs() { localStorage.setItem('era_contact_logs', JSON.stringify(eraContactLogs)); }
-function savePipelineStages() { localStorage.setItem('pipeline_stages', JSON.stringify(pipelineStages)); }
+function saveEraStages() { localStorage.setItem('era_stages', JSON.stringify(eraStages)); fbSyncDebounced('era_stages', eraStages); }
+function saveEraContactLogs() { localStorage.setItem('era_contact_logs', JSON.stringify(eraContactLogs)); fbSyncDebounced('era_contact_logs', eraContactLogs); }
+function savePipelineStages() { localStorage.setItem('pipeline_stages', JSON.stringify(pipelineStages)); fbSyncDebounced('pipeline_stages', pipelineStages); }
 
 const PL_STAGES = ['Unscreened', 'Contacted', 'In Progress', 'Ready for Matching'];
 const PL_COLORS = {
