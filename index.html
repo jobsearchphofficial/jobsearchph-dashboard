@@ -615,6 +615,7 @@
   .ai-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
   .ai-reason { font-size: 12px; color: var(--text2); line-height: 1.5; margin: 4px 0; }
   .ai-flags { font-size: 11px; color: var(--red); }
+  .ai-rej-warning { font-size: 11px; color: var(--orange); font-weight: 600; margin-top: 3px; }
   .ai-next { font-size: 11px; color: var(--green); margin-top: 3px; }
 
   .fit-badge {
@@ -3027,6 +3028,9 @@ function getStatusPillClass(status, response) {
   return m[status] || 'pill-default';
 }
 
+const DISPOSITION_STAGES = ['Shortlisted','Endorsed to Employer','Interview Scheduled','Interview Completed','Hired','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
+const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
+
 function createPlacementRow(p, idx, joId) {
   const pid = p.placementId || `${joId}_${p.candidateId}_${idx}`;
   const isReplacement = p.isReplacement === true;
@@ -3074,6 +3078,11 @@ function createPlacementRow(p, idx, joId) {
   row.id = `prow-${pid}`;
 
   const contactVia = extra.contactVia || '';
+  const savedStage     = extra.dispositionStage    || '';
+  const savedRejReason = extra.rejectionReason     || '';
+  const savedRejOther  = extra.rejectionReasonOther || '';
+  const showRejReason  = savedStage === 'Rejected by Employer' || savedStage === 'Rejected by Candidate';
+  const showRejOther   = savedRejReason === 'Other';
 
   // Stale detection: days since last contact with no response
   const effectiveLastContact = extra.lastContacted || p.date || '';
@@ -3136,6 +3145,26 @@ function createPlacementRow(p, idx, joId) {
           <div class="prow-field-label">Last Contacted</div>
           <input type="date" value="${escAttr(lastContacted)}"
             onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value);autoSuggestFollowup('${escAttr(pid)}',this.value)">
+        </div>
+      </div>
+
+      <div class="prow-fields" style="margin-top:8px">
+        <div class="prow-field">
+          <div class="prow-field-label">Stage</div>
+          <select id="stage-sel-${escAttr(pid)}" onchange="saveProwExtra('${escAttr(pid)}','dispositionStage',this.value);refreshProwStage('${escAttr(pid)}')">
+            <option value="">-- Select --</option>
+            ${DISPOSITION_STAGES.map(v=>`<option${v===savedStage?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="prow-field" id="rej-reason-field-${escAttr(pid)}"${showRejReason?'':' style="display:none"'}>
+          <div class="prow-field-label" style="color:var(--red)">Rejection Reason</div>
+          <select id="rej-reason-sel-${escAttr(pid)}" onchange="saveProwExtra('${escAttr(pid)}','rejectionReason',this.value);refreshRejOther('${escAttr(pid)}')">
+            <option value="">-- Select --</option>
+            ${REJECTION_REASONS.map(v=>`<option${v===savedRejReason?' selected':''}>${v}</option>`).join('')}
+          </select>
+          <input type="text" id="rej-other-${escAttr(pid)}" value="${escAttr(savedRejOther)}" placeholder="Specify reason..."
+            onchange="saveProwExtra('${escAttr(pid)}','rejectionReasonOther',this.value)"
+            style="margin-top:4px${showRejOther?'':';display:none'}">
         </div>
       </div>
 
@@ -3238,6 +3267,28 @@ function refreshProwBody(pid) {
   if (interviewField) {
     interviewField.style.display = showInterview ? '' : 'none';
   }
+}
+
+function refreshProwStage(pid) {
+  const stageSel = document.getElementById('stage-sel-' + pid);
+  const rejField = document.getElementById('rej-reason-field-' + pid);
+  if (!stageSel || !rejField) return;
+  const stage = stageSel.value;
+  const isRejected = stage === 'Rejected by Employer' || stage === 'Rejected by Candidate';
+  rejField.style.display = isRejected ? '' : 'none';
+  if (!isRejected) {
+    const rejSel = document.getElementById('rej-reason-sel-' + pid);
+    if (rejSel) rejSel.value = '';
+    const rejOther = document.getElementById('rej-other-' + pid);
+    if (rejOther) rejOther.style.display = 'none';
+  }
+}
+
+function refreshRejOther(pid) {
+  const sel = document.getElementById('rej-reason-sel-' + pid);
+  const otherInput = document.getElementById('rej-other-' + pid);
+  if (!sel || !otherInput) return;
+  otherInput.style.display = sel.value === 'Other' ? '' : 'none';
 }
 
 function refreshProwBadges(pid) {
@@ -4189,34 +4240,71 @@ async function runMatcher() {
   const alreadyPlaced = new Set(allP.filter(p => p.jobOrderId === joId).map(p => p.candidateId));
 
   // ── Match Safety Rules: strict filtering ──
-  const eligible = candidates.filter(c => {
+  const getPEx = p => { try { return JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}'); } catch(e){ return {}; } };
+
+  const baseEligible = candidates.filter(c => {
     if (blacklist[c.id]) return false;
     if (alreadyPlaced.has(c.id)) return false;
-    // Exclude hired candidates
-    const isHired = [...placements, ...manualPlacements].some(p => {
-      const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
-      return p.candidateId === c.id && (ex.status || p.status) === 'Hired';
-    });
-    if (isHired) return false;
     return true;
   });
+
+  const strictEligible = baseEligible.filter(c => !allP.some(p => {
+    if (p.candidateId !== c.id) return false;
+    const ex = getPEx(p);
+    const dStage = ex.dispositionStage || '';
+    const legacyStatus = ex.status || p.status || '';
+    return dStage === 'Dropped / Unavailable' || dStage === 'Hired' || legacyStatus === 'Hired';
+  }));
+
+  const eligible = strictEligible.length > 0 ? strictEligible : baseEligible;
 
   if (eligible.length === 0) {
     resultsEl.innerHTML = `<div class="ai-status-msg">No eligible candidates to rank.</div>`;
     return;
   }
 
+  // Build rejection history map for penalty scoring
+  const rejHistMap = {};
+  allP.forEach(p => {
+    const ex = getPEx(p);
+    const dStage = ex.dispositionStage || '';
+    if (dStage !== 'Rejected by Employer' && dStage !== 'Rejected by Candidate') return;
+    const reason = ex.rejectionReason || '';
+    if (!reason) return;
+    if (!rejHistMap[p.candidateId]) rejHistMap[p.candidateId] = [];
+    rejHistMap[p.candidateId].push({ reason, reasonOther: ex.rejectionReasonOther || '', stage: dStage });
+  });
+
+  const isHouseholdJO = /yaya|kasambahay|nanny|household|helper|housekeeper|all.around/i.test(jo.position || '');
+
+  const getLocalRejPenalty = candId => {
+    let total = 0;
+    (rejHistMap[candId] || []).forEach(r => {
+      if (r.reason === 'Has young child / no guardian' && isHouseholdJO) total += 2.0;
+      else if (r.reason === 'Attitude / behavior concern') total += 2.0;
+      else if (r.reason === 'No show / unresponsive') total += 1.5;
+      else if (r.reason === 'Salary mismatch') total += 1.0;
+      else if (r.reason === 'Location issue') total += 1.0;
+      else if (r.reason === 'Employer preference') total += 0.5;
+      else if (r.reason !== 'Already placed elsewhere') total += 0.5;
+    });
+    return total;
+  };
+
   // Step 1: Calculate ERA with JO context
-  // Step 2: Sort by ERA score → job match → location match
+  // Step 2: Sort by adjusted ERA score (ERA minus rejection penalty) → job match → location match
   const scoredEligible = eligible.map(c => {
     const era = calcERA(c.id, joId);
     const jobMatchScore = era.qualityFlags?.jobMatch ? 1 : 0;
     const locMatchScore = era.qualityFlags?.locationMatch ? 1 : 0;
-    return { c, era, jobMatchScore, locMatchScore };
+    const rejPenalty = getLocalRejPenalty(c.id);
+    return { c, era, jobMatchScore, locMatchScore, rejPenalty };
   });
 
   scoredEligible.sort((a, b) => {
-    if (b.era.score !== a.era.score) return b.era.score - a.era.score;
+    const scoreA = a.era.score - a.rejPenalty;
+    const scoreB = b.era.score - b.rejPenalty;
+    if (scoreB !== scoreA) return scoreB - scoreA;
     if (b.jobMatchScore !== a.jobMatchScore) return b.jobMatchScore - a.jobMatchScore;
     return b.locMatchScore - a.locMatchScore;
   });
@@ -4257,7 +4345,8 @@ async function runMatcher() {
     if (!c.expectedPay) missing.push('no salary');
     if (!c.jobType) missing.push('no job type');
     if (!effVer && !docs.validId) missing.push('no ID');
-    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age||'?'} | Gender: ${c.gender||'?'} | Job: ${c.jobTypeFormatted||c.jobType||'?'} | Setup: ${setupPref||'?'} | City: ${c.cityFormatted||c.location||'?'} | Pay: ${c.expectedPay||'?'} | SalaryFlag: ${salaryFlag} | Skills: ${c.skills||'none'} | PastJobs: ${c.pastJobs||'none'} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'} | MissingFields: ${missing.join(',')||'none'} | Note: ${latestNote||''}`;
+    const rejHist = (rejHistMap[c.id] || []).map(r => r.reason + (r.reasonOther ? ': ' + r.reasonOther : '')).join('; ') || 'none';
+    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age||'?'} | Gender: ${c.gender||'?'} | Job: ${c.jobTypeFormatted||c.jobType||'?'} | Setup: ${setupPref||'?'} | City: ${c.cityFormatted||c.location||'?'} | Pay: ${c.expectedPay||'?'} | SalaryFlag: ${salaryFlag} | Skills: ${c.skills||'none'} | PastJobs: ${c.pastJobs||'none'} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'} | MissingFields: ${missing.join(',')||'none'} | Note: ${latestNote||''} | RejHist: ${rejHist}`;
   }).join('\n');
 
   // Job type equivalents for context
@@ -4361,6 +4450,23 @@ function renderMatcherResults(ranked, joId) {
 
   resultsEl.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Showing ${ranked.length} ranked candidates for this job order</div>`;
 
+  const allPl = [...placements, ...manualPlacements];
+  const getExR = p => { try { return JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}'); } catch(e){ return {}; } };
+  const getRejWarnings = candId => {
+    const w = [];
+    allPl.forEach(p => {
+      if (p.candidateId !== candId) return;
+      const ex = getExR(p);
+      const dStage = ex.dispositionStage || '';
+      if (dStage !== 'Rejected by Employer' && dStage !== 'Rejected by Candidate') return;
+      const reason = ex.rejectionReason || '';
+      if (!reason) return;
+      const by = dStage === 'Rejected by Employer' ? 'Employer' : 'Candidate';
+      w.push(by + ': ' + reason + (ex.rejectionReasonOther ? ' (' + ex.rejectionReasonOther + ')' : ''));
+    });
+    return w;
+  };
+
   ranked.forEach(r => {
     const fitClass = {
       'Excellent': 'fit-excellent',
@@ -4386,6 +4492,11 @@ function renderMatcherResults(ranked, joId) {
       return `<span style="font-size:11px;color:${color};white-space:nowrap">${icon} ${item.label}</span>`;
     }).join(' ');
 
+    const rejWarnings = getRejWarnings(r.id);
+    const rejWarningHtml = rejWarnings.length
+      ? `<div class="ai-rej-warning">&#9888; Prior rejection: ${escHtml(rejWarnings.join(' | '))}</div>`
+      : '';
+
     const card = document.createElement('div');
     card.className = 'ai-result-card';
     card.innerHTML = `
@@ -4397,6 +4508,7 @@ function renderMatcherResults(ranked, joId) {
           <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escHtml(r.id)}</span>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;padding:8px;background:var(--card2);border-radius:8px;border:1px solid var(--border)">${checklistHtml}</div>
+        ${rejWarningHtml}
         <div class="ai-reason">${escHtml(r.reason)}</div>
         ${r.flags ? `<div class="ai-flags">&#9873; ${escHtml(r.flags)}</div>` : ''}
         ${r.nextStep ? `<div class="ai-next">&rarr; ${escHtml(r.nextStep)}</div>` : ''}
