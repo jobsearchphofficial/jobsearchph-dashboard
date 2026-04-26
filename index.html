@@ -1982,7 +1982,7 @@ function doLogin(){
     <button class="tab active" onclick="switchTab('jobs')">Job Orders</button>
     <button class="tab" onclick="switchTab('candidates')">Candidates</button>
     <button class="tab" onclick="switchTab('hired')">Hired</button>
-    <button class="tab" onclick="switchTab('matcher')">AI Matcher</button>
+    <button class="tab hidden" onclick="switchTab('matcher')">AI Matcher</button>
     <button class="tab" onclick="switchTab('screening')">Screening</button>
   </div>
 </header>
@@ -2055,7 +2055,7 @@ function doLogin(){
   </div>
 
   <!-- ═══ TAB: AI MATCHER ═══ -->
-  <div class="tab-content" id="tab-matcher">
+  <div class="tab-content hidden" id="tab-matcher">
     <div class="matcher-panel">
       <h3>AI Candidate Matcher</h3>
       <div class="matcher-controls">
@@ -2629,6 +2629,15 @@ async function loadAll() {
       return firstPart;
     };
 
+    const normalizeSetup = function(raw) {
+      if (!raw) return '';
+      const s = raw.toLowerCase();
+      if (s.includes('stay-in') || s.includes('live-in') || s.includes('stayin')) return 'Stay-in';
+      if (s.includes('stay-out') || s.includes('live-out') || s.includes('stayout')) return 'Stay-out';
+      if (s.includes('either') || s.includes('both') || s.includes('open')) return 'Either';
+      return raw;
+    };
+
     candidates = rows.slice(dataStart).filter(r => r[0] && /^C\d+$/i.test(r[0].trim())).map(r => {
       const ageRaw = r[4] || '';
       const ageInt = parseInt(ageRaw) || 0;
@@ -2637,6 +2646,7 @@ async function loadAll() {
       const cityFormatted = normLocCity(r[9] || '');
       const jobTypes = normJobTypeValues(r[7] || '');
       const jobTypeFormatted = jobTypes.join(', ');
+      console.log('Row columns count:', r.length, 'Last cols:', r.slice(-5));
       return {
         id: r[0].trim() || '',
         timestamp: r[1] || '',
@@ -2662,6 +2672,7 @@ async function loadAll() {
         civilStatus: r[14] || '',
         startDate: r[15] || '',
         status: r[16] || 'Unverified',
+        setup: normalizeSetup(r[18] || ''),
         candStatus: 'active', // runtime status: active | interview | hired | blacklisted
       };
     });
@@ -3596,6 +3607,28 @@ function daysDiff(dateStr) {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
+function isCandInactive(candId) {
+  const ratings = candidateRatings[candId];
+  const scores = ratings ? (ratings.scores || {}) : {};
+  if (scores.noShow === true) return true;
+  if (scores.lateReply === true) {
+    const logs = eraContactLogs[candId] || [];
+    const lastLog = logs.length ? logs[logs.length - 1] : null;
+    if (!lastLog || daysDiff(lastLog.date) >= 14) return true;
+  }
+  const allP = [...placements, ...manualPlacements].filter(function(p) { return p.candidateId === candId; });
+  for (var i = 0; i < allP.length; i++) {
+    const p = allP[i];
+    const pid = p.placementId || p.candidateId;
+    var ex = {};
+    try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e2) {}
+    const lc = ex.lastContacted || p.date || '';
+    const resp = ex.response || p.response || 'No Response';
+    if ((resp === 'No Response' || resp === '') && lc && daysDiff(lc) >= 21) return true;
+  }
+  return false;
+}
+
 function fmtDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -3626,7 +3659,7 @@ function saveNote(key, val) {
 // CANDIDATES — COMPACT FILTER BAR
 // ═══════════════════════════════════════════════
 
-let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], blacklist: 'hide', showHired: false };
+let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], setup: [], blacklist: 'hide', showHired: false, activeStatus: 'active', regDateRange: 'all' };
 let _candActivePanel = null;
 let _candJobTypes = [];
 
@@ -3644,6 +3677,7 @@ function buildCandFilterBar() {
   const defs = [
     { key: 'jobType',   neutral: 'All job types',    prefix: 'Job type' },
     { key: 'location',  neutral: 'All locations',    prefix: 'Location' },
+    { key: 'setup',     neutral: 'All setups',       prefix: 'Setup' },
     { key: 'status',    neutral: 'All statuses',     prefix: 'Status' },
     { key: 'gender',    neutral: 'All genders',      prefix: 'Gender' },
     { key: 'age',       neutral: 'All ages',         prefix: 'Age' },
@@ -3653,7 +3687,17 @@ function buildCandFilterBar() {
   const hiredOn = _candFilters.showHired;
   const hiredBtn = '<button class="cf-btn' + (hiredOn ? ' active' : '') + '" onclick="toggleShowHired()" title="' + (hiredOn ? 'Hide hired candidates' : 'Show hired candidates') + '">' +
     (hiredOn ? '<span class="cf-dot"></span>' : '') + 'Hired' + '</button>';
-  const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') + hiredBtn + buildCfBlWrap();
+  const as = _candFilters.activeStatus;
+  const _aLabels = { active: 'Active Only', inactive: 'Show Inactive', all: 'All' };
+  const activeToggle = '<div style="display:flex;gap:3px">' +
+    ['active','inactive','all'].map(function(v) {
+      const sel = as === v;
+      return '<button class="era-tier-btn' + (sel ? ' sel' : '') + '"' +
+        (sel ? ' style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px"' : '') +
+        ' onclick="_candFilters.activeStatus=\'' + v + '\';renderCandidates()">' + _aLabels[v] + '</button>';
+    }).join('') + '</div>';
+  const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') +
+    hiredBtn + activeToggle + buildRegDateBtn() + buildCfBlWrap();
   bar.innerHTML = btns;
   if (_candActivePanel === 'age') setTimeout(initAgeSlider, 0);
 }
@@ -3699,6 +3743,7 @@ function buildCfPanel(key) {
   if (key === 'age') return buildAgePanel();
   if (key === 'payRange') return buildCfCheckPanel('payRange', 'Pay Range', ['Below \u20b15,000','\u20b15,000\u2013\u20b17,000','\u20b17,001\u2013\u20b110,000','\u20b110,001\u2013\u20b115,000','Above \u20b115,000']);
   if (key === 'eraScore') return buildEraTierPanel();
+  if (key === 'setup') return buildCfCheckPanel('setup', 'Setup / Arrangement', ['Stay-in','Stay-out','Either']);
   return '';
 }
 
@@ -3751,6 +3796,39 @@ function buildEraTierPanel() {
   return '<div class="cf-panel open" style="min-width:280px">' +
     '<div class="cf-panel-hd"><span class="cf-panel-title">ERA Score</span><span class="cf-clear" onclick="candFilterClear(\'eraScore\')">Clear</span></div>' +
     '<div class="era-tier-row">' + pills + '</div></div>';
+}
+
+function buildRegDateBtn() {
+  const val = _candFilters.regDateRange;
+  const isActive = val !== 'all';
+  const _rdLabels = { all: 'All time', '7d': 'Last 7 days', '30d': 'Last 30 days', '3m': 'Last 3 months' };
+  const isOpen = _candActivePanel === 'regDate';
+  const dot = isActive ? '<span class="cf-dot"></span>' : '';
+  const chev = '<span class="cf-chev">' + (isOpen ? '▴' : '▾') + '</span>';
+  let panel = '';
+  if (isOpen) {
+    const opts = [['all','All time'],['7d','Last 7 days'],['30d','Last 30 days'],['3m','Last 3 months']];
+    const items = opts.map(function(o) {
+      const sel = val === o[0];
+      return '<button style="display:block;width:100%;text-align:left;padding:7px 14px;border:none;' +
+        'background:' + (sel ? 'rgba(23,85,237,.08)' : 'none') + ';' +
+        'color:' + (sel ? 'var(--accent)' : 'var(--text2)') + ';' +
+        'font-size:12px;font-weight:' + (sel ? '700' : '500') + ';' +
+        'cursor:pointer;font-family:var(--sans)" onclick="setRegDateRange(\'' + o[0] + '\')">' + o[1] + '</button>';
+    }).join('');
+    panel = '<div class="cf-panel open" style="min-width:160px">' + items + '</div>';
+  }
+  const label = isActive ? 'Registered · ' + _rdLabels[val] : 'Registration Date';
+  return '<div class="cf-btn-wrap">' +
+    '<button class="cf-btn' + (isActive ? ' active' : '') + '" onclick="toggleCandPanel(\'regDate\')">' +
+    dot + label + chev + '</button>' + panel + '</div>';
+}
+
+function setRegDateRange(val) {
+  _candFilters.regDateRange = val;
+  _candActivePanel = null;
+  buildCandFilterBar();
+  renderCandidates();
 }
 
 function toggleCandPanel(key) {
@@ -3966,6 +4044,24 @@ function renderCandidates() {
       // ERA score
       if (f.eraScore.length && !matchEraTier(c.id, f.eraScore)) return false;
 
+      // Setup / arrangement
+      if (f.setup && f.setup.length) {
+        const su = c.setup || '';
+        if (!f.setup.some(function(v) { return su === v; })) return false;
+      }
+
+      // Active / inactive status
+      if (f.activeStatus === 'active' && isCandInactive(c.id)) return false;
+      if (f.activeStatus === 'inactive' && !isCandInactive(c.id)) return false;
+
+      // Registration date range
+      if (f.regDateRange !== 'all') {
+        const ts = (c.timestamp || '').split(' ')[0];
+        if (!ts) return false;
+        const daysMap = { '7d': 7, '30d': 30, '3m': 91 };
+        if (daysDiff(ts) > (daysMap[f.regDateRange] || 0)) return false;
+      }
+
       return true;
     });
 
@@ -3981,10 +4077,14 @@ function renderCandidates() {
       if (!(f.ageMin === 18 && f.ageMax === 65)) parts.push('Age ' + f.ageMin + '\u2013' + f.ageMax);
       if (f.payRange.length) parts.push(f.payRange.length + ' pay range' + (f.payRange.length > 1 ? 's' : ''));
       if (f.eraScore.length) parts.push('ERA: ' + f.eraScore.join(', '));
+      if (f.setup && f.setup.length) parts.push('Setup: ' + f.setup.join(', '));
       if (f.showHired) parts.push('Hired included');
+      if (f.activeStatus === 'active') parts.push('Active only');
+      if (f.activeStatus === 'inactive') parts.push('Inactive only');
+      if (f.regDateRange !== 'all') parts.push('Newest first');
       summaryEl.textContent = 'Showing ' + filtered.length + ' candidates' +
         (hiddenHired > 0 ? ' \u00b7 ' + hiddenHired + ' hired hidden' : '') +
-        ' \u00b7 Sorted highest rating first' +
+        ' \u00b7 Sorted ' + (f.regDateRange !== 'all' ? 'newest first' : 'highest rating first') +
         (parts.length ? ' \u00b7 ' + parts.join(' \u00b7 ') : '');
     }
 
@@ -3996,6 +4096,12 @@ function renderCandidates() {
     container.innerHTML = '';
 
     filtered.sort(function(a, b) {
+      // Newest-first override when registration date filter is active
+      if (f.regDateRange !== 'all') {
+        const tsA = (a.timestamp || '').split(' ')[0];
+        const tsB = (b.timestamp || '').split(' ')[0];
+        return tsB.localeCompare(tsA);
+      }
       const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
       if (scoreDiff !== 0) return scoreDiff;
       const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
@@ -4040,6 +4146,8 @@ function createCandCard(c) {
 
   const card = document.createElement('div');
   card.className = 'cand-card' + (isBlacklisted ? ' blacklisted' : '');
+  const _candIsInactive = isCandInactive(c.id);
+  if (_candIsInactive && _candFilters.activeStatus === 'inactive') card.style.opacity = '0.65';
 
   const effectiveVerifiedCard = getEffectiveVerified(c);
   const autoVerCard = isAutoVerified(c.id) && c.status !== 'Verified';
@@ -4058,13 +4166,15 @@ function createCandCard(c) {
   card.style.cursor = 'pointer';
   card.onclick = (e) => { if (!e.target.closest('.btn')) openCandModal(c.id); };
   const autoTagBadges = cardAutoTags.map(t => `<span class="cand-badge" style="background:${t.color}18;color:${t.color};border-color:${t.color}40">${t.label}</span>`).join('');
+  const inactiveBadge = _candIsInactive && _candFilters.activeStatus === 'inactive'
+    ? '<span class="cand-badge" style="background:var(--card3);color:var(--text3);border-color:var(--border3)">Inactive</span>' : '';
   card.innerHTML = `
     <div class="cand-card-top">
       <div class="cand-avatar">${genderEmoji(c.gender)}</div>
       <div style="flex:1">
         <div class="cand-name">${escHtml(c.name)}</div>
         <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
-        <div class="cand-badges">${verifiedBadge}${blBadge}${flagBadge}${autoTagBadges}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}${flagBadge}${autoTagBadges}${inactiveBadge}</div>
       </div>
       <div style="color:var(--text3);font-size:11px;padding-top:2px">👁 View</div>
     </div>
@@ -4084,6 +4194,7 @@ function createCandCard(c) {
       </div>
       ${isHighDemand(c.id) ? '<div class="cand-detail" style="grid-column:1/-1"><span style="font-size:10px;font-weight:700;color:var(--orange)">High Demand — in multiple active orders</span></div>' : ''}
       <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
+      <div class="cand-detail"><span class="cand-detail-label">Setup</span><span class="cand-detail-val">${escHtml(c.setup||'—')}</span></div>
       <div class="cand-detail"><span class="cand-detail-label">Past Jobs</span><span class="cand-detail-val">${escHtml(c.pastJobs||'—')}</span></div>
     </div>
     ${c.skills ? `<div class="cand-skills">🛠 ${escHtml(c.skills)}</div>` : ''}
@@ -4384,8 +4495,7 @@ async function runMatcher() {
     const readiness = getCandReadiness(c.id);
     const candNotes = getCandNotes(c.id);
     const latestNote = candNotes.length ? candNotes[0].text : '';
-    const intakeData = (() => { try { return JSON.parse(localStorage.getItem('quick_intake_' + c.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')) || 'null'); } catch(e){return null;} })();
-    const setupPref = (intakeData && intakeData.setup) ? intakeData.setup : '';
+    const setupPref = c.setup || '';
     const candSalaryNum = parseSalary(c.expectedPay);
     const salaryFlag = joSalaryNum && candSalaryNum && candSalaryNum > joSalaryNum ? 'SalaryHigh' : (joSalaryNum && candSalaryNum && candSalaryNum <= joSalaryNum ? 'SalaryOK' : 'SalaryUnknown');
     const missing = [];
@@ -4882,6 +4992,7 @@ function _openCandModalInner(candId) {
           ${field('Gender', c.gender)}
           ${field('Location', c.locationRaw || c.location)}
           ${field('Expected Pay', c.expectedPay)}
+          ${field('Setup', c.setup)}
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
           ${field('Last Contacted', lastContactedOverall ? (fmtDate(lastContactedOverall) + (lastContactedVia ? ' · ' + lastContactedVia : '')) : '—')}
@@ -7621,6 +7732,7 @@ function buildScreeningPanelInner(candId) {
     ['Gender',       c.gender || '—'],
     ['Location',     c.location || '—'],
     ['Expected Pay', c.expectedPay || '—'],
+    ['Setup',        c.setup || '—'],
     ['Civil Status', c.civilStatus || '—'],
     ['Can Start',    c.startDate || '—'],
     ['Facebook',     c.facebook || '—'],
