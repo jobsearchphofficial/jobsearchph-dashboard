@@ -7727,12 +7727,31 @@ function submitLogEntry(candId) {
   eraContactLogs[candId].push({ method: method, outcome: outcome, date: date, ts: Date.now() });
   saveEraContactLogs();
   // Auto-advance pipeline: Unscreened → Contacted on first contact
+  // Only switch the viewed tab when the candidate was Unscreened — never reset
+  // the tab when the candidate already matches the currently viewed stage
   if (getPipelineStage(candId) === 'Unscreened') {
     setPipelineStage(candId, 'Contacted', 'contact logged');
     _scrPipelineTab = 'Contacted';
   }
+  // Preserve panel — must be set before renderScreeningTab is ever called
+  _scrSelectedCand = candId;
   showToast('Contact logged', 'green');
-  renderScreeningTab();
+  // Show ✓ Logged in-place next to the Add button for 2 seconds
+  const inlineDiv = document.getElementById('scr-log-inline-' + candId);
+  const actionsRow = inlineDiv ? inlineDiv.querySelector('[style*="flex-end"]') : null;
+  if (actionsRow) {
+    const loggedSpan = document.createElement('span');
+    loggedSpan.textContent = '✓ Logged';
+    loggedSpan.style.cssText = 'color:var(--green);font-size:12px;font-weight:700;flex:1';
+    actionsRow.insertBefore(loggedSpan, actionsRow.firstChild);
+    var addBtn = actionsRow.querySelector('.btn-blue');
+    if (addBtn) addBtn.disabled = true;
+  }
+  // After 2s: re-render (resets form, refreshes log list) keeping panel open
+  setTimeout(function() {
+    _scrSelectedCand = candId;
+    renderScreeningTab();
+  }, 2000);
 }
 
 function saveCandNoteFromPanel(candId) {
