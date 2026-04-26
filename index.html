@@ -2288,7 +2288,7 @@ function doLogin(){
     <input type="hidden" id="cancel-jo-hidden-id">
     <div class="modal-field">
       <div class="modal-label">Reason for cancellation</div>
-      <select id="cancel-reason-select" onchange="document.getElementById('cancel-confirm-btn').disabled=!this.value">
+      <select id="cancel-reason-select" onchange="onCancelReasonChange(this)">
         <option value="">— Select a reason —</option>
         <option value="Employer withdrew">Employer withdrew</option>
         <option value="Position filled elsewhere">Position filled elsewhere</option>
@@ -2296,6 +2296,10 @@ function doLogin(){
         <option value="No suitable candidate">No suitable candidate</option>
         <option value="Other">Other</option>
       </select>
+    </div>
+    <div class="modal-field" id="cancel-other-field" style="display:none">
+      <div class="modal-label">Please specify</div>
+      <input type="text" id="cancel-other-input" placeholder="Describe the reason…" oninput="document.getElementById('cancel-confirm-btn').disabled=!this.value.trim()">
     </div>
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
@@ -5060,18 +5064,38 @@ function changeJOStatus(joId, newStatus) {
   showToast(`Job Order ${joId} → ${newStatus}`, newStatus === 'Active' ? 'green' : 'orange');
 }
 
+function onCancelReasonChange(sel) {
+  const isOther = sel.value === 'Other';
+  const otherField = document.getElementById('cancel-other-field');
+  const otherInput = document.getElementById('cancel-other-input');
+  otherField.style.display = isOther ? 'block' : 'none';
+  if (isOther) {
+    otherInput.value = '';
+    document.getElementById('cancel-confirm-btn').disabled = true;
+    otherInput.focus();
+  } else {
+    document.getElementById('cancel-confirm-btn').disabled = !sel.value;
+  }
+}
+
 function openCancelModal(joId, position) {
   document.getElementById('cancel-jo-subtitle').textContent = joId + ' – ' + position;
   document.getElementById('cancel-jo-hidden-id').value = joId;
   document.getElementById('cancel-reason-select').value = '';
+  document.getElementById('cancel-other-field').style.display = 'none';
+  document.getElementById('cancel-other-input').value = '';
   document.getElementById('cancel-confirm-btn').disabled = true;
   openModal('modal-cancel-jo');
 }
 
 function confirmCancelJO() {
   const joId = document.getElementById('cancel-jo-hidden-id').value;
-  const reason = document.getElementById('cancel-reason-select').value;
-  if (!reason) return;
+  const selected = document.getElementById('cancel-reason-select').value;
+  if (!selected) return;
+  const reason = selected === 'Other'
+    ? 'Other: ' + document.getElementById('cancel-other-input').value.trim()
+    : selected;
+  if (!reason.replace('Other: ', '').trim()) return;
   const userEmail = window._currentUserEmail || (document.getElementById('header-user-email') || {}).textContent || 'unknown';
   const cancelledAt = new Date().toISOString();
   const cancellationData = { reason: reason, cancelledAt: cancelledAt, cancelledBy: userEmail };
