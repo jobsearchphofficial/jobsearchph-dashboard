@@ -3086,7 +3086,9 @@ function createPlacementRow(p, idx, joId) {
   let extra = {};
   try { extra = JSON.parse(localStorage.getItem(extraKey) || '{}'); } catch(e){}
 
-  const savedNote = extra.notes || candidateNotes[noteKey] || p.notes || '';
+  const savedNote     = extra.notes    || candidateNotes[noteKey] || p.notes    || '';
+  const savedResponse = extra.response || p.response || 'No Response';
+  const savedStatus   = extra.status   || p.status   || 'Messaged';
   const followupDate  = extra.followupDate  || '';
   const followup2Date = extra.followup2Date || '';
   const lastContacted = extra.lastContacted || p.date || '';
