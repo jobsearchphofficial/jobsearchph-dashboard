@@ -448,6 +448,8 @@
   .dot-hired       { background: var(--green); box-shadow: 0 0 6px rgba(15,214,138,0.5); }
   .dot-dropped     { background: var(--text3); }
   .dot-notint      { background: var(--red); opacity: 0.5; }
+  .dot-interested  { background: var(--gold); box-shadow: 0 0 6px rgba(245,158,11,0.4); }
+  .dot-endorsed    { background: #0284c7; box-shadow: 0 0 6px rgba(2,132,199,0.4); }
   .dot-default     { background: var(--text3); }
 
   .prow-name { font-size: 13px; font-weight: 600; flex: 1; }
@@ -464,8 +466,10 @@
   .pill-interviewed { background: var(--orange-dim); border-color: rgba(251,146,60,0.3);  color: var(--orange); }
   .pill-hired       { background: var(--green-dim);  border-color: rgba(15,214,138,0.3);  color: var(--green); }
   .pill-dropped     { background: var(--card3);      border-color: var(--border2);        color: var(--text3); }
-  .pill-notint      { background: var(--red-dim);    border-color: rgba(242,85,85,0.25);  color: var(--red); opacity:0.7; }
-  .pill-default     { background: var(--card3);      border-color: var(--border2);        color: var(--text3); }
+  .pill-notint      { background: var(--red-dim);      border-color: rgba(242,85,85,0.25);    color: var(--red); opacity:0.7; }
+  .pill-interested  { background: var(--gold-dim);   border-color: rgba(245,158,11,0.3);    color: var(--gold2); }
+  .pill-endorsed    { background: rgba(2,132,199,.1); border-color: rgba(2,132,199,.3);      color: #0284c7; }
+  .pill-default     { background: var(--card3);       border-color: var(--border2);          color: var(--text3); }
 
   .prow-chevron { color: var(--text3); font-size: 10px; transition: transform .2s; }
   .prow.open .prow-chevron { transform: rotate(180deg); }
@@ -1862,6 +1866,7 @@
     document.getElementById('app-shell').style.display    = user ? 'block' : 'none';
     const el = document.getElementById('header-user-email');
     if (el && user) el.textContent = user.email;
+    window._currentUserEmail = user ? user.email : '';
   });
 </script>
 </head>
@@ -2271,6 +2276,30 @@ function doLogin(){
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-report-issue')">Cancel</button>
       <button class="btn btn-red" onclick="submitIssueReport()">⚠️ Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CANCEL JO MODAL ─── -->
+<div class="modal-overlay" id="modal-cancel-jo">
+  <div class="modal">
+    <h3>Cancel Job Order?</h3>
+    <div id="cancel-jo-subtitle" style="font-size:13px;font-weight:600;color:var(--text2);margin:-12px 0 18px;letter-spacing:-0.2px"></div>
+    <input type="hidden" id="cancel-jo-hidden-id">
+    <div class="modal-field">
+      <div class="modal-label">Reason for cancellation</div>
+      <select id="cancel-reason-select" onchange="document.getElementById('cancel-confirm-btn').disabled=!this.value">
+        <option value="">— Select a reason —</option>
+        <option value="Employer withdrew">Employer withdrew</option>
+        <option value="Position filled elsewhere">Position filled elsewhere</option>
+        <option value="Budget cut">Budget cut</option>
+        <option value="No suitable candidate">No suitable candidate</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
+      <button class="btn btn-red" id="cancel-confirm-btn" disabled onclick="confirmCancelJO()">Yes, Cancel</button>
     </div>
   </div>
 </div>
@@ -2816,6 +2845,7 @@ function renderJobOrders(allPlacements) {
     const statusColors = {'Active':'var(--accent)','On Hold':'var(--orange)','Fulfilled':'var(--green)','Cancelled':'var(--red)'};
     const btn = document.createElement('button');
     btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '') + (jo.status !== 'Active' ? ' jo-tab-nactive' : '');
+    const _cxInfo = (() => { try { return JSON.parse(localStorage.getItem('jo_cancellation_' + jo.id) || 'null'); } catch(e) { return null; } })();
     btn.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <div class="jo-tab-id">${escHtml(jo.id)}</div>
@@ -2824,6 +2854,7 @@ function renderJobOrders(allPlacements) {
       <div class="jo-tab-pos">${escHtml(jo.position)}</div>
       <div class="jo-tab-company">${escHtml(jo.company)}</div>
       <div class="jo-tab-count">${hiredC}/${slots} hired · ${joPlacements.length} total</div>
+      ${jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled · ' + escHtml(_cxInfo.reason) + '</div>' : ''}
     `;
     btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
     tabBar.appendChild(btn);
@@ -2871,7 +2902,9 @@ function buildJOPanel(jo, joPlacements) {
     'Fulfilled': [['Reopen','Active','btn-green']],
   };
   const statusBtns = (statusActions[joStatus]||[]).map(([label,newStatus,cls])=>
-    `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`
+    newStatus === 'Cancelled'
+      ? `<button class="btn ${cls}" onclick="openCancelModal('${escAttr(jo.id)}','${escAttr(jo.position)}')">${label}</button>`
+      : `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`
   ).join('');
 
   const canAdd = joStatus === 'Active' && !isFulfilled;
@@ -3016,19 +3049,31 @@ function buildJOPanel(jo, joPlacements) {
   return panel;
 }
 
-function getStatusDotClass(status, response) {
-  if (response === 'Not Interested') return 'dot-notint';
-  const m = { 'Messaged':'dot-messaged','For Interview':'dot-interview','Interviewed':'dot-interviewed','Hired':'dot-hired','Dropped':'dot-dropped' };
-  return m[status] || 'dot-default';
+function getStageDotClass(stage) {
+  const m = { 'New / Uncontacted':'dot-default','Messaged':'dot-messaged','Interested':'dot-interested','Interview Scheduled':'dot-interview','Interview Completed':'dot-interviewed','Endorsed to Employer':'dot-endorsed','Hired ✓':'dot-hired','Rejected by Employer':'dot-dropped','Rejected by Candidate':'dot-notint','Dropped / Unavailable':'dot-dropped' };
+  return m[stage] || 'dot-default';
 }
-
-function getStatusPillClass(status, response) {
-  if (response === 'Not Interested') return 'pill-notint';
-  const m = { 'Messaged':'pill-messaged','For Interview':'pill-interview','Interviewed':'pill-interviewed','Hired':'pill-hired','Dropped':'pill-dropped' };
-  return m[status] || 'pill-default';
+function getStagePillClass(stage) {
+  const m = { 'New / Uncontacted':'pill-default','Messaged':'pill-messaged','Interested':'pill-interested','Interview Scheduled':'pill-interview','Interview Completed':'pill-interviewed','Endorsed to Employer':'pill-endorsed','Hired ✓':'pill-hired','Rejected by Employer':'pill-dropped','Rejected by Candidate':'pill-notint','Dropped / Unavailable':'pill-dropped' };
+  return m[stage] || 'pill-default';
 }
+function getEffectiveStage(ex, p) {
+  if (ex.dispositionStage) return ex.dispositionStage;
+  const s = ex.status   || (p ? p.status   : '') || '';
+  const r = ex.response || (p ? p.response : '') || '';
+  if (s === 'Hired')          return 'Hired ✓';
+  if (s === 'Dropped')        return 'Dropped / Unavailable';
+  if (r === 'Not Interested') return 'Rejected by Candidate';
+  if (s === 'Interviewed')    return 'Interview Completed';
+  if (s === 'For Interview')  return 'Interview Scheduled';
+  if (r === 'Interested')     return 'Interested';
+  if (s === 'Messaged')       return 'Messaged';
+  return '';
+}
+function getStatusDotClass(status, response) { return getStageDotClass(getEffectiveStage({ status, response }, null)); }
+function getStatusPillClass(status, response) { return getStagePillClass(getEffectiveStage({ status, response }, null)); }
 
-const DISPOSITION_STAGES = ['Shortlisted','Endorsed to Employer','Interview Scheduled','Interview Completed','Hired','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
+const DISPOSITION_STAGES = ['New / Uncontacted','Messaged','Interested','Interview Scheduled','Interview Completed','Endorsed to Employer','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
 
 function createPlacementRow(p, idx, joId) {
@@ -3047,20 +3092,19 @@ function createPlacementRow(p, idx, joId) {
   const lastContacted = extra.lastContacted || p.date || '';
   const interviewDate = extra.interviewDate || '';
 
-  // Use localStorage overrides for response/status if they exist
-  const savedResponse = extra.response || p.response || 'No Response';
-  const savedStatus   = extra.status   || p.status   || 'Messaged';
+  // Stage-based status — falls back to legacy status/response for old records
+  const savedStage = getEffectiveStage(extra, p);
 
-  const isInactive = savedStatus === 'Dropped' || savedResponse === 'Not Interested';
-  const dotClass = getStatusDotClass(savedStatus, savedResponse);
-  const pillClass = getStatusPillClass(savedStatus, savedResponse);
-  const pillLabel = savedResponse === 'Not Interested' ? 'Not Interested' : (savedStatus || 'No Status');
+  const isInactive = ['Dropped / Unavailable','Hired ✓','Rejected by Employer','Rejected by Candidate'].includes(savedStage);
+  const dotClass   = getStageDotClass(savedStage);
+  const pillClass  = getStagePillClass(savedStage);
+  const pillLabel  = savedStage || 'New';
 
   // Follow-up check
   const today0 = new Date(); today0.setHours(0,0,0,0);
   const needsFollowup  = followupDate  && new Date(followupDate)  <= today0;
   const needsFollowup2 = followup2Date && new Date(followup2Date) <= today0;
-  const autoFollowup   = !followupDate && savedStatus === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 3;
+  const autoFollowup   = !followupDate && savedStage === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 3;
   const showFollowup   = needsFollowup || needsFollowup2 || autoFollowup;
 
   // Auto-suggest followup2 = lastContacted + 3 days (stored separately)
@@ -3069,8 +3113,8 @@ function createPlacementRow(p, idx, joId) {
     return d.toISOString().split('T')[0];
   })() : '';
 
-  // Only show interview fields when relevant
-  const showInterview = ['For Interview','Interviewed'].includes(savedStatus);
+  // Show interview date field for interview-related stages
+  const showInterview = ['Interview Scheduled','Interview Completed'].includes(savedStage);
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
@@ -3078,7 +3122,6 @@ function createPlacementRow(p, idx, joId) {
   row.id = `prow-${pid}`;
 
   const contactVia = extra.contactVia || '';
-  const savedStage     = extra.dispositionStage    || '';
   const savedRejReason = extra.rejectionReason     || '';
   const savedRejOther  = extra.rejectionReasonOther || '';
   const showRejReason  = savedStage === 'Rejected by Employer' || savedStage === 'Rejected by Candidate';
@@ -5015,6 +5058,33 @@ function changeJOStatus(joId, newStatus) {
   showToast(`Job Order ${joId} → ${newStatus}`, newStatus === 'Active' ? 'green' : 'orange');
 }
 
+function openCancelModal(joId, position) {
+  document.getElementById('cancel-jo-subtitle').textContent = joId + ' – ' + position;
+  document.getElementById('cancel-jo-hidden-id').value = joId;
+  document.getElementById('cancel-reason-select').value = '';
+  document.getElementById('cancel-confirm-btn').disabled = true;
+  openModal('modal-cancel-jo');
+}
+
+function confirmCancelJO() {
+  const joId = document.getElementById('cancel-jo-hidden-id').value;
+  const reason = document.getElementById('cancel-reason-select').value;
+  if (!reason) return;
+  const userEmail = window._currentUserEmail || (document.getElementById('header-user-email') || {}).textContent || 'unknown';
+  const cancelledAt = new Date().toISOString();
+  const cancellationData = { reason: reason, cancelledAt: cancelledAt, cancelledBy: userEmail };
+  localStorage.setItem('jo_cancellation_' + joId, JSON.stringify(cancellationData));
+  fbSync('jobOrders/' + joId + '/cancellation', cancellationData);
+  joStatusOverrides[joId] = 'Cancelled';
+  saveJOStatusOverrides();
+  const jo = jobOrders.find(j => j.id === joId);
+  if (jo) jo.status = 'Cancelled';
+  closeModal('modal-cancel-jo');
+  renderJobOrders([...placements, ...manualPlacements]);
+  buildReminderBanner();
+  showToast('Job Order ' + joId + ' cancelled – ' + reason, 'red');
+}
+
 function copyJobDetails(joId) {
   const jo = jobOrders.find(j => j.id === joId);
   if (!jo) return;
@@ -6633,6 +6703,10 @@ async function loadFromFirebase() {
       Object.entries(data.jo_delayed_close).forEach(function(e) { localStorage.setItem('jo_delayed_close_' + e[0], e[1]); });
     if (data.reflections)
       Object.entries(data.reflections).forEach(function(e) { localStorage.setItem('reflection_' + e[0], JSON.stringify(e[1])); });
+    if (data.jobOrders)
+      Object.entries(data.jobOrders).forEach(function(e) {
+        if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
+      });
     if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
     if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
     if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
@@ -6653,16 +6727,22 @@ async function loadFromFirebase() {
 async function pushAllToFirebase() {
   const url = getFirebaseUrl('');
   if (!url) return;
-  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {};
+  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     try {
-      if (k.startsWith('prow_extra_'))      prowExtras[k.slice(11)]     = JSON.parse(localStorage.getItem(k));
-      else if (k.startsWith('hire_data_'))  hireData[k.slice(10)]       = JSON.parse(localStorage.getItem(k));
-      else if (k.startsWith('cand_notes_')) candNotesMap[k.slice(11)]   = JSON.parse(localStorage.getItem(k));
-      else if (k.startsWith('jo_fulfill_')) joFulfill[k.slice(11)]      = JSON.parse(localStorage.getItem(k));
+      if (k.startsWith('prow_extra_'))           prowExtras[k.slice(11)]     = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('hire_data_'))        hireData[k.slice(10)]       = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('cand_notes_'))       candNotesMap[k.slice(11)]   = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('jo_fulfill_'))       joFulfill[k.slice(11)]      = JSON.parse(localStorage.getItem(k));
       else if (k.startsWith('jo_delayed_close_')) joDelayedClose[k.slice(17)] = localStorage.getItem(k);
-      else if (k.startsWith('reflection_')) reflections[k.slice(11)]   = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('reflection_'))       reflections[k.slice(11)]    = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('jo_cancellation_')) {
+        const cx = JSON.parse(localStorage.getItem(k));
+        const cxId = k.slice(16);
+        joOrders[cxId] = joOrders[cxId] || {};
+        joOrders[cxId].cancellation = cx;
+      }
     } catch(e2) {}
   }
   const payload = {
@@ -6680,7 +6760,8 @@ async function pushAllToFirebase() {
     cand_notes:          candNotesMap,
     jo_fulfill:          joFulfill,
     jo_delayed_close:    joDelayedClose,
-    reflections:         reflections
+    reflections:         reflections,
+    jobOrders:           joOrders
   };
   setSyncStatus('syncing');
   const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
