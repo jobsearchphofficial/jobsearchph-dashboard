@@ -2301,6 +2301,10 @@ function doLogin(){
       <div class="modal-label">Please specify</div>
       <input type="text" id="cancel-other-input" placeholder="Describe the reason…" oninput="document.getElementById('cancel-confirm-btn').disabled=!this.value.trim()">
     </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
+      <textarea id="cancel-notes-input" placeholder="Any additional context, e.g. employer contact details, follow-up needed…" style="min-height:72px"></textarea>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
       <button class="btn btn-red" id="cancel-confirm-btn" disabled onclick="confirmCancelJO()">Yes, Cancel</button>
@@ -5195,6 +5199,7 @@ function openCancelModal(joId, position) {
   document.getElementById('cancel-reason-select').value = '';
   document.getElementById('cancel-other-field').style.display = 'none';
   document.getElementById('cancel-other-input').value = '';
+  document.getElementById('cancel-notes-input').value = '';
   document.getElementById('cancel-confirm-btn').disabled = true;
   openModal('modal-cancel-jo');
 }
@@ -5209,7 +5214,8 @@ function confirmCancelJO() {
   if (!reason.replace('Other: ', '').trim()) return;
   const userEmail = window._currentUserEmail || (document.getElementById('header-user-email') || {}).textContent || 'unknown';
   const cancelledAt = new Date().toISOString();
-  const cancellationData = { reason: reason, cancelledAt: cancelledAt, cancelledBy: userEmail };
+  const cancelNotes = (document.getElementById('cancel-notes-input').value || '').trim();
+  const cancellationData = { reason: reason, notes: cancelNotes, cancelledAt: cancelledAt, cancelledBy: userEmail };
   localStorage.setItem('jo_cancellation_' + joId, JSON.stringify(cancellationData));
   fbSync('jobOrders/' + joId + '/cancellation', cancellationData);
   joStatusOverrides[joId] = 'Cancelled';
