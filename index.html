@@ -1843,6 +1843,53 @@
     vertical-align: middle; cursor: pointer;
   }
   .scr-all-table tr:hover td { background: var(--card2); }
+
+  /* ─── BROADCAST MODAL ─── */
+  .broadcast-modal {
+    background: var(--card);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    width: 92%;
+    max-width: 700px;
+    max-height: 88vh;
+    overflow-y: auto;
+    transform: translateY(20px) scale(0.97);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 24px 64px rgba(23,85,237,0.18);
+  }
+  .modal-overlay.open .broadcast-modal { transform: translateY(0) scale(1); }
+  .broadcast-modal-header {
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    z-index: 2;
+  }
+  .broadcast-jo-summary {
+    background: var(--accent-dim);
+    border: 1px solid rgba(23,85,237,.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .broadcast-cand-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 60px 120px 100px 80px 90px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .broadcast-cand-row:hover { background: var(--card2); }
+  .broadcast-cand-row.selected { background: var(--accent-dim); border-left: 3px solid var(--accent); }
 </style>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -2308,6 +2355,54 @@ function doLogin(){
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
       <button class="btn btn-red" id="cancel-confirm-btn" disabled onclick="confirmCancelJO()">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── BROADCAST MODAL ─── -->
+<div class="modal-overlay" id="modal-broadcast" onclick="if(event.target===this)closeBroadcastModal()">
+  <div class="broadcast-modal">
+    <div class="broadcast-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:15px;font-weight:700">📢 Broadcast Candidates</span>
+        <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px" onclick="closeBroadcastModal()">✕ Close</button>
+      </div>
+      <div class="broadcast-jo-summary" id="broadcast-jo-summary"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input type="text" id="broadcast-search" placeholder="Search by name or ID…" oninput="renderBroadcastList()" style="flex:1;min-width:160px;padding:7px 12px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
+        <select id="broadcast-filter-jobtype" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
+          <option value="">All Job Types</option>
+        </select>
+        <select id="broadcast-filter-setup" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
+          <option value="">All Setups</option>
+          <option>Stay-in</option>
+          <option>Stay-out</option>
+          <option>Either</option>
+        </select>
+        <select id="broadcast-filter-location" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
+          <option value="">All Locations</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-ghost" style="font-size:12px;padding:5px 14px" onclick="broadcastSelectAll()">☑ Select All Matching</button>
+        <span id="broadcast-selected-count" style="font-size:12px;color:var(--text3)">0 selected</span>
+      </div>
+    </div>
+    <div style="padding:0 0 4px">
+      <div class="broadcast-cand-row" style="background:var(--card2);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;cursor:default">
+        <div></div>
+        <div>Name / ID</div>
+        <div>ERA</div>
+        <div>Job Type</div>
+        <div>Location</div>
+        <div>Setup</div>
+        <div>Exp. Pay</div>
+      </div>
+      <div id="broadcast-cand-list"></div>
+    </div>
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;background:var(--card);z-index:2">
+      <span id="broadcast-footer-count" style="font-size:13px;color:var(--text2);font-weight:600">0 candidates selected</span>
+      <button class="btn btn-green" id="broadcast-submit-btn" onclick="broadcastSelected()" style="font-size:13px;padding:8px 20px">📢 Broadcast Selected</button>
     </div>
   </div>
 </div>
@@ -2859,9 +2954,12 @@ function renderJobOrders(allPlacements) {
 
   visibleJOs.forEach((jo, i) => {
     const joPlacements = allPlacements.filter(p => p.jobOrderId === jo.id);
-    const hiredC = joPlacements.filter(p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return (ex.status||p.status)==='Hired'; }).length;
     const slots = parseInt(jo.slots) || 1;
     const statusColors = {'Active':'var(--accent)','On Hold':'var(--orange)','Fulfilled':'var(--green)','Cancelled':'var(--red)'};
+    const _getEx = p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return ex; };
+    const broadcastedC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Broadcasted').length;
+    const confirmedC = joPlacements.filter(p => { const st = getEffectiveStage(_getEx(p), p); return st === 'Confirmed Interested' || st === 'For Employer Review' || st === 'Interview Scheduled'; }).length;
+    const hiredC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Hired ✓').length;
     const btn = document.createElement('button');
     btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '') + (jo.status !== 'Active' ? ' jo-tab-nactive' : '');
     const _cxInfo = (() => { try { return JSON.parse(localStorage.getItem('jo_cancellation_' + jo.id) || 'null'); } catch(e) { return null; } })();
@@ -2872,7 +2970,7 @@ function renderJobOrders(allPlacements) {
       </div>
       <div class="jo-tab-pos">${escHtml(jo.position)}</div>
       <div class="jo-tab-company">${escHtml(jo.company)}</div>
-      <div class="jo-tab-count">${hiredC}/${slots} hired · ${joPlacements.length} total</div>
+      <div class="jo-tab-count">📢 ${broadcastedC} broadcasted · ✓ ${confirmedC} confirmed · ${hiredC}/${slots} hired</div>
       ${jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled · ' + escHtml(_cxInfo.reason) + '</div>' : ''}
     `;
     btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
@@ -2928,6 +3026,11 @@ function buildJOPanel(jo, joPlacements) {
 
   const canAdd = joStatus === 'Active' && !isFulfilled;
 
+  const hasShortlist = joPlacements.some(p => {
+    const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+    return getEffectiveStage(ex, p) === 'For Employer Review';
+  });
+
   const replacementCtx = (() => {
     try {
       const val = localStorage.getItem('pending_replacement_jo_' + jo.id);
@@ -2964,6 +3067,7 @@ function buildJOPanel(jo, joPlacements) {
       <div class="jo-panel-actions" style="flex-direction:column;gap:6px;align-items:flex-end">
         <div style="display:flex;gap:6px">
           <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">Match</button>
+          <button class="btn btn-blue" onclick="openBroadcastModal('${escAttr(jo.id)}')">📢 Broadcast</button>
           ${canAdd
             ? `<button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">+ Add</button>`
             : `<button class="btn btn-ghost" onclick="confirmAddOverride('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">+ Add (Override)</button>`}
@@ -2973,6 +3077,7 @@ function buildJOPanel(jo, joPlacements) {
         </div>
         <div style="display:flex;gap:6px">
           <button id="copy-jo-btn-${jo.id.replace(/[^a-z0-9]/gi,'')}" class="btn btn-ghost" onclick="copyJobDetails('${escAttr(jo.id)}')">📋 Copy Job Details</button>
+          ${hasShortlist ? `<button id="copy-shortlist-btn-${jo.id.replace(/[^a-z0-9]/gi,'')}" class="btn btn-ghost" onclick="copyShortlist('${escAttr(jo.id)}')">📋 Copy Shortlist</button>` : ''}
         </div>
       </div>
     </div>
@@ -3069,11 +3174,31 @@ function buildJOPanel(jo, joPlacements) {
 }
 
 function getStageDotClass(stage) {
-  const m = { 'New / Uncontacted':'dot-default','Messaged':'dot-messaged','Interested':'dot-interested','Interview Scheduled':'dot-interview','Interview Completed':'dot-interviewed','Endorsed to Employer':'dot-endorsed','Hired ✓':'dot-hired','Rejected by Employer':'dot-dropped','Rejected by Candidate':'dot-notint','Dropped / Unavailable':'dot-dropped' };
+  const m = {
+    'Broadcasted':'dot-messaged',
+    'Confirmed Interested':'dot-interested',
+    'For Employer Review':'dot-endorsed',
+    'Interview Scheduled':'dot-interview',
+    'Hired ✓':'dot-hired',
+    'Rejected by Employer':'dot-dropped',
+    'Rejected by Candidate':'dot-notint',
+    'Dropped / Unavailable':'dot-dropped',
+    'New / Uncontacted':'dot-default','Messaged':'dot-messaged','Interested':'dot-interested','Interview Completed':'dot-interviewed','Endorsed to Employer':'dot-endorsed',
+  };
   return m[stage] || 'dot-default';
 }
 function getStagePillClass(stage) {
-  const m = { 'New / Uncontacted':'pill-default','Messaged':'pill-messaged','Interested':'pill-interested','Interview Scheduled':'pill-interview','Interview Completed':'pill-interviewed','Endorsed to Employer':'pill-endorsed','Hired ✓':'pill-hired','Rejected by Employer':'pill-dropped','Rejected by Candidate':'pill-notint','Dropped / Unavailable':'pill-dropped' };
+  const m = {
+    'Broadcasted':'pill-messaged',
+    'Confirmed Interested':'pill-interested',
+    'For Employer Review':'pill-endorsed',
+    'Interview Scheduled':'pill-interview',
+    'Hired ✓':'pill-hired',
+    'Rejected by Employer':'pill-dropped',
+    'Rejected by Candidate':'pill-notint',
+    'Dropped / Unavailable':'pill-dropped',
+    'New / Uncontacted':'pill-default','Messaged':'pill-messaged','Interested':'pill-interested','Interview Completed':'pill-interviewed','Endorsed to Employer':'pill-endorsed',
+  };
   return m[stage] || 'pill-default';
 }
 function getEffectiveStage(ex, p) {
@@ -3083,16 +3208,17 @@ function getEffectiveStage(ex, p) {
   if (s === 'Hired')          return 'Hired ✓';
   if (s === 'Dropped')        return 'Dropped / Unavailable';
   if (r === 'Not Interested') return 'Rejected by Candidate';
-  if (s === 'Interviewed')    return 'Interview Completed';
+  if (s === 'Interviewed')    return 'Interview Scheduled';
   if (s === 'For Interview')  return 'Interview Scheduled';
-  if (r === 'Interested')     return 'Interested';
-  if (s === 'Messaged')       return 'Messaged';
+  if (r === 'Interested')     return 'Confirmed Interested';
+  if (s === 'Messaged')       return 'Broadcasted';
+  if (p && p.source === 'broadcast') return 'Broadcasted';
   return '';
 }
 function getStatusDotClass(status, response) { return getStageDotClass(getEffectiveStage({ status, response }, null)); }
 function getStatusPillClass(status, response) { return getStagePillClass(getEffectiveStage({ status, response }, null)); }
 
-const DISPOSITION_STAGES = ['New / Uncontacted','Messaged','Interested','Interview Scheduled','Interview Completed','Endorsed to Employer','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
+const DISPOSITION_STAGES = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
 
 function createPlacementRow(p, idx, joId) {
@@ -3125,7 +3251,7 @@ function createPlacementRow(p, idx, joId) {
   const today0 = new Date(); today0.setHours(0,0,0,0);
   const needsFollowup  = followupDate  && new Date(followupDate)  <= today0;
   const needsFollowup2 = followup2Date && new Date(followup2Date) <= today0;
-  const autoFollowup   = !followupDate && savedStage === 'Messaged' && lastContacted && daysDiff(lastContacted) >= 3;
+  const autoFollowup   = !followupDate && (savedStage === 'Broadcasted' || savedStage === 'Messaged') && lastContacted && daysDiff(lastContacted) >= 3;
   const showFollowup   = needsFollowup || needsFollowup2 || autoFollowup;
 
   // Auto-suggest followup2 = lastContacted + 3 days (stored separately)
@@ -5269,6 +5395,226 @@ function copyJobDetails(joId) {
     fallbackCopy(text); finish();
   }
 }
+// ─── BROADCAST WORKFLOW ───
+
+let _broadcastJoId = null;
+let _broadcastSelected = new Set();
+
+function openBroadcastModal(joId) {
+  _broadcastJoId = joId;
+  _broadcastSelected = new Set();
+  const jo = jobOrders.find(j => j.id === joId);
+  if (!jo) return;
+
+  // Summary
+  const summary = document.getElementById('broadcast-jo-summary');
+  summary.innerHTML = [
+    jo.position ? `<span><strong>${escHtml(jo.position)}</strong></span>` : '',
+    jo.company  ? `<span>🏢 ${escHtml(jo.company)}</span>` : '',
+    jo.salary   ? `<span>💰 ${escHtml(jo.salary)}</span>` : '',
+    jo.address  ? `<span>📍 ${escHtml(jo.address)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  // Populate job type filter from candidates matching the JO position
+  const pos = (jo.position || '').toLowerCase();
+  const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
+  const matchingTypes = [...new Set(candidates
+    .filter(c => {
+      const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
+      return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
+    })
+    .map(c => c.jobTypeFormatted || c.jobType || '')
+    .filter(Boolean)
+  )];
+  const jtSel = document.getElementById('broadcast-filter-jobtype');
+  jtSel.innerHTML = '<option value="">All Job Types</option>' + matchingTypes.map(t => `<option>${escHtml(t)}</option>`).join('');
+
+  // Populate location filter
+  const allLocs = [...new Set(candidates.map(c => c.cityFormatted || c.location || '').filter(Boolean))].sort();
+  const locSel = document.getElementById('broadcast-filter-location');
+  locSel.innerHTML = '<option value="">All Locations</option>' + allLocs.map(l => `<option>${escHtml(l)}</option>`).join('');
+
+  // Reset filters
+  document.getElementById('broadcast-search').value = '';
+  document.getElementById('broadcast-filter-setup').value = '';
+  document.getElementById('broadcast-filter-location').value = '';
+
+  renderBroadcastList();
+  document.getElementById('modal-broadcast').classList.add('open');
+}
+
+function closeBroadcastModal() {
+  document.getElementById('modal-broadcast').classList.remove('open');
+  _broadcastJoId = null;
+  _broadcastSelected = new Set();
+}
+
+function _getBroadcastFiltered() {
+  const search  = (document.getElementById('broadcast-search')?.value || '').toLowerCase().trim();
+  const jt      = document.getElementById('broadcast-filter-jobtype')?.value || '';
+  const setup   = document.getElementById('broadcast-filter-setup')?.value || '';
+  const loc     = document.getElementById('broadcast-filter-location')?.value || '';
+  const allP    = [...placements, ...manualPlacements].filter(p => p.jobOrderId === _broadcastJoId);
+  const alreadyIn = new Set(allP.map(p => p.candidateId));
+
+  return candidates.filter(c => {
+    if (alreadyIn.has(c.id)) return false;
+    if (blacklist[c.id]) return false;
+    if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
+    if (jt && (c.jobTypeFormatted || c.jobType || '') !== jt) return false;
+    if (setup && c.setup !== setup) return false;
+    if (loc && (c.cityFormatted || c.location || '') !== loc) return false;
+    return true;
+  }).sort((a, b) => {
+    const eraA = calcERA(a.id).score;
+    const eraB = calcERA(b.id).score;
+    return eraB - eraA;
+  });
+}
+
+function renderBroadcastList() {
+  const filtered = _getBroadcastFiltered();
+  const list = document.getElementById('broadcast-cand-list');
+  if (!list) return;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">No candidates found.</div>';
+    _broadcastSelected = new Set([..._broadcastSelected].filter(id => filtered.some(c => c.id === id)));
+    updateBroadcastCount();
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const era = calcERA(c.id);
+    const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
+    const sel = _broadcastSelected.has(c.id);
+    return `<div class="broadcast-cand-row${sel ? ' selected' : ''}" id="brow-${escAttr(c.id)}" onclick="toggleBroadcastCand('${escAttr(c.id)}')">
+      <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleBroadcastCand('${escAttr(c.id)}')">
+      <div><div style="font-weight:600;font-size:12px">${escHtml(c.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(c.id)}</div></div>
+      <div style="font-weight:700;color:${eraColor}">${era.score.toFixed(1)}</div>
+      <div style="color:var(--text2)">${escHtml(c.jobTypeFormatted || c.jobType || '—')}</div>
+      <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
+      <div style="color:var(--text2)">${escHtml(c.setup || '—')}</div>
+      <div style="color:var(--text2)">${escHtml(c.expectedPay || '—')}</div>
+    </div>`;
+  }).join('');
+
+  updateBroadcastCount();
+}
+
+function toggleBroadcastCand(candId) {
+  if (_broadcastSelected.has(candId)) {
+    _broadcastSelected.delete(candId);
+  } else {
+    _broadcastSelected.add(candId);
+  }
+  const row = document.getElementById('brow-' + candId);
+  if (row) {
+    row.classList.toggle('selected', _broadcastSelected.has(candId));
+    const cb = row.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = _broadcastSelected.has(candId);
+  }
+  updateBroadcastCount();
+}
+
+function broadcastSelectAll() {
+  const filtered = _getBroadcastFiltered();
+  filtered.forEach(c => _broadcastSelected.add(c.id));
+  renderBroadcastList();
+}
+
+function updateBroadcastCount() {
+  const n = _broadcastSelected.size;
+  const el = document.getElementById('broadcast-selected-count');
+  if (el) el.textContent = n + ' selected';
+  const footer = document.getElementById('broadcast-footer-count');
+  if (footer) footer.textContent = n + ' candidate' + (n !== 1 ? 's' : '') + ' selected';
+}
+
+function broadcastSelected() {
+  if (!_broadcastJoId || !_broadcastSelected.size) return;
+  const today = new Date().toISOString().split('T')[0];
+  let added = 0;
+  _broadcastSelected.forEach(candId => {
+    const c = candidates.find(x => x.id === candId);
+    if (!c) return;
+    const alreadyIn = [...placements, ...manualPlacements].some(p => p.jobOrderId === _broadcastJoId && p.candidateId === candId);
+    if (alreadyIn) return;
+    const pid = _broadcastJoId + '_' + candId + '_bc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    manualPlacements.push({
+      placementId: pid,
+      jobOrderId: _broadcastJoId,
+      candidateId: c.id,
+      candidateName: c.name,
+      status: 'Broadcasted',
+      dispositionStage: 'Broadcasted',
+      date: today,
+      source: 'broadcast',
+    });
+    added++;
+  });
+  if (added) {
+    saveManualPlacements();
+    showToast('📢 Broadcasted to ' + added + ' candidate' + (added !== 1 ? 's' : ''), 'green');
+  }
+  closeBroadcastModal();
+  renderJobOrders([...placements, ...manualPlacements]);
+}
+
+function copyShortlist(joId) {
+  const jo = jobOrders.find(j => j.id === joId);
+  if (!jo) return;
+  const allP = [...placements, ...manualPlacements].filter(p => p.jobOrderId === joId);
+  const shortlisted = allP.filter(p => {
+    const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+    return getEffectiveStage(ex, p) === 'For Employer Review';
+  });
+  if (!shortlisted.length) { showToast('No candidates in For Employer Review stage', 'gold'); return; }
+
+  const today = new Date().toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+  const lines = [
+    '📋 CANDIDATE SHORTLIST',
+    (jo.position || '') + ' for ' + (jo.company || ''),
+    'Date: ' + today,
+    '',
+  ];
+  shortlisted.forEach((p, idx) => {
+    const c = candidates.find(x => x.id === p.candidateId);
+    const expText = (c?.pastJobs || c?.skills || '').slice(0, 80);
+    lines.push('[#' + (idx + 1) + '] ' + (p.candidateName || p.candidateId));
+    if (c) {
+      lines.push('- Age: ' + (c.age || '?') + ' | Gender: ' + (c.gender || '?'));
+      lines.push('- Location: ' + (c.cityFormatted || c.location || '?'));
+      if (expText) lines.push('- Experience: ' + expText);
+      lines.push('- Expected Pay: ' + (c.expectedPay || '?'));
+      lines.push('- Setup: ' + (c.setup || '?'));
+      lines.push('- Available: ' + (c.startDate || '?'));
+    }
+    lines.push('');
+  });
+  lines.push('Reply with the candidate number(s) you want to interview. We will schedule accordingly.');
+  lines.push('');
+  lines.push('Job Search PH');
+
+  const text = lines.join('\n');
+  const safeId = joId.replace(/[^a-z0-9]/gi, '');
+  const btnId = 'copy-shortlist-btn-' + safeId;
+  const finish = () => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.textContent = '✓ Copied!';
+    btn.style.color = 'var(--green)';
+    showToast('✓ Shortlist copied!', 'green');
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(finish).catch(() => { fallbackCopy(text); finish(); });
+  } else {
+    fallbackCopy(text); finish();
+  }
+}
+
 function fallbackCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
