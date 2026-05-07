@@ -838,6 +838,83 @@
   .bc-log-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   .bc-log-table tr:last-child td { border-bottom: none; }
 
+  /* ─── ROLE BADGE ─── */
+  .role-badge {
+    font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
+    letter-spacing: .6px; text-transform: uppercase; flex-shrink: 0;
+  }
+  .role-admin { background: rgba(220,38,38,.12); color: var(--red); border: 1px solid rgba(220,38,38,.3); }
+  .role-coordinator { background: var(--accent-dim2); color: var(--accent); border: 1px solid rgba(23,85,237,.3); }
+  .role-viewer { background: var(--card3); color: var(--text3); border: 1px solid var(--border2); }
+
+  /* ─── ANALYTICS TAB ─── */
+  .analytics-section {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 22px 24px; margin-bottom: 22px;
+    box-shadow: var(--shadow-card);
+  }
+  .analytics-section-title {
+    font-size: 13px; font-weight: 800; letter-spacing: -.3px;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .analytics-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .analytics-table th { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--card2); }
+  .analytics-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .analytics-table tr:last-child td { border-bottom: none; }
+  .analytics-table tr:hover td { background: var(--card2); }
+  .analytics-table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
+  /* ─── SVG CHARTS ─── */
+  .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .chart-bar-label { font-size: 11px; color: var(--text2); min-width: 200px; }
+  .chart-bar-track { flex: 1; background: var(--card3); border-radius: 99px; height: 14px; overflow: hidden; position: relative; }
+  .chart-bar-fill  { height: 100%; border-radius: 99px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width .5s ease; }
+  .chart-bar-fill span { font-size: 9px; font-weight: 700; color: #fff; }
+  .chart-bar-count { font-size: 11px; font-family: var(--mono); color: var(--text2); min-width: 50px; }
+
+  /* ─── COMMISSION CARD ─── */
+  .earnings-card {
+    background: linear-gradient(135deg, var(--green-dim) 0%, var(--card) 80%);
+    border: 1px solid rgba(5,150,105,.25); border-radius: 14px; padding: 18px 22px;
+    margin-bottom: 22px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+  }
+  .earnings-metric { text-align: center; flex: 1; min-width: 100px; }
+  .earnings-metric-val { font-size: 22px; font-weight: 800; font-family: var(--mono); color: var(--green); }
+  .earnings-metric-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-top: 3px; }
+  .earnings-detail-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .earnings-detail-row:last-child { border-bottom: none; }
+
+  /* ─── TEAM MANAGEMENT ─── */
+  .team-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .team-table th { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); background: var(--card2); }
+  .team-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .team-table tr:last-child td { border-bottom: none; }
+  .team-rate-input { width: 70px; background: var(--card); border: 1px solid var(--border2); color: var(--text); padding: 5px 8px; border-radius: 7px; font-size: 12px; font-family: var(--mono); text-align: right; }
+  .team-name-input { width: 160px; background: var(--card); border: 1px solid var(--border2); color: var(--text); padding: 5px 8px; border-radius: 7px; font-size: 12px; }
+
+  /* ─── ANALYTICS NAV ─── */
+  .analytics-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+  .analytics-nav-btn {
+    padding: 7px 16px; border-radius: 9px; border: 1px solid var(--border2);
+    background: var(--card); color: var(--text2); font-family: var(--sans);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .18s;
+  }
+  .analytics-nav-btn:hover { border-color: var(--border3); color: var(--text); }
+  .analytics-nav-btn.active { background: var(--accent-dim2); border-color: rgba(23,85,237,.35); color: var(--accent); }
+
+  /* ─── COORDINATOR TAG ─── */
+  .coord-tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid rgba(23,85,237,.25); background: var(--accent-dim);
+    color: var(--accent); white-space: nowrap;
+  }
+  .coord-tag.unassigned { border-color: var(--border2); background: var(--card3); color: var(--text3); }
+
+  @media (max-width: 640px) {
+    .briefing-grid { grid-template-columns: 1fr 1fr !important; }
+    .earnings-card { flex-direction: column; }
+  }
+
   /* ─── MISC ─── */
   .hidden { display: none !important; }
   .text-mono { font-family: var(--mono); }
@@ -2013,6 +2090,7 @@
     const el = document.getElementById('header-user-email');
     if (el && user) el.textContent = user.email;
     window._currentUserEmail = user ? user.email : '';
+    if (user && window._onUserRoleReady) window._onUserRoleReady(user.email);
   });
 </script>
 </head>
@@ -2082,7 +2160,8 @@ function doLogin(){
 <button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
         <span class="sync-dot" id="sync-dot"></span><span id="sync-label">☁ Sync</span>
       </button>
-      <button class="btn-refresh" onclick="window._fbSignOut()" style="display:flex;align-items:center;gap:5px">
+      <button class="btn-refresh" onclick="window._fbSignOut()" style="display:flex;align-items:center;gap:6px">
+        <span id="role-badge" class="role-badge" style="display:none"></span>
         <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
         <span>Sign out</span>
       </button>
@@ -2146,6 +2225,7 @@ function doLogin(){
     <button class="tab" onclick="switchTab('hired')">Hired</button>
     <button class="tab hidden" onclick="switchTab('matcher')">AI Matcher</button>
     <button class="tab" onclick="switchTab('screening')">Screening</button>
+    <button class="tab hidden" id="tab-btn-analytics" onclick="switchTab('analytics')">Analytics</button>
   </div>
 </header>
 
@@ -2197,6 +2277,7 @@ function doLogin(){
       <div class="section-title">Hired Candidates</div>
       <div class="badge" id="hired-count">0</div>
     </div>
+    <div id="my-earnings-card" style="display:none"></div>
     <div id="hired-filter-bar" class="filter-bar" style="margin-bottom:16px">
       <input type="text" id="hired-search" placeholder="Search by name, employer or position…" oninput="renderHiredTab()" style="flex:1;min-width:200px">
       <select id="hired-filter-jo" onchange="renderHiredTab()">
@@ -2248,6 +2329,15 @@ function doLogin(){
   <!-- ═══ TAB: SCREENING ═══ -->
   <div class="tab-content" id="tab-screening">
     <div id="screening-inner"></div>
+  </div>
+
+  <!-- ═══ TAB: ANALYTICS (admin only) ═══ -->
+  <div class="tab-content" id="tab-analytics">
+    <div class="section-header">
+      <div class="section-title">Analytics</div>
+      <div class="badge" id="analytics-badge">Admin</div>
+    </div>
+    <div id="analytics-inner"></div>
   </div>
 
 </main>
@@ -2533,6 +2623,162 @@ function doLogin(){
 
 <script>
 // ═══════════════════════════════════════════════
+// ROLE CONFIG
+// ═══════════════════════════════════════════════
+const ROLE_CONFIG = {
+  admins: [
+    'markchristianpjalandoon@gmail.com'
+  ],
+  coordinators: {
+    // 'email@example.com': { name: 'Coordinator Name', commissionRate: 0.30, active: true }
+  }
+};
+
+// Merged at runtime with Firebase /config/roles (Firebase takes precedence)
+var _mergedRoleConfig = null;
+function getRoleConfig() {
+  return _mergedRoleConfig || ROLE_CONFIG;
+}
+
+var currentUserRole  = 'viewer';
+var currentUserEmail = '';
+
+function getUserRole(email) {
+  if (!email) return 'viewer';
+  const rc = getRoleConfig();
+  if (rc.admins && rc.admins.indexOf(email) >= 0) return 'admin';
+  if (rc.coordinators && rc.coordinators[email] && rc.coordinators[email].active !== false) return 'coordinator';
+  return 'viewer';
+}
+
+function isAdmin() { return currentUserRole === 'admin'; }
+function isCoordinator() { return currentUserRole === 'coordinator'; }
+function canEdit() { return currentUserRole === 'admin' || currentUserRole === 'coordinator'; }
+
+function renderIfAdmin(value, fallback) {
+  return isAdmin() ? value : (fallback !== undefined ? fallback : '—');
+}
+
+function applyRoleUI() {
+  // Role badge
+  var badge = document.getElementById('role-badge');
+  if (badge) {
+    badge.style.display = '';
+    if (isAdmin()) {
+      badge.textContent = 'ADMIN';
+      badge.className = 'role-badge role-admin';
+    } else if (isCoordinator()) {
+      badge.textContent = 'COORD';
+      badge.className = 'role-badge role-coordinator';
+    } else {
+      badge.textContent = 'VIEWER';
+      badge.className = 'role-badge role-viewer';
+    }
+  }
+  // Show/hide Analytics tab
+  var atBtn = document.getElementById('tab-btn-analytics');
+  if (atBtn) atBtn.classList.toggle('hidden', !isAdmin());
+  // Show/hide Sync button (admin only)
+  var syncBtn = document.getElementById('sync-btn');
+  if (syncBtn) syncBtn.style.display = isAdmin() ? '' : 'none';
+  // Show/hide Cancel JO — handled in buildJOPanel via renderIfAdmin
+}
+
+window._onUserRoleReady = function(email) {
+  currentUserEmail = email;
+  currentUserRole  = getUserRole(email);
+  applyRoleUI();
+};
+
+async function loadFirebaseRoleConfig() {
+  var url = getFirebaseUrl('config/roles');
+  if (!url) return;
+  try {
+    var res = await fetch(url);
+    if (!res.ok) return;
+    var data = await res.json();
+    if (!data) return;
+    _mergedRoleConfig = {
+      admins: data.admins || ROLE_CONFIG.admins,
+      coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.coordinators || {})
+    };
+    // Re-evaluate role after Firebase config loads
+    if (currentUserEmail) {
+      currentUserRole = getUserRole(currentUserEmail);
+      applyRoleUI();
+    }
+  } catch(e) {
+    console.warn('Role config load failed:', e.message);
+  }
+}
+
+async function saveFirebaseRoleConfig() {
+  var url = getFirebaseUrl('config/roles');
+  if (!url) { showToast('Firebase not configured.', 'red'); return; }
+  var rc = getRoleConfig();
+  try {
+    await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rc) });
+    showToast('Team config saved.', 'green');
+  } catch(e) {
+    showToast('Save failed: ' + e.message, 'red');
+  }
+}
+
+// ─── COORDINATOR ATTRIBUTION ───
+function getCoordinatorEmail(joId) {
+  try { return localStorage.getItem('jo_coordinator_' + joId) || ''; } catch(e) { return ''; }
+}
+
+function getCoordinatorName(email) {
+  if (!email) return '';
+  var rc = getRoleConfig();
+  var coord = rc.coordinators && rc.coordinators[email];
+  return coord ? coord.name : email.split('@')[0];
+}
+
+function setCoordinatorForJO(joId, email) {
+  localStorage.setItem('jo_coordinator_' + joId, email);
+  fbSync('jo_coordinators/' + joId, email);
+}
+
+// ─── COMMISSION ───
+function formatPeso(amount) {
+  if (isNaN(amount) || amount === null || amount === undefined) return '—';
+  return '₱' + Math.round(amount).toLocaleString('en-PH');
+}
+
+function computeAndSaveCommission(pid, joId) {
+  var coordEmail = getCoordinatorEmail(joId);
+  if (!coordEmail) return;
+  var rc = getRoleConfig();
+  var coord = rc.coordinators && rc.coordinators[coordEmail];
+  if (!coord) return;
+  var rate = coord.commissionRate || 0;
+  var jo = jobOrders.find(function(j) { return j.id === joId; });
+  var baseFee = 0;
+  if (jo) {
+    var rawFee = (jo.feeAmount || '').replace(/[^0-9.]/g, '');
+    baseFee = parseFloat(rawFee) || 0;
+  }
+  if (!baseFee) {
+    // Try from hire_data feeAmount
+    var hd = {};
+    try { hd = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    var rawFee2 = (hd.feeAmount || '').replace(/[^0-9.]/g, '');
+    baseFee = parseFloat(rawFee2) || 0;
+  }
+  var amount = Math.round(baseFee * rate);
+  var commissionRecord = { coordinatorEmail: coordEmail, rate: rate, baseFee: baseFee, amount: amount, computedAt: new Date().toISOString() };
+  var key = 'hire_data_' + pid;
+  var hireData = {};
+  try { hireData = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+  hireData.commission = commissionRecord;
+  localStorage.setItem(key, JSON.stringify(hireData));
+  fbSyncDebounced('hire_data/' + pid, hireData);
+  fbSync('commissions/' + pid, commissionRecord);
+}
+
+// ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
 // API Key — loaded from localStorage, never hardcoded in file
@@ -2747,6 +2993,12 @@ async function loadAll() {
   await fbPullSilent();
   loadLocal(); // reload after firebase pull
   repairShiftedPlacements();
+  // Apply role from already-set email (may have been set by onAuthStateChanged before loadAll)
+  if (window._currentUserEmail) {
+    currentUserEmail = window._currentUserEmail;
+    currentUserRole  = getUserRole(currentUserEmail);
+    applyRoleUI();
+  }
 
   document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
   document.getElementById('cand-container').innerHTML = loadingHTML('Loading candidates…');
@@ -3102,16 +3354,45 @@ function renderJobOrders(allPlacements) {
   // Status filter bar
   const filterWrap = document.createElement('div');
   filterWrap.className = 'jo-status-filter-bar';
+  filterWrap.style.display = 'flex';
+  filterWrap.style.flexWrap = 'wrap';
+  filterWrap.style.gap = '6px';
+  filterWrap.style.marginBottom = '12px';
+  filterWrap.style.alignItems = 'center';
   const statusFilters = ['All','Active','On Hold','Fulfilled','Cancelled'];
   const currentFilter = window._joFilter || 'Active';
-  filterWrap.innerHTML = statusFilters.map(s => `
-    <button class="jo-status-filter-btn${s===currentFilter?' sfactive':''}" onclick="setJOFilter('${s}')">${s}</button>
-  `).join('');
+  var statusBtnsHtml = statusFilters.map(s =>
+    '<button class="jo-status-filter-btn' + (s===currentFilter ? ' sfactive' : '') + '" onclick="setJOFilter(\'' + s + '\')">' + s + '</button>'
+  ).join('');
+  // Admin: coordinator picker
+  if (isAdmin()) {
+    var rc = getRoleConfig();
+    var coordOpts = '<option value="">All Handlers</option><option value="__unassigned__">Unassigned</option>' +
+      Object.entries(rc.coordinators || {}).map(function(e) {
+        return '<option value="' + e[0] + '"' + (window._joCoordFilter===e[0]?' selected':'') + '>' + (e[1].name || e[0]) + '</option>';
+      }).join('');
+    statusBtnsHtml += '<select style="padding:5px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text);margin-left:8px" onchange="window._joCoordFilter=this.value;renderJobOrders([...placements,...manualPlacements])">' + coordOpts + '</select>';
+  }
+  // Coordinator: show-all toggle
+  if (isCoordinator()) {
+    var showAllChecked = window._joShowAll ? ' checked' : '';
+    statusBtnsHtml += '<label style="font-size:12px;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:5px;margin-left:8px"><input type="checkbox"' + showAllChecked + ' onchange="window._joShowAll=this.checked;renderJobOrders([...placements,...manualPlacements])"> Show All</label>';
+  }
+  filterWrap.innerHTML = statusBtnsHtml;
+
+  // Coordinator filter (admin: show picker; coordinator: show own only unless override)
+  const coordFilter = window._joCoordFilter || '';
+  var baseJOs = currentFilter === 'All' ? jobOrders : jobOrders.filter(jo => jo.status === currentFilter);
+  if (isAdmin() && coordFilter) {
+    baseJOs = coordFilter === '__unassigned__'
+      ? baseJOs.filter(jo => !getCoordinatorEmail(jo.id))
+      : baseJOs.filter(jo => getCoordinatorEmail(jo.id) === coordFilter);
+  } else if (isCoordinator() && !window._joShowAll) {
+    baseJOs = baseJOs.filter(jo => getCoordinatorEmail(jo.id) === currentUserEmail);
+  }
 
   // Filter job orders
-  const visibleJOs = currentFilter === 'All'
-    ? jobOrders
-    : jobOrders.filter(jo => jo.status === currentFilter);
+  const visibleJOs = baseJOs;
 
   // Sort active JOs by age (oldest first = most urgent at top)
   visibleJOs.sort(function(a, b) {
@@ -3162,7 +3443,12 @@ function renderJobOrders(allPlacements) {
       '<div class="jo-tab-pos">' + escHtml(jo.position) + '</div>' +
       '<div class="jo-tab-company">' + escHtml(jo.company) + '</div>' +
       '<div class="jo-tab-count">📢 ' + broadcastedC + ' broadcasted \xB7 ✓ ' + confirmedC + ' confirmed \xB7 ' + hiredC + '/' + slots + ' hired</div>' +
-      (jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled \xB7 ' + escHtml(_cxInfo.reason) + '</div>' : '');
+      (function() {
+        var ce = getCoordinatorEmail(jo.id);
+        var cn = ce ? getCoordinatorName(ce) : '';
+        return '<div style="margin-top:4px"><span class="coord-tag' + (cn ? '' : ' unassigned') + '">' + (cn ? '🧑 ' + escHtml(cn) : 'Unassigned') + '</span></div>';
+      })() +
+      (jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled \xB7 ' + (isAdmin() ? escHtml(_cxInfo.reason) : '—') + '</div>' : '');
     btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
     tabBar.appendChild(btn);
   });
@@ -3241,6 +3527,23 @@ function buildJOPanel(jo, joPlacements) {
     }
   }
 
+  // Coordinator "Handled By" field
+  var existingCoordEmail = getCoordinatorEmail(jo.id);
+  var coordHtml = '';
+  if (isAdmin()) {
+    var rc2 = getRoleConfig();
+    var coordOpts2 = '<option value="">-- Unassigned --</option>' +
+      Object.entries(rc2.coordinators || {}).map(function(e) {
+        return '<option value="' + escAttr(e[0]) + '"' + (existingCoordEmail===e[0]?' selected':'') + '>' + escHtml(e[1].name || e[0]) + '</option>';
+      }).join('');
+    coordHtml = '<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Handled By</span>' +
+      '<select style="font-size:12px;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text)" onchange="setCoordinatorForJO(\'' + escAttr(jo.id) + '\',this.value)">' + coordOpts2 + '</select></div>';
+  } else if (existingCoordEmail) {
+    coordHtml = '<div style="margin-top:8px"><span class="coord-tag">🧑 ' + escHtml(getCoordinatorName(existingCoordEmail)) + '</span></div>';
+  } else {
+    coordHtml = '<div style="margin-top:8px"><span class="coord-tag unassigned">Unassigned</span></div>';
+  }
+
   panel.innerHTML = `
     <div class="jo-panel-header">
       <div class="jo-panel-left">
@@ -3267,6 +3570,7 @@ function buildJOPanel(jo, joPlacements) {
           </span>
           <span class="jo-status-chip" style="color:${sc.color};background:${sc.bg}">${sc.label}</span>
         </div>
+        ${coordHtml}
       </div>
       <div class="jo-panel-actions" style="flex-direction:column;gap:6px;align-items:flex-end">
         <div style="display:flex;gap:6px">
@@ -3277,7 +3581,7 @@ function buildJOPanel(jo, joPlacements) {
             : `<button class="btn btn-ghost" onclick="confirmAddOverride('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">+ Add (Override)</button>`}
         </div>
         <div style="display:flex;gap:6px">
-          ${statusBtns}
+          ${isAdmin() ? statusBtns : ''}
         </div>
         <div style="display:flex;gap:6px">
           <button id="copy-jo-btn-${jo.id.replace(/[^a-z0-9]/gi,'')}" class="btn btn-ghost" onclick="copyJobDetails('${escAttr(jo.id)}')">📋 Copy Job Details</button>
@@ -3963,6 +4267,10 @@ function saveProwField(pid, field, value, el) {
   if (mp) { mp[field] = value; saveManualPlacements(); }
   // Also save to extra so UI reflects on next load
   saveProwExtra(pid, field, value);
+  // Trigger commission computation when status becomes Hired
+  if (field === 'status' && (value || '').trim().toLowerCase() === 'hired' && mp) {
+    computeAndSaveCommission(pid, mp.jobOrderId);
+  }
   // Refresh the dot and pill in header without re-rendering
   const row = document.getElementById(`prow-${pid}`);
   if (!row) return;
@@ -6676,6 +6984,7 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
 }
 
 function renderHiredTab() {
+  renderMyEarnings();
   const container = document.getElementById('hired-container');
   if (!container) return;
 
@@ -7025,12 +7334,17 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
 }
 
 function saveHireData(pid, field, value) {
-  const key = `hire_data_${pid}`;
+  const key = 'hire_data_' + pid;
   let d = {};
   try { d = JSON.parse(localStorage.getItem(key)||'{}'); } catch(e){}
   d[field] = value;
   localStorage.setItem(key, JSON.stringify(d));
   fbSyncDebounced('hire_data/' + pid, d);
+  // Recompute commission when hire date is set
+  if (field === 'hireDate' && value) {
+    var p = [...placements, ...manualPlacements].find(function(pl) { return (pl.placementId || pl.candidateId) === pid; });
+    if (p) computeAndSaveCommission(pid, p.jobOrderId);
+  }
 }
 
 function openIssueModal(pid) {
@@ -7272,15 +7586,19 @@ function buildReflectionLog(candId) {
 // TAB SWITCHING
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
+  // Role gate: non-admin redirect away from analytics
+  if (tab === 'analytics' && !isAdmin()) { tab = 'jobs'; }
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  document.getElementById(`tab-${tab}`).classList.add('active');
-  const tabs = ['jobs','candidates','hired','matcher','screening'];
-  const idx = tabs.indexOf(tab);
+  var tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) tabEl.classList.add('active');
+  const allTabs = ['jobs','candidates','hired','matcher','screening','analytics'];
+  const idx = allTabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
   if (tab === 'hired') renderHiredTab();
   if (tab === 'templates') renderTemplatesTab();
   if (tab === 'screening') renderScreeningTab();
+  if (tab === 'analytics') renderAnalyticsTab();
 }
 
 // ═══════════════════════════════════════════════
@@ -7706,6 +8024,14 @@ async function fbPullSilent() {
     if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
     if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
     if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+    if (data.jo_coordinators)
+      Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
+    if (data.config && data.config.roles) {
+      _mergedRoleConfig = {
+        admins: data.config.roles.admins || ROLE_CONFIG.admins,
+        coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.config.roles.coordinators || {})
+      };
+    }
   } catch(e) {
     console.warn('fbPullSilent failed:', e.message);
   }
@@ -7748,6 +8074,12 @@ async function loadFromFirebase() {
     if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
     if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
     if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+    if (data.jo_coordinators)
+      Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
+    if (data.config && data.config.roles) {
+      _mergedRoleConfig = { admins: data.config.roles.admins || ROLE_CONFIG.admins, coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.config.roles.coordinators || {}) };
+      if (currentUserEmail) { currentUserRole = getUserRole(currentUserEmail); applyRoleUI(); }
+    }
 
     loadLocal();
     const allP = [...placements, ...manualPlacements];
@@ -7765,7 +8097,7 @@ async function loadFromFirebase() {
 async function pushAllToFirebase() {
   const url = getFirebaseUrl('');
   if (!url) return;
-  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {};
+  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {}, joCoords = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     try {
@@ -7775,6 +8107,7 @@ async function pushAllToFirebase() {
       else if (k.startsWith('jo_fulfill_'))       joFulfill[k.slice(11)]      = JSON.parse(localStorage.getItem(k));
       else if (k.startsWith('jo_delayed_close_')) joDelayedClose[k.slice(17)] = localStorage.getItem(k);
       else if (k.startsWith('reflection_'))       reflections[k.slice(11)]    = JSON.parse(localStorage.getItem(k));
+      else if (k.startsWith('jo_coordinator_'))   joCoords[k.slice(15)]       = localStorage.getItem(k);
       else if (k.startsWith('jo_cancellation_')) {
         const cx = JSON.parse(localStorage.getItem(k));
         const cxId = k.slice(16);
@@ -7800,7 +8133,9 @@ async function pushAllToFirebase() {
     jo_delayed_close:    joDelayedClose,
     reflections:         reflections,
     jobOrders:           joOrders,
-    broadcast_log:       (function(){ try { return JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { return []; } })()
+    jo_coordinators:     joCoords,
+    broadcast_log:       (function(){ try { return JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { return []; } })(),
+    config:              { roles: getRoleConfig() }
   };
   setSyncStatus('syncing');
   const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -8849,7 +9184,423 @@ function setUrgency(val) {
   });
 }
 
-loadAll().then(function() { loadFromFirebase(); initCandFilters(); initScrFilters(); });
+// ═══════════════════════════════════════════════
+// ANALYTICS TAB
+// ═══════════════════════════════════════════════
+var _analyticsSection = 'cancellation';
+
+function renderAnalyticsTab() {
+  if (!isAdmin()) { switchTab('jobs'); return; }
+  var inner = document.getElementById('analytics-inner');
+  if (!inner) return;
+
+  var navItems = [
+    { key: 'cancellation', label: 'Cancellations' },
+    { key: 'pipeline',     label: 'Pipeline Drop-off' },
+    { key: 'timing',       label: 'Time-to-Placement' },
+    { key: 'employers',    label: 'Employers' },
+    { key: 'revenue',      label: 'Revenue' },
+    { key: 'commission',   label: 'Commission' },
+    { key: 'team',         label: 'Manage Team' },
+  ];
+  var nav = '<div class="analytics-nav">' +
+    navItems.map(function(n) {
+      return '<button class="analytics-nav-btn' + (n.key===_analyticsSection?' active':'') + '" onclick="_analyticsSection=\'' + n.key + '\';renderAnalyticsTab()">' + n.label + '</button>';
+    }).join('') + '</div>';
+
+  var content = '';
+  if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
+  else if (_analyticsSection === 'pipeline') content = buildPipelineDropoff();
+  else if (_analyticsSection === 'timing')   content = buildTimingDistribution();
+  else if (_analyticsSection === 'employers') content = buildEmployerTable();
+  else if (_analyticsSection === 'revenue')  content = buildRevenueTable();
+  else if (_analyticsSection === 'commission') content = buildCommissionTable();
+  else if (_analyticsSection === 'team')     content = buildManageTeam();
+
+  inner.innerHTML = nav + content;
+}
+
+function buildCancellationAnalysis() {
+  // Gather cancelled JO data
+  var cancelled = [];
+  jobOrders.forEach(function(jo) {
+    var cxRaw = localStorage.getItem('jo_cancellation_' + jo.id);
+    if (!cxRaw) return;
+    var cx = {}; try { cx = JSON.parse(cxRaw); } catch(e) { return; }
+    var daysOpen = 0;
+    if (jo.timestamp) { var dt = parseDateFlex(jo.timestamp); if (dt) daysOpen = Math.floor((new Date(cx.cancelledAt||Date.now()) - dt) / 86400000); }
+    cancelled.push({ jo: jo, cx: cx, daysOpen: daysOpen });
+  });
+  // Also count from joStatusOverrides
+  Object.keys(joStatusOverrides).forEach(function(joId) {
+    if (joStatusOverrides[joId] !== 'Cancelled') return;
+    if (cancelled.some(function(c){ return c.jo.id === joId; })) return;
+    var cxRaw = localStorage.getItem('jo_cancellation_' + joId);
+    if (!cxRaw) return;
+    var cx = {}; try { cx = JSON.parse(cxRaw); } catch(e) { return; }
+    var jo = { id: joId, company: cx.company||joId, position: '', timestamp: '' };
+    cancelled.push({ jo: jo, cx: cx, daysOpen: 0 });
+  });
+
+  var total = cancelled.length;
+  var avgDaysOpen = total ? Math.round(cancelled.reduce(function(a,b){ return a+b.daysOpen; },0)/total) : 0;
+  var reasonCounts = {};
+  cancelled.forEach(function(c) {
+    var r = (c.cx.reason||'Unknown').replace(/^Other:\s*/,'Other');
+    reasonCounts[r] = (reasonCounts[r]||0) + 1;
+  });
+  var reasons = Object.entries(reasonCounts).sort(function(a,b){ return b[1]-a[1]; });
+  var topReason = reasons.length ? reasons[0][0] : '—';
+  var thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0,0,0,0);
+  var cancelledThisMonth = cancelled.filter(function(c) { var dt=parseDateFlex(c.cx.cancelledAt||''); return dt && dt>=thisMonth; }).length;
+  var totalJOs = jobOrders.length + total;
+  var cancelRate = totalJOs ? Math.round(total/totalJOs*100) : 0;
+
+  // Summary cards
+  var cards = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">' +
+    [['Total Cancelled', total, 'var(--red)'],
+     ['Avg Days Open', avgDaysOpen+'d', 'var(--gold2)'],
+     ['Top Reason', topReason.length>20?topReason.slice(0,20)+'…':topReason, 'var(--text)'],
+     ['Cancel Rate', cancelRate+'%', 'var(--orange)'],
+     ['This Month', cancelledThisMonth, 'var(--red)']
+    ].map(function(x) {
+      return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 16px">' +
+        '<div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">' + x[0] + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + x[2] + '">' + x[1] + '</div></div>';
+    }).join('') + '</div>';
+
+  // Bar chart of reasons
+  var maxR = reasons.length ? reasons[0][1] : 1;
+  var bars = '<div style="margin-bottom:20px">' +
+    reasons.map(function(r) {
+      var pct = Math.round(r[1]/maxR*100);
+      var pcOfTotal = total ? Math.round(r[1]/total*100) : 0;
+      return '<div class="chart-bar-row">' +
+        '<div class="chart-bar-label" style="min-width:220px">' + escHtml(r[0]) + '</div>' +
+        '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:' + pct + '%;background:var(--red)"><span>' + r[1] + '</span></div></div>' +
+        '<div class="chart-bar-count" style="color:var(--text3)">' + pcOfTotal + '%</div>' +
+        '</div>';
+    }).join('') + '</div>';
+
+  // Cancellation log table (admin only — notes visible to admin)
+  var tableRows = cancelled.slice().sort(function(a,b){ return (b.cx.cancelledAt||'').localeCompare(a.cx.cancelledAt||''); }).map(function(c) {
+    var dateStr = c.cx.cancelledAt ? new Date(c.cx.cancelledAt).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    var coordEmail = getCoordinatorEmail(c.jo.id);
+    var coordName = coordEmail ? getCoordinatorName(coordEmail) : '—';
+    return '<tr><td>' + dateStr + '</td><td>' + escHtml(c.jo.company||'—') + '</td><td>' + escHtml(c.jo.position||'—') + '</td>' +
+      '<td style="font-family:var(--mono)">' + c.daysOpen + 'd</td>' +
+      '<td>' + escHtml(c.cx.reason||'—') + '</td><td>' + escHtml(coordName) + '</td>' +
+      '<td style="color:var(--text3);font-size:11px">' + escHtml(c.cx.notes||'') + '</td></tr>';
+  }).join('');
+
+  // 6-month trend chart (SVG)
+  var monthCounts = {};
+  for (var m=5;m>=0;m--) { var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-m); monthCounts[d.getFullYear()+'-'+(d.getMonth()+1)] = 0; }
+  cancelled.forEach(function(c) { var dt=parseDateFlex(c.cx.cancelledAt||''); if(!dt) return; var mk=dt.getFullYear()+'-'+(dt.getMonth()+1); if(monthCounts[mk]!==undefined) monthCounts[mk]++; });
+  var mKeys = Object.keys(monthCounts);
+  var mMax = Math.max(1, Math.max.apply(null, Object.values(monthCounts)));
+  var svgW = 420, svgH = 80, barW = Math.floor(svgW/mKeys.length)-8;
+  var svgBars = mKeys.map(function(mk, i) {
+    var cnt = monthCounts[mk];
+    var bh = Math.max(4, Math.round(cnt/mMax*(svgH-20)));
+    var x = i * (svgW/mKeys.length) + 4;
+    var y = svgH - bh - 2;
+    var label = mk.split('-')[1]; // month number
+    return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + bh + '" rx="3" fill="var(--red)" opacity=".7"/>' +
+      '<text x="' + (x+barW/2) + '" y="' + (svgH+2) + '" text-anchor="middle" font-size="9" fill="var(--text3)">' + label + '</text>' +
+      '<text x="' + (x+barW/2) + '" y="' + (y-3) + '" text-anchor="middle" font-size="8" fill="var(--text2)">' + cnt + '</text>';
+  }).join('');
+  var trendChart = '<div style="margin-bottom:20px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">6-Month Trend</div>' +
+    '<svg width="' + svgW + '" height="' + (svgH+14) + '" style="overflow:visible">' + svgBars + '</svg></div>';
+
+  return '<div class="analytics-section">' +
+    '<div class="analytics-section-title">Cancellation Analysis <span style="font-size:11px;font-weight:600;color:var(--text3)">' + total + ' total cancelled</span></div>' +
+    cards + bars + trendChart +
+    '<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr>' +
+    '<th>Date</th><th>Employer</th><th>Position</th><th>Days Open</th><th>Reason</th><th>Handler</th><th>Notes</th></tr></thead><tbody>' +
+    (tableRows || '<tr><td colspan="7" style="text-align:center;color:var(--text3)">No cancellations recorded.</td></tr>') +
+    '</tbody></table></div></div>';
+}
+
+function buildPipelineDropoff() {
+  var stages = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓'];
+  var counts = {}; stages.forEach(function(s){ counts[s]=0; });
+  var allP = [...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid = p.placementId||p.candidateId;
+    var ex = {}; try { ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}'); } catch(e){}
+    var stg = getEffectiveStage(ex,p);
+    if (counts[stg]!==undefined) counts[stg]++;
+  });
+  var maxC = Math.max(1, Math.max.apply(null, stages.map(function(s){ return counts[s]; })));
+  var colors = ['var(--blue)','var(--accent)','var(--purple)','var(--orange)','var(--green)'];
+  var worstDropIdx = -1; var worstDrop = -1;
+  var rows = stages.map(function(stage, i) {
+    var cnt = counts[stage];
+    var pct = Math.round(cnt/maxC*100);
+    var dropoffHtml = '';
+    if (i>0) {
+      var prev = counts[stages[i-1]]||0;
+      if (prev>0) {
+        var d = Math.round((1-cnt/prev)*100);
+        if (d>worstDrop) { worstDrop=d; worstDropIdx=i; }
+        dropoffHtml = '<span style="font-size:10px;color:var(--text3);margin-left:8px">↓ ' + d + '% drop-off' + (i===worstDropIdx?'  <b style=color:var(--red)>Biggest drop-off</b>':'') + '</span>';
+      }
+    }
+    return '<div class="chart-bar-row" style="' + (i===worstDropIdx?'background:rgba(220,38,38,.05);border-radius:8px;padding:4px 8px':'') + '">' +
+      '<div class="chart-bar-label" style="min-width:200px;font-weight:' + (i===worstDropIdx?'700':'500') + ';color:' + (i===worstDropIdx?'var(--red)':'var(--text2)') + '">' + stage + (i===worstDropIdx?' ⚠️':'') + '</div>' +
+      '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:' + pct + '%;background:' + colors[i] + '"><span>' + cnt + '</span></div></div>' +
+      '<div class="chart-bar-count">' + cnt + '</div>' + dropoffHtml + '</div>';
+  }).join('');
+  return '<div class="analytics-section"><div class="analytics-section-title">Pipeline Drop-off Analysis</div>' + rows + '</div>';
+}
+
+function buildTimingDistribution() {
+  var buckets = { '1-3d':0, '4-5d':0, '6-7d':0, '8-10d':0, '10+d':0 };
+  var allP = [...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid = p.placementId||p.candidateId;
+    var ex = {}; try { ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}'); } catch(e){}
+    var hd = {}; try { hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}'); } catch(e){}
+    if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
+    var hireDate = hd.hireDate; if(!hireDate) return;
+    var jo = jobOrders.find(function(j){ return j.id===p.jobOrderId; });
+    if (!jo||!jo.timestamp) return;
+    var hdMs=parseDateFlex(hireDate), joMs=parseDateFlex(jo.timestamp);
+    if (!hdMs||!joMs) return;
+    var days = Math.round((hdMs-joMs)/86400000);
+    if (days<=3) buckets['1-3d']++;
+    else if (days<=5) buckets['4-5d']++;
+    else if (days<=7) buckets['6-7d']++;
+    else if (days<=10) buckets['8-10d']++;
+    else buckets['10+d']++;
+  });
+  var maxB = Math.max(1, Math.max.apply(null, Object.values(buckets)));
+  var bars = Object.entries(buckets).map(function(b) {
+    var pct = Math.round(b[1]/maxB*100);
+    return '<div class="chart-bar-row"><div class="chart-bar-label" style="min-width:80px">' + b[0] + '</div>' +
+      '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:' + pct + '%;background:var(--accent)"><span>' + b[1] + '</span></div></div>' +
+      '<div class="chart-bar-count">' + b[1] + ' placements</div></div>';
+  }).join('');
+  return '<div class="analytics-section"><div class="analytics-section-title">Time-to-Placement Distribution</div>' + bars + '</div>';
+}
+
+function buildEmployerTable() {
+  var employerMap = {};
+  jobOrders.forEach(function(jo) {
+    var key = (jo.company||'Unknown').trim();
+    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0 };
+    employerMap[key].orders++;
+    var isCancelled = jo.status==='Cancelled'||joStatusOverrides[jo.id]==='Cancelled';
+    if (isCancelled) employerMap[key].cancellations++;
+  });
+  var allP = [...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var jo = jobOrders.find(function(j){ return j.id===p.jobOrderId; });
+    var key = jo ? (jo.company||'Unknown').trim() : 'Unknown';
+    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0 };
+    var pid = p.placementId||p.candidateId;
+    var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
+    var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    if ((ex.status||p.status||'').trim().toLowerCase()==='hired') {
+      employerMap[key].placements++;
+      var fee = parseFloat((hd.feeAmount||'').replace(/[^0-9.]/g,''))||0;
+      if (hd.feeStatus==='Paid') employerMap[key].revenue+=fee;
+    }
+    if (hd.issueReported&&(hd.issues||[]).some(function(i){ return i.type==='Replacement Requested'||i.type==='Candidate Abandonment / No-Show'; })) employerMap[key].replacements++;
+  });
+  var rows = Object.entries(employerMap).sort(function(a,b){ return b[1].orders-a[1].orders; }).map(function(e) {
+    var key=e[0],em=e[1];
+    var isRepeat = em.orders>=2;
+    var replRate = em.placements>0 ? Math.round(em.replacements/em.placements*100)+'%' : '—';
+    var flagWarn = em.replacements>1 ? ' ⚠️' : '';
+    return '<tr><td>' + (isRepeat?'⭐ ':' ') + escHtml(key) + '</td><td style="font-family:var(--mono)">' + em.orders + '</td><td style="font-family:var(--mono)">' + em.placements + '</td>' +
+      '<td style="font-family:var(--mono)">' + em.cancellations + '</td><td>' + replRate + flagWarn + '</td><td style="font-family:var(--mono)">' + formatPeso(em.revenue) + '</td></tr>';
+  }).join('');
+  return '<div class="analytics-section"><div class="analytics-section-title">Employer Repeat Rate</div><div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Employer</th><th>Job Orders</th><th>Placements</th><th>Cancellations</th><th>Replacement Rate</th><th>Revenue Collected</th></tr></thead><tbody>' + (rows||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">No data.</td></tr>') + '</tbody></table></div></div>';
+}
+
+function buildRevenueTable() {
+  var monthMap = {};
+  function getMonthKey(ds) { var d=parseDateFlex(ds); if(!d) return null; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  // Init last 6 months
+  for (var m=5;m>=0;m--) { var d2=new Date(); d2.setDate(1); d2.setMonth(d2.getMonth()-m); var mk=d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0'); monthMap[mk]={joCount:0,placed:0,cancelled:0,collected:0,pending:0}; }
+  jobOrders.forEach(function(jo) {
+    var mk=getMonthKey(jo.timestamp); if(!mk||!monthMap[mk]) return;
+    monthMap[mk].joCount++;
+    if (jo.status==='Cancelled'||joStatusOverrides[jo.id]==='Cancelled') monthMap[mk].cancelled++;
+  });
+  var allP=[...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid=p.placementId||p.candidateId;
+    var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
+    var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
+    var mk=getMonthKey(hd.hireDate); if(!mk||!monthMap[mk]) return;
+    monthMap[mk].placed++;
+    var fee=parseFloat((hd.feeAmount||'').replace(/[^0-9.]/g,''))||0;
+    if (hd.feeStatus==='Paid') monthMap[mk].collected+=fee; else monthMap[mk].pending+=fee;
+  });
+  var monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var rows=Object.entries(monthMap).sort(function(a,b){return b[0].localeCompare(a[0]);}).map(function(e){
+    var mk=e[0],mv=e[1];
+    var parts=mk.split('-'); var mLabel=monthNames[parseInt(parts[1])-1]+' '+parts[0];
+    return '<tr><td style="font-weight:600">' + mLabel + '</td><td style="font-family:var(--mono)">' + mv.joCount + '</td><td style="font-family:var(--mono)">' + mv.placed + '</td><td style="font-family:var(--mono)">' + mv.cancelled + '</td>' +
+      '<td style="color:var(--green);font-weight:700;font-family:var(--mono)">' + formatPeso(mv.collected) + '</td><td style="color:var(--gold2);font-family:var(--mono)">' + formatPeso(mv.pending) + '</td></tr>';
+  }).join('');
+  return '<div class="analytics-section"><div class="analytics-section-title">Monthly Revenue Summary</div><div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Month</th><th>Job Orders</th><th>Placed</th><th>Cancelled</th><th>Fees Collected</th><th>Fees Pending</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
+
+function buildCommissionTable() {
+  if (!isAdmin()) return '';
+  var rc = getRoleConfig();
+  var coordEmails = Object.keys(rc.coordinators||{});
+  var now = new Date(); var monthStart = new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  var stats = {};
+  coordEmails.forEach(function(email) { stats[email]={monthCount:0,allCount:0,monthEarned:0,allEarned:0,pending:0}; });
+  var allP=[...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid=p.placementId||p.candidateId;
+    var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    var comm=hd.commission; if(!comm||!comm.coordinatorEmail) return;
+    var email=comm.coordinatorEmail; if(!stats[email]) stats[email]={monthCount:0,allCount:0,monthEarned:0,allEarned:0,pending:0};
+    var hdMs=parseDateFlex(hd.hireDate);
+    var isThisMonth = hdMs && hdMs.getTime()>=monthStart;
+    stats[email].allCount++;
+    stats[email].allEarned+=comm.amount||0;
+    if (hd.feeStatus!=='Paid') stats[email].pending+=comm.amount||0;
+    if (isThisMonth) { stats[email].monthCount++; stats[email].monthEarned+=comm.amount||0; }
+  });
+  var rows = coordEmails.map(function(email) {
+    var s=stats[email]||{monthCount:0,allCount:0,monthEarned:0,allEarned:0,pending:0};
+    var name=escHtml((rc.coordinators[email]||{}).name||email);
+    return '<tr><td style="font-weight:600">' + name + '</td><td style="font-family:var(--mono)">' + s.monthCount + '</td><td style="font-family:var(--mono)">' + s.allCount + '</td>' +
+      '<td style="color:var(--green);font-family:var(--mono);font-weight:700">' + formatPeso(s.monthEarned) + '</td>' +
+      '<td style="color:var(--green);font-family:var(--mono);font-weight:700">' + formatPeso(s.allEarned) + '</td>' +
+      '<td style="color:var(--gold2);font-family:var(--mono)">' + formatPeso(s.pending) + '</td>' +
+      '<td><button class="btn btn-green" style="font-size:11px;padding:4px 10px" onclick="markCoordPaid(\'' + escAttr(email) + '\')">Mark Paid</button></td></tr>';
+  }).join('');
+  return '<div class="analytics-section"><div class="analytics-section-title">Commission Tracking</div><div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Coordinator</th><th>Month</th><th>All Time</th><th>Earned (Month)</th><th>Earned (All Time)</th><th>Pending Payout</th><th>Action</th></tr></thead><tbody>' + (rows||'<tr><td colspan="7" style="text-align:center;color:var(--text3)">No coordinators configured.</td></tr>') + '</tbody></table></div></div>';
+}
+
+function markCoordPaid(email) {
+  var now = new Date();
+  var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  var payoutKey = 'commission_payout_' + email.replace(/[^a-z0-9]/gi,'_') + '_' + ym;
+  localStorage.setItem(payoutKey, new Date().toISOString());
+  fbSync('commissionPayouts/' + email.replace('@','_').replace(/\./g,'_') + '/' + ym, new Date().toISOString());
+  showToast('Payout recorded for ' + getCoordinatorName(email), 'green');
+}
+
+function buildManageTeam() {
+  var rc = getRoleConfig();
+  var rows = Object.entries(rc.coordinators||{}).map(function(e) {
+    var email=e[0], coord=e[1];
+    var isActive = coord.active !== false;
+    return '<tr>' +
+      '<td><input class="team-name-input" value="' + escAttr(coord.name||'') + '" onchange="updateCoordField(\'' + escAttr(email) + '\',\'name\',this.value)"></td>' +
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--text3)">' + escHtml(email) + '</td>' +
+      '<td><input class="team-rate-input" type="number" min="0" max="100" step="1" value="' + Math.round((coord.commissionRate||0)*100) + '" onchange="updateCoordField(\'' + escAttr(email) + '\',\'commissionRate\',this.value/100)">%</td>' +
+      '<td><span style="color:' + (isActive?'var(--green)':'var(--text3)') + '">' + (isActive?'Active':'Inactive') + '</span></td>' +
+      '<td style="display:flex;gap:6px">' +
+        '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="toggleCoordActive(\'' + escAttr(email) + '\')">' + (isActive?'Deactivate':'Activate') + '</button>' +
+        '<button class="btn btn-red" style="font-size:11px;padding:4px 10px" onclick="removeCoordinator(\'' + escAttr(email) + '\')">Remove</button>' +
+      '</td></tr>';
+  }).join('');
+  var addForm = '<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px 18px">' +
+    '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Add New Coordinator</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+    '<input id="new-coord-name" class="team-name-input" placeholder="Full Name" style="flex:1;min-width:140px">' +
+    '<input id="new-coord-email" type="email" class="team-name-input" placeholder="email@example.com" style="flex:1;min-width:200px">' +
+    '<input id="new-coord-rate" class="team-rate-input" type="number" value="30" min="0" max="100">%' +
+    '<button class="btn btn-green" onclick="addCoordinator()" style="font-size:12px">+ Add</button>' +
+    '</div></div>';
+  return '<div class="analytics-section"><div class="analytics-section-title">Manage Team</div>' +
+    '<div class="analytics-table-wrap"><table class="team-table"><thead><tr><th>Name</th><th>Email</th><th>Commission Rate</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
+    (rows||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">No coordinators yet.</td></tr>') + '</tbody></table></div>' + addForm + '</div>';
+}
+
+function updateCoordField(email, field, value) {
+  var rc = getRoleConfig();
+  if (!rc.coordinators[email]) return;
+  rc.coordinators[email][field] = field==='commissionRate' ? parseFloat(value) : value;
+  _mergedRoleConfig = rc;
+  saveFirebaseRoleConfig();
+}
+
+function toggleCoordActive(email) {
+  var rc = getRoleConfig();
+  if (!rc.coordinators[email]) return;
+  rc.coordinators[email].active = rc.coordinators[email].active === false ? true : false;
+  _mergedRoleConfig = rc;
+  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+}
+
+function removeCoordinator(email) {
+  if (!confirm('Remove coordinator ' + email + '? Historical records are preserved.')) return;
+  var rc = getRoleConfig();
+  delete rc.coordinators[email];
+  _mergedRoleConfig = rc;
+  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+}
+
+function addCoordinator() {
+  var name  = (document.getElementById('new-coord-name')||{}).value||'';
+  var email = (document.getElementById('new-coord-email')||{}).value||'';
+  var rate  = parseFloat((document.getElementById('new-coord-rate')||{}).value||'30')/100;
+  if (!name||!email) { showToast('Name and email required.', 'red'); return; }
+  var rc = getRoleConfig();
+  rc.coordinators = rc.coordinators||{};
+  rc.coordinators[email] = { name: name.trim(), commissionRate: rate, active: true };
+  _mergedRoleConfig = rc;
+  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+}
+
+// ─── COORDINATOR SELF-VIEW (My Earnings card) ───
+function renderMyEarnings() {
+  if (!isCoordinator()) return;
+  var container = document.getElementById('my-earnings-card');
+  if (!container) return;
+  var rc = getRoleConfig();
+  var coord = rc.coordinators && rc.coordinators[currentUserEmail];
+  if (!coord) return;
+  var now = new Date(); var monthStart = new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  var monthCount=0, monthEarned=0, pending=0;
+  var detailRows = [];
+  var allP=[...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid=p.placementId||p.candidateId;
+    var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    var comm=hd.commission; if(!comm||comm.coordinatorEmail!==currentUserEmail) return;
+    var hdMs=parseDateFlex(hd.hireDate); if(!hdMs) return;
+    var isThisMonth=hdMs.getTime()>=monthStart;
+    if(isThisMonth) { monthCount++; monthEarned+=comm.amount||0; }
+    if(hd.feeStatus!=='Paid') pending+=comm.amount||0;
+    var jo=jobOrders.find(function(j){return j.id===p.jobOrderId;});
+    detailRows.push('<div class="earnings-detail-row"><span>' + escHtml(p.candidateName||p.candidateId) + ' — ' + escHtml(jo?jo.company:'') + '</span><span style="font-weight:700;color:var(--green)">' + formatPeso(comm.amount) + '</span></div>');
+  });
+  var monthName=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()]+' '+now.getFullYear();
+  container.innerHTML = '<div class="earnings-card">' +
+    '<div class="earnings-metric"><div class="earnings-metric-val">' + monthCount + '</div><div class="earnings-metric-label">Placements</div></div>' +
+    '<div class="earnings-metric"><div class="earnings-metric-val">' + formatPeso(monthEarned) + '</div><div class="earnings-metric-label">Earned</div></div>' +
+    '<div class="earnings-metric"><div class="earnings-metric-val" style="color:var(--gold2)">' + formatPeso(pending) + '</div><div class="earnings-metric-label">Pending</div></div>' +
+    '</div>' + (detailRows.length ? '<div style="margin-top:10px">' + detailRows.join('') + '</div>' : '');
+  container.style.display='';
+}
+
+loadAll().then(function() {
+  loadFromFirebase().then(function() {
+    loadFirebaseRoleConfig().then(function() {
+      if (window._currentUserEmail) {
+        currentUserEmail = window._currentUserEmail;
+        currentUserRole  = getUserRole(currentUserEmail);
+        applyRoleUI();
+      }
+    });
+  });
+  initCandFilters();
+  initScrFilters();
+});
 </script>
 
 <!-- ─── TEMPLATE PICKER MODAL ─── -->
