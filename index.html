@@ -136,7 +136,7 @@
 
   /* ─── STATS BAR ─── */
   .stats-bar {
-    display: grid; grid-template-columns: repeat(4, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     gap: 1px;
     background: var(--border);
     border-top: 1px solid var(--border);
@@ -729,6 +729,9 @@
   .prof-msg-copy-btn:hover { background: rgba(5,150,105,0.2); }
 
   /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .stats-bar { grid-template-columns: repeat(3,1fr); }
+  }
   @media (max-width: 640px) {
     header { padding: 0 16px; }
     main { padding: 16px; }
@@ -737,7 +740,103 @@
     .placement-row { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
     .tabs { padding: 10px 16px; gap: 4px; overflow-x: auto; }
     .tab { font-size: 12px; padding: 7px 12px; }
+    .briefing-grid { grid-template-columns: 1fr 1fr !important; }
   }
+
+  /* ─── BRIEFING PANEL ─── */
+  .briefing-panel {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+  }
+  .briefing-title {
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .briefing-grid {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+  }
+  .briefing-item {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; cursor: default;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .briefing-item.clickable { cursor: pointer; }
+  .briefing-item.clickable:hover { border-color: var(--border3); box-shadow: 0 2px 8px rgba(23,85,237,.1); }
+  .briefing-item-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
+  .briefing-item-val { font-size: 20px; font-weight: 800; font-family: var(--mono); line-height: 1; }
+  .briefing-val-red    { color: var(--red); }
+  .briefing-val-gold   { color: var(--gold2); }
+  .briefing-val-green  { color: var(--green); }
+  .briefing-val-accent { color: var(--accent); }
+  .briefing-val-purple { color: var(--purple); }
+
+  /* ─── AGE BADGE (days open) ─── */
+  .age-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    border: 1px solid; white-space: nowrap;
+  }
+  .age-fresh    { background: rgba(5,150,105,.10); border-color: rgba(5,150,105,.3); color: var(--green); }
+  .age-followup { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.35); color: var(--gold2); }
+  .age-overdue  { background: rgba(220,38,38,.10); border-color: rgba(220,38,38,.3); color: var(--red); animation: pulse-warn 2s infinite; }
+
+  /* ─── PIPELINE FUNNEL ─── */
+  .pipeline-section {
+    padding: 14px 18px; border-top: 1px solid var(--border);
+  }
+  .pipeline-title {
+    font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pipeline-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+  }
+  .pipeline-label { font-size: 11px; font-weight: 600; color: var(--text2); min-width: 130px; }
+  .pipeline-bar-wrap { flex: 1; background: var(--card3); border-radius: 99px; height: 8px; overflow: hidden; }
+  .pipeline-bar-fill { height: 100%; border-radius: 99px; transition: width .4s ease; }
+  .pipeline-count { font-size: 11px; font-family: var(--mono); color: var(--text2); min-width: 32px; text-align: right; }
+  .pipeline-dropoff { font-size: 10px; color: var(--text3); min-width: 90px; }
+
+  /* ─── GUARANTEE WATCH TABLE ─── */
+  .guar-watch-section {
+    margin-top: 28px;
+  }
+  .guar-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .guar-table th {
+    font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px;
+    padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .guar-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .guar-table tr:last-child td { border-bottom: none; }
+  .guar-table tr:hover td { background: var(--card2); }
+  .guar-days-red    { font-weight: 700; color: var(--red); }
+  .guar-days-gold   { font-weight: 700; color: var(--gold2); }
+  .guar-days-green  { font-weight: 700; color: var(--green); }
+  .guar-table-wrap  { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-card); }
+
+  /* ─── POOL HEALTH BAR ─── */
+  .pool-health-bar {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 12px 18px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    box-shadow: var(--shadow-card);
+  }
+  .pool-health-label { font-size: 11px; font-weight: 700; color: var(--text2); white-space: nowrap; }
+  .pool-health-track { flex: 1; min-width: 160px; background: var(--card3); border-radius: 99px; height: 10px; overflow: hidden; }
+  .pool-health-fill  { height: 100%; background: linear-gradient(90deg, var(--green) 0%, var(--accent) 100%); border-radius: 99px; transition: width .4s; }
+  .pool-health-pct   { font-size: 13px; font-weight: 800; color: var(--green); font-family: var(--mono); white-space: nowrap; }
+  .pool-health-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pool-stat-item    { font-size: 11px; color: var(--text3); }
+  .pool-stat-item b  { color: var(--text2); }
+
+  /* ─── BROADCAST LOG ─── */
+  .bc-log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .bc-log-table th { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .bc-log-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .bc-log-table tr:last-child td { border-bottom: none; }
 
   /* ─── MISC ─── */
   .hidden { display: none !important; }
@@ -2023,6 +2122,22 @@ function doLogin(){
         <div class="stat-label">Placements</div>
       </div>
     </div>
+    <div class="stat">
+      <div class="stat-icon" style="background:rgba(5,150,105,.12);color:var(--green)">T</div>
+      <div>
+        <div class="stat-val" id="stat-avg-days" style="color:var(--green)">—</div>
+        <div class="stat-label">Avg Days to Place</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:1px">(last 30 days)</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon" style="background:rgba(124,58,237,.12);color:var(--purple)">R</div>
+      <div>
+        <div class="stat-val" id="stat-replace-rate" style="color:var(--purple)">—</div>
+        <div class="stat-label">Replacement Rate</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:1px" id="stat-replace-detail"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -2037,6 +2152,8 @@ function doLogin(){
 <!-- ─── MAIN ─── -->
 <main>
 
+  <!-- ═══ DAILY BRIEFING PANEL ═══ -->
+  <div id="briefing-panel" class="briefing-panel" style="display:none"></div>
 
   <!-- ═══ TAB: JOBS ═══ -->
   <div class="tab-content active" id="tab-jobs">
@@ -2059,6 +2176,7 @@ function doLogin(){
       <div class="section-title">Candidate Pool</div>
       <div class="badge" id="cand-count">0</div>
     </div>
+    <div id="pool-health-bar" class="pool-health-bar" style="display:none"></div>
     <div class="cf-top-row">
       <input type="text" id="cand-search" placeholder="Search by name or ID…" oninput="renderCandidates()">
     </div>
@@ -2080,25 +2198,28 @@ function doLogin(){
       <div class="badge" id="hired-count">0</div>
     </div>
     <div id="hired-filter-bar" class="filter-bar" style="margin-bottom:16px">
+      <input type="text" id="hired-search" placeholder="Search by name, employer or position…" oninput="renderHiredTab()" style="flex:1;min-width:200px">
       <select id="hired-filter-jo" onchange="renderHiredTab()">
         <option value="">All Job Orders</option>
       </select>
       <select id="hired-filter-fee" onchange="renderHiredTab()">
         <option value="">All Fee Status</option>
-        <option value="Paid">💚 Paid</option>
-        <option value="Pending">🟡 Pending</option>
-        <option value="Waived">⚪ Waived</option>
+        <option value="Paid">Paid</option>
+        <option value="Pending">Pending</option>
+        <option value="Waived">Waived</option>
       </select>
       <select id="hired-filter-guar" onchange="renderHiredTab()">
         <option value="">All Guarantee Status</option>
-        <option value="active">🛡 Guarantee Active</option>
-        <option value="expired">✓ Guarantee Expired</option>
+        <option value="active">Guarantee Active</option>
+        <option value="expired">Guarantee Expired</option>
         <option value="issue">Issue Reported</option>
       </select>
     </div>
+    <div id="hired-record-count" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px"></div>
     <div id="hired-container" class="cards-grid">
       <div class="loading-wrap"><div class="spinner"></div><div class="loading-text">Loading…</div></div>
     </div>
+    <div id="guar-watch-section" class="guar-watch-section"></div>
   </div>
 
   <!-- ═══ TAB: AI MATCHER ═══ -->
@@ -2400,9 +2521,12 @@ function doLogin(){
       </div>
       <div id="broadcast-cand-list"></div>
     </div>
-    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;background:var(--card);z-index:2">
+    <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;background:var(--card);z-index:2;gap:10px;flex-wrap:wrap">
       <span id="broadcast-footer-count" style="font-size:13px;color:var(--text2);font-weight:600">0 candidates selected</span>
-      <button class="btn btn-green" id="broadcast-submit-btn" onclick="broadcastSelected()" style="font-size:13px;padding:8px 20px">📢 Broadcast Selected</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="showBroadcastHistory()">📋 History</button>
+        <button class="btn btn-green" id="broadcast-submit-btn" onclick="broadcastSelected()" style="font-size:13px;padding:8px 20px">📢 Broadcast Selected</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2619,6 +2743,9 @@ function repairShiftedPlacements() {
 
 async function loadAll() {
   loadLocal();
+  // Pull Firebase data into localStorage BEFORE first render so any device sees latest data
+  await fbPullSilent();
+  loadLocal(); // reload after firebase pull
   repairShiftedPlacements();
 
   document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
@@ -2903,9 +3030,56 @@ function updateStats() {
   const noteEl = document.getElementById('stat-hidden-note');
   if (noteEl) {
     noteEl.textContent = totalHidden > 0
-      ? `${totalHidden} hidden (${_hiddenDuplicates.length} dup · ${_hiddenUnderage.length} underage)`
+      ? totalHidden + ' hidden (' + _hiddenDuplicates.length + ' dup · ' + _hiddenUnderage.length + ' underage)'
       : '';
   }
+
+  // Avg Days to Place (last 30 days)
+  const thirtyDaysAgo = Date.now() - 30 * 86400000;
+  const daysToPlaceArr = [];
+  const replacementTypes = ['Candidate Abandonment / No-Show', 'Replacement Requested'];
+  var issueCount = 0;
+  allPlacements.forEach(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
+    if (hireData.issueReported && (hireData.issues || []).some(function(i) { return replacementTypes.indexOf(i.type) >= 0; })) issueCount++;
+    var hd = hireData.hireDate;
+    if (!hd) return;
+    var hdMs = parseDateFlex(hd);
+    if (!hdMs || isNaN(hdMs) || hdMs.getTime() < thirtyDaysAgo) return;
+    var jo = jobOrders.find(function(j) { return j.id === p.jobOrderId; });
+    if (!jo || !jo.timestamp) return;
+    var joMs = parseDateFlex(jo.timestamp);
+    if (!joMs || isNaN(joMs)) return;
+    var diff = Math.round((hdMs.getTime() - joMs.getTime()) / 86400000);
+    if (diff >= 0) daysToPlaceArr.push(diff);
+  });
+
+  var avgDaysEl = document.getElementById('stat-avg-days');
+  if (avgDaysEl) avgDaysEl.textContent = daysToPlaceArr.length ? Math.round(daysToPlaceArr.reduce(function(a,b){return a+b;},0)/daysToPlaceArr.length) + 'd' : '—';
+
+  var totalHired = allPlacements.filter(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    return (ex.status || p.status || '').trim().toLowerCase() === 'hired';
+  }).length;
+
+  var replaceRateEl = document.getElementById('stat-replace-rate');
+  var replaceDetailEl = document.getElementById('stat-replace-detail');
+  if (replaceRateEl) {
+    if (totalHired > 0) {
+      replaceRateEl.textContent = Math.round(issueCount / totalHired * 100) + '%';
+      if (replaceDetailEl) replaceDetailEl.textContent = issueCount + ' of ' + totalHired + ' placements';
+    } else {
+      replaceRateEl.textContent = '—';
+      if (replaceDetailEl) replaceDetailEl.textContent = '';
+    }
+  }
+
+  renderBriefingPanel();
 }
 
 // ═══════════════════════════════════════════════
@@ -2939,6 +3113,14 @@ function renderJobOrders(allPlacements) {
     ? jobOrders
     : jobOrders.filter(jo => jo.status === currentFilter);
 
+  // Sort active JOs by age (oldest first = most urgent at top)
+  visibleJOs.sort(function(a, b) {
+    var da = parseDateFlex(a.timestamp), db = parseDateFlex(b.timestamp);
+    var ta = da && !isNaN(da) ? da.getTime() : Date.now();
+    var tb = db && !isNaN(db) ? db.getTime() : Date.now();
+    return ta - tb; // older timestamp = higher urgency = sort first
+  });
+
   if (activeJOTab >= visibleJOs.length) activeJOTab = 0;
 
   // Build tab bar
@@ -2948,7 +3130,7 @@ function renderJobOrders(allPlacements) {
   if (!visibleJOs.length) {
     container.innerHTML = '';
     container.appendChild(filterWrap);
-    container.innerHTML += `<div class="empty-state"><div class="empty-icon">—</div>No ${currentFilter !== 'All' ? currentFilter : ''} job orders.</div>`;
+    container.innerHTML += '<div class="empty-state"><div class="empty-icon">—</div>No ' + (currentFilter !== 'All' ? currentFilter + ' ' : '') + 'job orders.</div>';
     return;
   }
 
@@ -2960,19 +3142,27 @@ function renderJobOrders(allPlacements) {
     const broadcastedC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Broadcasted').length;
     const confirmedC = joPlacements.filter(p => { const st = getEffectiveStage(_getEx(p), p); return st === 'Confirmed Interested' || st === 'For Employer Review' || st === 'Interview Scheduled'; }).length;
     const hiredC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Hired ✓').length;
+
+    // Age badge
+    var joDate = parseDateFlex(jo.timestamp);
+    var daysOpen = joDate && !isNaN(joDate) ? Math.floor((Date.now() - joDate.getTime()) / 86400000) : null;
+    var ageCls = daysOpen === null ? '' : daysOpen >= 7 ? 'age-overdue' : daysOpen >= 4 ? 'age-followup' : 'age-fresh';
+    var ageLabel = daysOpen === null ? '' : daysOpen >= 7 ? 'OVERDUE' : daysOpen >= 4 ? 'Follow Up' : 'Fresh';
+    var ageBadge = daysOpen !== null ? '<span class="age-badge ' + ageCls + '">' + daysOpen + 'd · ' + ageLabel + '</span>' : '';
+
     const btn = document.createElement('button');
     btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '') + (jo.status !== 'Active' ? ' jo-tab-nactive' : '');
     const _cxInfo = (() => { try { return JSON.parse(localStorage.getItem('jo_cancellation_' + jo.id) || 'null'); } catch(e) { return null; } })();
-    btn.innerHTML = `
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-        <div class="jo-tab-id">${escHtml(jo.id)}</div>
-        <span class="jo-status-pill" style="color:${statusColors[jo.status]||'var(--text3)'}">${escHtml(jo.status)}</span>
-      </div>
-      <div class="jo-tab-pos">${escHtml(jo.position)}</div>
-      <div class="jo-tab-company">${escHtml(jo.company)}</div>
-      <div class="jo-tab-count">📢 ${broadcastedC} broadcasted · ✓ ${confirmedC} confirmed · ${hiredC}/${slots} hired</div>
-      ${jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled · ' + escHtml(_cxInfo.reason) + '</div>' : ''}
-    `;
+    btn.innerHTML =
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+        '<div class="jo-tab-id">' + escHtml(jo.id) + '</div>' +
+        '<span class="jo-status-pill" style="color:' + (statusColors[jo.status] || 'var(--text3)') + '">' + escHtml(jo.status) + '</span>' +
+        ageBadge +
+      '</div>' +
+      '<div class="jo-tab-pos">' + escHtml(jo.position) + '</div>' +
+      '<div class="jo-tab-company">' + escHtml(jo.company) + '</div>' +
+      '<div class="jo-tab-count">📢 ' + broadcastedC + ' broadcasted \xB7 ✓ ' + confirmedC + ' confirmed \xB7 ' + hiredC + '/' + slots + ' hired</div>' +
+      (jo.status === 'Cancelled' && _cxInfo ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">Cancelled \xB7 ' + escHtml(_cxInfo.reason) + '</div>' : '');
     btn.onclick = () => { activeJOTab = i; renderJobOrders([...placements, ...manualPlacements]); };
     tabBar.appendChild(btn);
   });
@@ -2996,8 +3186,8 @@ function buildJOPanel(jo, joPlacements) {
   // Count hires
   const allP = [...placements,...manualPlacements].filter(p=>p.jobOrderId===jo.id);
   const getExtra = pid => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}')}catch(e){}; return ex; };
-  const hiredCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); return (ex.status||p.status)==='Hired'; }).length;
-  const activeCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); const s=ex.status||p.status||''; return s!=='Dropped'&&s!=='Hired'; }).length;
+  const hiredCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); return (ex.status||p.status||'').trim().toLowerCase()==='hired'; }).length;
+  const activeCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); const s=(ex.status||p.status||'').trim().toLowerCase(); return s!=='dropped'&&s!=='hired'; }).length;
   const slots = parseInt(jo.slots)||1;
   const isFulfilled = hiredCount >= slots;
   const hiringPct = Math.min(100, Math.round(hiredCount/slots*100));
@@ -3038,6 +3228,19 @@ function buildJOPanel(jo, joPlacements) {
     } catch(e){ return null; }
   })();
 
+  // Days open calculation
+  var joDaysOpen = null;
+  var joAgeBadgeHtml = '';
+  if (jo.timestamp) {
+    var joDt = parseDateFlex(jo.timestamp);
+    if (joDt && !isNaN(joDt)) {
+      joDaysOpen = Math.floor((Date.now() - joDt.getTime()) / 86400000);
+      var joAgeCls   = joDaysOpen >= 7 ? 'age-overdue' : joDaysOpen >= 4 ? 'age-followup' : 'age-fresh';
+      var joAgeLabel = joDaysOpen >= 7 ? 'OVERDUE'     : joDaysOpen >= 4 ? 'Follow Up'    : 'Fresh';
+      joAgeBadgeHtml = '<span class="age-badge ' + joAgeCls + '">' + joDaysOpen + ' days open \xB7 ' + joAgeLabel + '</span>';
+    }
+  }
+
   panel.innerHTML = `
     <div class="jo-panel-header">
       <div class="jo-panel-left">
@@ -3053,6 +3256,7 @@ function buildJOPanel(jo, joPlacements) {
           <div class="jo-meta-item"><span>${escHtml(jo.salary)}</span></div>
           <div class="jo-meta-item"><span>${joPlacements.length} total</span></div>
           <div class="jo-meta-item"><span style="color:var(--accent)">${activeCount} active</span></div>
+          ${joAgeBadgeHtml ? '<div class="jo-meta-item">' + joAgeBadgeHtml + '</div>' : ''}
         </div>
         <div class="jo-hire-progress">
           <div class="jo-hire-bar" style="width:${hiringPct}%"></div>
@@ -3133,6 +3337,54 @@ function buildJOPanel(jo, joPlacements) {
       </div>
     `;
     panel.appendChild(jdSection);
+  }
+
+  // Pipeline funnel
+  if (joPlacements.length > 0) {
+    const funnelSec = document.createElement('div');
+    funnelSec.className = 'pipeline-section';
+    const funnelStages = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓'];
+    const stageCounts = {};
+    funnelStages.forEach(function(s) { stageCounts[s] = 0; });
+    stageCounts['Dropped / Unavailable'] = 0;
+    joPlacements.forEach(function(p) {
+      var pid2 = p.placementId || p.candidateId;
+      var ex2 = {}; try { ex2 = JSON.parse(localStorage.getItem('prow_extra_' + pid2) || '{}'); } catch(e) {}
+      var stg = getEffectiveStage(ex2, p);
+      if (stageCounts[stg] !== undefined) stageCounts[stg]++;
+      else if (stg === 'Rejected by Employer' || stg === 'Rejected by Candidate') stageCounts['Dropped / Unavailable']++;
+    });
+    var maxCount = Math.max(1, Math.max.apply(null, funnelStages.map(function(s) { return stageCounts[s]; })));
+    var stageColors = ['var(--blue)','var(--accent)','var(--purple)','var(--orange)','var(--green)'];
+    var funnelRows = funnelStages.map(function(stage, si) {
+      var count = stageCounts[stage] || 0;
+      var pct = Math.round(count / maxCount * 100);
+      var dropoff = '';
+      if (si > 0) {
+        var prev = stageCounts[funnelStages[si - 1]] || 0;
+        if (prev > 0) {
+          var d = Math.round((1 - count / prev) * 100);
+          dropoff = '<span class="pipeline-dropoff">(↓ ' + d + '% drop-off)</span>';
+        }
+      }
+      return '<div class="pipeline-row">' +
+        '<div class="pipeline-label">' + stage + '</div>' +
+        '<div class="pipeline-bar-wrap"><div class="pipeline-bar-fill" style="width:' + pct + '%;background:' + stageColors[si] + '"></div></div>' +
+        '<div class="pipeline-count">' + count + '</div>' +
+        dropoff +
+        '</div>';
+    });
+    var droppedCount = stageCounts['Dropped / Unavailable'];
+    if (droppedCount > 0) {
+      funnelRows.push('<div class="pipeline-row">' +
+        '<div class="pipeline-label" style="color:var(--text3)">Dropped / Rejected</div>' +
+        '<div class="pipeline-bar-wrap"><div class="pipeline-bar-fill" style="width:' + Math.round(droppedCount/maxCount*100) + '%;background:var(--text3)"></div></div>' +
+        '<div class="pipeline-count" style="color:var(--text3)">' + droppedCount + '</div>' +
+        '<span class="pipeline-dropoff"></span>' +
+        '</div>');
+    }
+    funnelSec.innerHTML = '<div class="pipeline-title">Pipeline Funnel</div>' + funnelRows.join('');
+    panel.appendChild(funnelSec);
   }
 
   // Candidate list
@@ -3732,9 +3984,144 @@ function saveProwField(pid, field, value, el) {
 
 function daysDiff(dateStr) {
   if (!dateStr) return 0;
-  const d = new Date(dateStr);
-  if (isNaN(d)) return 0;
+  const d = parseDateFlex(dateStr);
+  if (!d || isNaN(d)) return 0;
   return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function parseDateFlex(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[1] - 1, +m[2]);
+  var d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function renderBriefingPanel() {
+  const panel = document.getElementById('briefing-panel');
+  if (!panel) return;
+
+  const today = Date.now();
+  const allP = [...placements, ...manualPlacements];
+
+  // Open job orders count
+  const openJOs = jobOrders.filter(function(jo) { return jo.status === 'Active' || jo.status === 'On Hold'; });
+
+  // Days open per JO
+  var daysOpenArr = openJOs.map(function(jo) {
+    var d = parseDateFlex(jo.timestamp);
+    if (!d || isNaN(d)) return 0;
+    return Math.floor((today - d.getTime()) / 86400000);
+  });
+
+  var overdue = daysOpenArr.filter(function(d) { return d > 7; }).length;
+  var atRisk  = daysOpenArr.filter(function(d) { return d >= 5 && d <= 6; }).length;
+  var avgFill = daysOpenArr.length ? Math.round(daysOpenArr.reduce(function(a, b) { return a + b; }, 0) / daysOpenArr.length) : 0;
+
+  // Placed this month
+  var nowDate = new Date();
+  var monthStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).getTime();
+  var placedThisMonth = 0;
+  allP.forEach(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
+    var hd = hireData.hireDate || ex.lastContacted || '';
+    if (!hd) return;
+    var hMs = parseDateFlex(hd);
+    if (hMs && !isNaN(hMs) && hMs.getTime() >= monthStart) placedThisMonth++;
+  });
+
+  // Guarantee metrics
+  var activeGuarantees = 0;
+  var guaranteesExpiringSoon = 0;
+  var issuesReported = 0;
+  allP.forEach(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
+    var hd = hireData.hireDate;
+    if (!hd) return;
+    var hdMs = parseDateFlex(hd);
+    if (!hdMs || isNaN(hdMs)) return;
+    var expireMs = hdMs.getTime() + 30 * 86400000;
+    var daysLeft = Math.ceil((expireMs - today) / 86400000);
+    if (daysLeft > 0) {
+      activeGuarantees++;
+      if (daysLeft <= 7) guaranteesExpiringSoon++;
+    }
+    if (hireData.issueReported) issuesReported++;
+  });
+
+  var items = [
+    { label: 'Open Job Orders', val: openJOs.length, cls: openJOs.length > 0 ? 'briefing-val-accent' : 'briefing-val-green', tab: 'jobs' },
+    { label: 'Avg Days to Fill', val: avgFill > 0 ? avgFill + 'd' : '—', cls: avgFill > 7 ? 'briefing-val-red' : avgFill > 4 ? 'briefing-val-gold' : 'briefing-val-green', tab: '' },
+    { label: 'Overdue (>7 days)', val: overdue, cls: overdue > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'jobs' },
+    { label: 'At Risk (5-6 days)', val: atRisk, cls: atRisk > 0 ? 'briefing-val-gold' : 'briefing-val-green', tab: 'jobs' },
+    { label: 'Placed This Month', val: placedThisMonth, cls: 'briefing-val-green', tab: 'hired' },
+    { label: 'Active Guarantees', val: activeGuarantees, cls: 'briefing-val-accent', tab: 'hired' },
+    { label: 'Guarantees Expiring (7d)', val: guaranteesExpiringSoon, cls: guaranteesExpiringSoon > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
+    { label: 'Issues Reported', val: issuesReported, cls: issuesReported > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
+  ];
+
+  var html = '<div class="briefing-title">Ops Briefing — Today</div>' +
+    '<div class="briefing-grid">';
+  items.forEach(function(item) {
+    var clickable = item.tab && (typeof item.val === 'number' ? item.val > 0 : true);
+    var onclick = clickable ? ' onclick="switchTab(\'' + item.tab + '\')"' : '';
+    html += '<div class="briefing-item' + (clickable ? ' clickable' : '') + '"' + onclick + '>' +
+      '<div class="briefing-item-label">' + item.label + '</div>' +
+      '<div class="briefing-item-val ' + item.cls + '">' + item.val + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+
+  panel.innerHTML = html;
+  panel.style.display = '';
+}
+
+function renderPoolHealth() {
+  const bar = document.getElementById('pool-health-bar');
+  if (!bar || !candidates.length) { if (bar) bar.style.display = 'none'; return; }
+
+  const allP = [...placements, ...manualPlacements];
+  const respondedIds = new Set();
+  const messagedIds  = new Set();
+
+  allP.forEach(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var stage = getEffectiveStage(ex, p);
+    var sid = p.candidateId;
+    if (!sid) return;
+    if (stage === 'Broadcasted' || stage === 'Messaged') {
+      messagedIds.add(sid);
+    } else if (stage !== 'Dropped / Unavailable' && stage !== 'Rejected by Employer' && stage !== 'Rejected by Candidate') {
+      respondedIds.add(sid);
+    }
+  });
+
+  var totalCands = candidates.length;
+  var responded  = respondedIds.size;
+  var noResponse = 0;
+  messagedIds.forEach(function(id) { if (!respondedIds.has(id)) noResponse++; });
+  var blacklisted = Object.keys(blacklist).length;
+  var pct = totalCands > 0 ? Math.round(responded / totalCands * 100) : 0;
+
+  bar.innerHTML = '<div class="pool-health-label">Pool Health</div>' +
+    '<div class="pool-health-track"><div class="pool-health-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="pool-health-pct">' + pct + '% responsive</div>' +
+    '<div class="pool-health-stats">' +
+    '<div class="pool-stat-item">Total: <b>' + totalCands + '</b></div>' +
+    '<div class="pool-stat-item">Responded: <b style="color:var(--green)">' + responded + '</b></div>' +
+    '<div class="pool-stat-item">No Response: <b style="color:var(--gold2)">' + noResponse + '</b></div>' +
+    '<div class="pool-stat-item">Blacklisted: <b style="color:var(--red)">' + blacklisted + '</b></div>' +
+    '</div>';
+  bar.style.display = 'flex';
 }
 
 function isCandInactive(candId) {
@@ -4094,6 +4481,7 @@ function populateFilterDropdowns() {
 }
 
 function renderCandidates() {
+  renderPoolHealth();
   const container = document.getElementById('cand-container');
   const summaryEl = document.getElementById('cand-filter-summary');
   try {
@@ -5534,7 +5922,10 @@ function updateBroadcastCount() {
 function broadcastSelected() {
   if (!_broadcastJoId || !_broadcastSelected.size) return;
   const today = new Date().toISOString().split('T')[0];
+  const jo = jobOrders.find(function(j) { return j.id === _broadcastJoId; });
   let added = 0;
+  const broadcastedNames = [];
+  const broadcastedIds = [];
   _broadcastSelected.forEach(candId => {
     const c = candidates.find(x => x.id === candId);
     if (!c) return;
@@ -5551,14 +5942,56 @@ function broadcastSelected() {
       date: today,
       source: 'broadcast',
     });
+    broadcastedNames.push(c.name);
+    broadcastedIds.push(c.id);
     added++;
   });
   if (added) {
     saveManualPlacements();
-    showToast('📢 Broadcasted to ' + added + ' candidate' + (added !== 1 ? 's' : ''), 'green');
+    showToast('Broadcasted to ' + added + ' candidate' + (added !== 1 ? 's' : ''), 'green');
+    // Save broadcast log entry
+    var logEntry = {
+      ts: new Date().toISOString(),
+      joId: _broadcastJoId,
+      employer: jo ? jo.company : _broadcastJoId,
+      candIds: broadcastedIds,
+      candNames: broadcastedNames,
+      count: added
+    };
+    var log = [];
+    try { log = JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { log = []; }
+    log.unshift(logEntry);
+    if (log.length > 50) log = log.slice(0, 50);
+    localStorage.setItem('broadcast_log', JSON.stringify(log));
+    fbSync('broadcast_log', log);
   }
   closeBroadcastModal();
   renderJobOrders([...placements, ...manualPlacements]);
+}
+
+function showBroadcastHistory() {
+  var log = [];
+  try { log = JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { log = []; }
+  if (!log.length) { showToast('No broadcast history yet.', 'gold'); return; }
+  var recent = log.slice(0, 20);
+  var rows = recent.map(function(entry) {
+    var dateStr = entry.ts ? new Date(entry.ts).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    var names = (entry.candNames || []).slice(0, 5).join(', ') + (entry.candNames && entry.candNames.length > 5 ? ' +' + (entry.candNames.length - 5) + ' more' : '');
+    return '<tr>' +
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--text3)">' + dateStr + '</td>' +
+      '<td style="font-weight:600">' + escHtml(entry.joId || '—') + '</td>' +
+      '<td>' + escHtml(entry.employer || '—') + '</td>' +
+      '<td style="font-family:var(--mono);color:var(--accent);font-weight:700">' + (entry.count || 0) + '</td>' +
+      '<td style="font-size:11px;color:var(--text2)">' + escHtml(names) + '</td>' +
+      '</tr>';
+  }).join('');
+  var html = '<div style="padding:20px 24px"><div style="font-size:15px;font-weight:800;margin-bottom:16px">Broadcast History (last 20)</div>' +
+    '<div style="overflow-x:auto"><table class="bc-log-table">' +
+    '<thead><tr><th>Date</th><th>JO</th><th>Employer</th><th>#</th><th>Candidates</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' +
+    '<div style="text-align:right;margin-top:14px"><button class="btn btn-ghost" onclick="closeBroadcastModal()" style="font-size:12px">Close</button></div></div>';
+  var bc = document.querySelector('.broadcast-modal');
+  if (bc) bc.innerHTML = html;
 }
 
 function copyShortlist(joId) {
@@ -5755,7 +6188,7 @@ function isCandidateHired(candId) {
   return [...placements, ...manualPlacements].some(p => {
     if (p.candidateId !== candId) return false;
     const ex = getPlacementExtra(p.placementId || p.candidateId);
-    return (ex.status || p.status) === 'Hired';
+    return (ex.status || p.status || '').trim().toLowerCase() === 'hired';
   });
 }
 
@@ -6246,9 +6679,10 @@ function renderHiredTab() {
   const container = document.getElementById('hired-container');
   if (!container) return;
 
-  const filterJO  = document.getElementById('hired-filter-jo')?.value || '';
-  const filterFee = document.getElementById('hired-filter-fee')?.value || '';
+  const filterJO   = document.getElementById('hired-filter-jo')?.value || '';
+  const filterFee  = document.getElementById('hired-filter-fee')?.value || '';
   const filterGuar = document.getElementById('hired-filter-guar')?.value || '';
+  const searchRaw  = (document.getElementById('hired-search')?.value || '').trim().toLowerCase();
 
   const allP = [...placements, ...manualPlacements];
   const hiredRows = [];
@@ -6257,9 +6691,9 @@ function renderHiredTab() {
     if (blacklist[p.candidateId]) return;
     const pid = p.placementId || p.candidateId;
     let ex = {};
-    try { ex = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e) {}
-    const status = ex.status || p.status || '';
-    if (status !== 'Hired') return;
+    try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    const status = (ex.status || p.status || '').trim().toLowerCase();
+    if (status !== 'hired') return;
 
     const jo = jobOrders.find(j => j.id === p.jobOrderId);
     const hireKey = `hire_data_${pid}`;
@@ -6269,17 +6703,20 @@ function renderHiredTab() {
     hiredRows.push({ p, ex, jo, hireData, pid });
   });
 
-  // Populate JO filter
+  // Populate JO filter (always rebuild to stay fresh)
   const joSel = document.getElementById('hired-filter-jo');
-  if (joSel && joSel.options.length <= 1) {
+  if (joSel) {
+    const prevVal = joSel.value;
+    while (joSel.options.length > 1) joSel.remove(1);
     const joIds = [...new Set(hiredRows.map(r => r.p.jobOrderId))];
     joIds.forEach(id => {
       const o = document.createElement('option');
       o.value = id;
       const jo = jobOrders.find(j => j.id === id);
-      o.textContent = `${id}${jo ? ' — ' + jo.company : ''}`;
+      o.textContent = id + (jo ? ' — ' + jo.company : '');
       joSel.appendChild(o);
     });
+    if (prevVal) joSel.value = prevVal;
   }
 
   // Filter
@@ -6292,11 +6729,25 @@ function renderHiredTab() {
       return g.key === filterGuar;
     });
   }
+  if (searchRaw) {
+    filtered = filtered.filter(r => {
+      const candName = (r.p.candidateName || '').toLowerCase();
+      const employer = (r.jo ? r.jo.company : '').toLowerCase();
+      const position = (r.jo ? r.jo.position : '').toLowerCase();
+      return candName.includes(searchRaw) || employer.includes(searchRaw) || position.includes(searchRaw);
+    });
+  }
 
   document.getElementById('hired-count').textContent = filtered.length;
+  const countEl = document.getElementById('hired-record-count');
+  if (countEl) {
+    const isFiltered = filterJO || filterFee || filterGuar || searchRaw;
+    countEl.textContent = 'Showing ' + filtered.length + ' of ' + hiredRows.length + ' hired records' + (isFiltered ? ' (filtered)' : '');
+  }
 
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No hired candidates${filterJO||filterFee||filterGuar?' matching filters':''}.</div>`;
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">—</div>No hired candidates' + (filterJO || filterFee || filterGuar || searchRaw ? ' matching filters' : '') + '.</div>';
+    renderGuarWatch(hiredRows);
     return;
   }
 
@@ -6358,6 +6809,63 @@ function renderHiredTab() {
     const card = buildHiredCard(p, ex, jo, hireData, pid, allP);
     container.appendChild(card);
   });
+
+  renderGuarWatch(hiredRows);
+}
+
+function renderGuarWatch(hiredRows) {
+  const section = document.getElementById('guar-watch-section');
+  if (!section) return;
+
+  const today = Date.now();
+  const active = [];
+  hiredRows.forEach(function(r) {
+    const hd = r.hireData.hireDate;
+    if (!hd) return;
+    const hireMs = new Date(hd).getTime();
+    if (isNaN(hireMs)) return;
+    const expireMs = hireMs + 30 * 86400000;
+    const daysLeft = Math.ceil((expireMs - today) / 86400000);
+    if (daysLeft > 0) active.push({ r: r, daysLeft: daysLeft, expireMs: expireMs });
+  });
+
+  if (!active.length) {
+    section.innerHTML = '';
+    return;
+  }
+
+  active.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+
+  var rows = active.map(function(item) {
+    const r = item.r;
+    const daysLeft = item.daysLeft;
+    var cls = daysLeft <= 7 ? 'guar-days-red' : daysLeft <= 14 ? 'guar-days-gold' : 'guar-days-green';
+    var issueIcon = r.hireData.issueReported ? ' <span title="Issue reported">🚨</span>' : '';
+    var expireDate = new Date(item.expireMs).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    var hireDate = new Date(r.hireData.hireDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    var employer = r.jo ? escHtml(r.jo.company || '') : '—';
+    var position = r.jo ? escHtml(r.jo.position || '') : '—';
+    var candName = escHtml(r.p.candidateName || r.p.candidateId || '—');
+    var waMsg = 'Hi ' + (r.jo ? r.jo.company : 'Employer') + ', just checking in on ' + (r.p.candidateName || 'your new hire') + ' — is everything going well? We are here if you need anything.';
+    var waUrl = 'https://wa.me/?text=' + encodeURIComponent(waMsg);
+    return '<tr>' +
+      '<td>' + candName + '</td>' +
+      '<td>' + employer + '</td>' +
+      '<td>' + position + '</td>' +
+      '<td>' + hireDate + '</td>' +
+      '<td>' + expireDate + '</td>' +
+      '<td class="' + cls + '">' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + issueIcon + '</td>' +
+      '<td><a href="' + waUrl + '" target="_blank" style="font-size:11px;color:var(--green);font-weight:600;white-space:nowrap">WhatsApp</a></td>' +
+      '</tr>';
+  }).join('');
+
+  section.innerHTML = '<div class="guar-watch-section">' +
+    '<div style="font-size:13px;font-weight:800;letter-spacing:-0.3px;margin-bottom:12px">Guarantee Watch <span style="font-size:11px;font-weight:600;color:var(--text3)">' + active.length + ' active</span></div>' +
+    '<div class="guar-table-wrap">' +
+    '<table class="guar-table"><thead><tr>' +
+    '<th>Candidate</th><th>Employer</th><th>Position</th><th>Hire Date</th><th>Expires</th><th>Days Left</th><th>Action</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '</div></div>';
 }
 
 function getGuaranteeStatus({ hireData, pid }) {
@@ -7163,6 +7671,46 @@ function fbSyncDebounced(path, data, delay) {
   _fbDebounceTimers[path] = setTimeout(() => fbSync(path, data), delay);
 }
 
+async function fbPullSilent() {
+  const url = getFirebaseUrl('');
+  if (!url) return;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+    if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
+    if (data.flagged_cands)       localStorage.setItem('flagged_cands',       JSON.stringify(data.flagged_cands));
+    if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
+    if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
+    if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
+    if (data.candidate_ratings)   localStorage.setItem('candidate_ratings',   JSON.stringify(data.candidate_ratings));
+    if (data.templates)           localStorage.setItem('templates',           JSON.stringify(data.templates));
+    if (data.prow_extras)
+      Object.entries(data.prow_extras).forEach(function(e) { localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
+    if (data.hire_data)
+      Object.entries(data.hire_data).forEach(function(e) { localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
+    if (data.cand_notes)
+      Object.entries(data.cand_notes).forEach(function(e) { localStorage.setItem('cand_notes_' + e[0], JSON.stringify(e[1])); });
+    if (data.jo_fulfill)
+      Object.entries(data.jo_fulfill).forEach(function(e) { localStorage.setItem('jo_fulfill_' + e[0], JSON.stringify(e[1])); });
+    if (data.jo_delayed_close)
+      Object.entries(data.jo_delayed_close).forEach(function(e) { localStorage.setItem('jo_delayed_close_' + e[0], e[1]); });
+    if (data.reflections)
+      Object.entries(data.reflections).forEach(function(e) { localStorage.setItem('reflection_' + e[0], JSON.stringify(e[1])); });
+    if (data.jobOrders)
+      Object.entries(data.jobOrders).forEach(function(e) {
+        if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
+      });
+    if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
+    if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
+    if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
+    if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+  } catch(e) {
+    console.warn('fbPullSilent failed:', e.message);
+  }
+}
+
 async function loadFromFirebase() {
   const url = getFirebaseUrl('');
   if (!url) return;
@@ -7199,6 +7747,7 @@ async function loadFromFirebase() {
     if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
     if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
     if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
+    if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
 
     loadLocal();
     const allP = [...placements, ...manualPlacements];
@@ -7250,7 +7799,8 @@ async function pushAllToFirebase() {
     jo_fulfill:          joFulfill,
     jo_delayed_close:    joDelayedClose,
     reflections:         reflections,
-    jobOrders:           joOrders
+    jobOrders:           joOrders,
+    broadcast_log:       (function(){ try { return JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { return []; } })()
   };
   setSyncStatus('syncing');
   const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
