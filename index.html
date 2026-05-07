@@ -910,6 +910,59 @@
   }
   .coord-tag.unassigned { border-color: var(--border2); background: var(--card3); color: var(--text3); }
 
+  /* ─── JO LIFECYCLE TIMELINE ─── */
+  .joc-timeline { padding: 14px 18px 10px; border-top: 1px solid var(--border); }
+  .joc-timeline-title {
+    font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
+    letter-spacing: .8px; margin-bottom: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .joc-event { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; position: relative; }
+  .joc-event:not(:last-child)::before {
+    content: ''; position: absolute; left: 7px; top: 18px; bottom: -10px;
+    width: 2px; background: var(--border); border-radius: 2px;
+  }
+  .joc-dot {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+    border: 2px solid; display: grid; place-items: center; font-size: 7px; font-weight: 900;
+  }
+  .joc-dot-created   { background: var(--accent-dim);  border-color: var(--accent); color: var(--accent); }
+  .joc-dot-fulfilled { background: var(--green-dim);   border-color: var(--green);  color: var(--green); }
+  .joc-dot-reopened  { background: var(--orange-dim);  border-color: var(--orange); color: var(--orange); }
+  .joc-dot-onhold    { background: var(--gold-dim);    border-color: var(--gold2);  color: var(--gold2); }
+  .joc-dot-cancelled { background: var(--red-dim);     border-color: var(--red);    color: var(--red); }
+  .joc-dot-default   { background: var(--card3);       border-color: var(--border3);color: var(--text3); }
+  .joc-event-body { flex: 1; }
+  .joc-event-type { font-size: 12px; font-weight: 700; color: var(--text); }
+  .joc-event-date { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+  .joc-event-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* ─── REOPEN BADGE ─── */
+  .reopen-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    background: rgba(234,88,12,.1); border: 1px solid rgba(234,88,12,.3); color: var(--orange);
+    white-space: nowrap; cursor: pointer;
+  }
+  .reopen-badge-guarantee {
+    background: rgba(23,85,237,.08); border-color: rgba(23,85,237,.3); color: var(--accent);
+  }
+
+  /* ─── CYCLE TOGGLE ─── */
+  .cycle-toggle {
+    display: flex; gap: 2px; background: var(--card3); border-radius: 8px; padding: 2px;
+    border: 1px solid var(--border); width: fit-content; margin-bottom: 10px;
+  }
+  .cycle-toggle-btn {
+    padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none;
+    cursor: pointer; transition: all .15s; background: transparent; color: var(--text2);
+    font-family: var(--sans);
+  }
+  .cycle-toggle-btn.active { background: var(--card); color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .prev-cycle-badge {
+    font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 99px;
+    background: var(--card3); border: 1px solid var(--border2); color: var(--text3);
+    margin-left: 4px; vertical-align: middle;
+  }
+
   @media (max-width: 640px) {
     .briefing-grid { grid-template-columns: 1fr 1fr !important; }
     .earnings-card { flex-direction: column; }
@@ -2538,6 +2591,45 @@ function doLogin(){
   </div>
 </div>
 
+<!-- ─── REOPEN JO MODAL ─── -->
+<div class="modal-overlay" id="modal-reopen-jo">
+  <div class="modal" style="max-width:480px">
+    <h3>Reopen Job Order</h3>
+    <div id="reopen-jo-subtitle" style="font-size:13px;font-weight:600;color:var(--text2);margin:-12px 0 16px;letter-spacing:-.2px"></div>
+    <input type="hidden" id="reopen-jo-hidden-id">
+    <div class="modal-field">
+      <div class="modal-label">Previous Status</div>
+      <div id="reopen-prev-status" style="font-size:13px;font-weight:600;padding:6px 0"></div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Reopen Reason <span style="color:var(--red)">*</span></div>
+      <select id="reopen-reason-select" onchange="document.getElementById('reopen-confirm-btn').disabled=!this.value">
+        <option value="">— Select Reason —</option>
+        <option>Candidate Abandoned / Quit</option>
+        <option>Candidate Was Let Go</option>
+        <option>Employer Needs Replacement</option>
+        <option>New Slot Opened (Same Employer)</option>
+        <option>Guarantee Replacement</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
+      <textarea id="reopen-notes-input" placeholder="Add context about this reopening…" style="min-height:72px"></textarea>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">New Handler <span style="font-weight:400;color:var(--text3)">(optional — keeps current if blank)</span></div>
+      <select id="reopen-handler-select">
+        <option value="">— Keep Current —</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reopen-jo')">Cancel</button>
+      <button class="btn btn-green" id="reopen-confirm-btn" disabled onclick="confirmReopenJO()">Reopen</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─── CANCEL JO MODAL ─── -->
 <div class="modal-overlay" id="modal-cancel-jo">
   <div class="modal">
@@ -2837,6 +2929,141 @@ function loadLocal() {
   try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
   try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
   try { pipelineStages = JSON.parse(localStorage.getItem('pipeline_stages') || '{}'); } catch(e){ pipelineStages={}; }
+}
+
+// ═══════════════════════════════════════════════
+// JOB ORDER LIFECYCLE EVENTS
+// ═══════════════════════════════════════════════
+function getJobOrderEvents(joId) {
+  try { return JSON.parse(localStorage.getItem('jo_events_' + joId) || '[]'); } catch(e) { return []; }
+}
+
+function saveJobOrderEvents(joId, events) {
+  localStorage.setItem('jo_events_' + joId, JSON.stringify(events));
+  fbSync('jo_events/' + joId, events);
+}
+
+function addJobOrderEvent(joId, event) {
+  var events = getJobOrderEvents(joId);
+  events.push(event);
+  saveJobOrderEvents(joId, events);
+  return events;
+}
+
+// Single source of truth for days open — respects reopen cycles
+function getDaysOpen(jo) {
+  if (!jo) return 0;
+  var events = getJobOrderEvents(jo.id);
+  var resetTypes = ['created', 'reopened', 'resumed'];
+  var resetEvents = events.filter(function(e) { return resetTypes.indexOf(e.type) >= 0; });
+  if (resetEvents.length > 0) {
+    resetEvents.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    var d = parseDateFlex(resetEvents[0].date);
+    if (d && !isNaN(d)) return Math.floor((Date.now() - d.getTime()) / 86400000);
+  }
+  // Fallback: use original creation date (timestamp field)
+  if (jo.timestamp) {
+    var dt = parseDateFlex(jo.timestamp);
+    if (dt && !isNaN(dt)) return Math.floor((Date.now() - dt.getTime()) / 86400000);
+  }
+  return 0;
+}
+
+// Returns the start-of-current-cycle ISO date string (for filtering current-cycle candidates)
+function getLastCycleStartDate(joId) {
+  var events = getJobOrderEvents(joId);
+  var resetTypes = ['created', 'reopened', 'resumed'];
+  var resets = events.filter(function(e) { return resetTypes.indexOf(e.type) >= 0; });
+  if (!resets.length) return null;
+  resets.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+  return resets[0].date;
+}
+
+// Count how many times this JO has been reopened
+function getReopenCount(joId) {
+  var events = getJobOrderEvents(joId);
+  return events.filter(function(e) { return e.type === 'reopened'; }).length;
+}
+
+// One-time migration: seed created events for JOs that have none
+function migrateJobOrderEvents() {
+  var flagKey = 'jo_events_migrated_v1';
+  if (localStorage.getItem(flagKey)) return;
+  var migrated = 0;
+  jobOrders.forEach(function(jo) {
+    var existing = getJobOrderEvents(jo.id);
+    if (existing.length > 0) return; // already has events
+    var events = [];
+    var createdDate = jo.timestamp
+      ? (parseDateFlex(jo.timestamp) ? new Date(parseDateFlex(jo.timestamp)).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
+      : new Date().toISOString().split('T')[0];
+    events.push({ type: 'created', date: createdDate, migrated: true });
+    var status = joStatusOverrides[jo.id] || jo.sheetStatus || 'Active';
+    if (status === 'Fulfilled') events.push({ type: 'fulfilled', date: createdDate, note: 'Migrated from existing data', migrated: true });
+    if (status === 'Cancelled') {
+      var cx = {}; try { cx = JSON.parse(localStorage.getItem('jo_cancellation_' + jo.id) || '{}'); } catch(e) {}
+      var cancelDate = cx.cancelledAt ? cx.cancelledAt.split('T')[0] : createdDate;
+      events.push({ type: 'cancelled', date: cancelDate, reason: cx.reason || '', migrated: true });
+    }
+    saveJobOrderEvents(jo.id, events);
+    migrated++;
+  });
+  localStorage.setItem(flagKey, '1');
+  if (migrated > 0 && isAdmin()) {
+    showToast(migrated + ' job orders migrated to lifecycle tracking', 'green');
+  }
+}
+
+function openReopenModal(joId) {
+  if (!isAdmin()) return;
+  var jo = jobOrders.find(function(j) { return j.id === joId; });
+  if (!jo) return;
+  document.getElementById('reopen-jo-hidden-id').value = joId;
+  document.getElementById('reopen-jo-subtitle').textContent = joId + ' — ' + (jo.position || '') + (jo.company ? ' · ' + jo.company : '');
+  var prevStatus = joStatusOverrides[joId] || jo.sheetStatus || jo.status || 'Unknown';
+  document.getElementById('reopen-prev-status').textContent = prevStatus;
+  document.getElementById('reopen-reason-select').value = '';
+  document.getElementById('reopen-notes-input').value = '';
+  document.getElementById('reopen-confirm-btn').disabled = true;
+  // Populate handler select
+  var hSel = document.getElementById('reopen-handler-select');
+  while (hSel.options.length > 1) hSel.remove(1);
+  var rc = getRoleConfig();
+  Object.entries(rc.coordinators || {}).forEach(function(e) {
+    var opt = document.createElement('option');
+    opt.value = e[0];
+    opt.textContent = e[1].name || e[0];
+    if (getCoordinatorEmail(joId) === e[0]) opt.selected = true;
+    hSel.appendChild(opt);
+  });
+  openModal('modal-reopen-jo');
+}
+
+function confirmReopenJO() {
+  var joId = document.getElementById('reopen-jo-hidden-id').value;
+  var reason = document.getElementById('reopen-reason-select').value;
+  if (!reason) { showToast('Please select a reopen reason.', 'red'); return; }
+  var notes = (document.getElementById('reopen-notes-input').value || '').trim();
+  var newHandler = document.getElementById('reopen-handler-select').value;
+  var today = new Date().toISOString().split('T')[0];
+
+  // Add reopened event
+  addJobOrderEvent(joId, { type: 'reopened', date: today, reason: reason, notes: notes, reopenedBy: currentUserEmail });
+
+  // Update coordinator if changed
+  if (newHandler) setCoordinatorForJO(joId, newHandler);
+
+  // Change status to Active
+  joStatusOverrides[joId] = 'Active';
+  saveJOStatusOverrides();
+  var jo = jobOrders.find(function(j) { return j.id === joId; });
+  if (jo) jo.status = 'Active';
+
+  closeModal('modal-reopen-jo');
+  renderJobOrders([...placements, ...manualPlacements]);
+  updateStats();
+  buildReminderBanner();
+  showToast('Job order ' + joId + ' reopened — ' + reason, 'green');
 }
 
 function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
@@ -3247,6 +3474,7 @@ async function loadAll() {
 
   checkDelayedCloses();
   updateStats();
+  migrateJobOrderEvents(); // one-time migration; no-op after first run
   renderJobOrders(allPlacements);
   renderHiredTab();
   checkUrgentAlerts();
@@ -3302,8 +3530,10 @@ function updateStats() {
     var hdMs = parseDateFlex(hd);
     if (!hdMs || isNaN(hdMs) || hdMs.getTime() < thirtyDaysAgo) return;
     var jo = jobOrders.find(function(j) { return j.id === p.jobOrderId; });
-    if (!jo || !jo.timestamp) return;
-    var joMs = parseDateFlex(jo.timestamp);
+    if (!jo) return;
+    // Use cycle start date (from events) not original creation date
+    var cycleStart = getLastCycleStartDate(p.jobOrderId);
+    var joMs = cycleStart ? parseDateFlex(cycleStart) : (jo.timestamp ? parseDateFlex(jo.timestamp) : null);
     if (!joMs || isNaN(joMs)) return;
     var diff = Math.round((hdMs.getTime() - joMs.getTime()) / 86400000);
     if (diff >= 0) daysToPlaceArr.push(diff);
@@ -3424,21 +3654,25 @@ function renderJobOrders(allPlacements) {
     const confirmedC = joPlacements.filter(p => { const st = getEffectiveStage(_getEx(p), p); return st === 'Confirmed Interested' || st === 'For Employer Review' || st === 'Interview Scheduled'; }).length;
     const hiredC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Hired ✓').length;
 
-    // Age badge
-    var joDate = parseDateFlex(jo.timestamp);
-    var daysOpen = joDate && !isNaN(joDate) ? Math.floor((Date.now() - joDate.getTime()) / 86400000) : null;
-    var ageCls = daysOpen === null ? '' : daysOpen >= 7 ? 'age-overdue' : daysOpen >= 4 ? 'age-followup' : 'age-fresh';
-    var ageLabel = daysOpen === null ? '' : daysOpen >= 7 ? 'OVERDUE' : daysOpen >= 4 ? 'Follow Up' : 'Fresh';
-    var ageBadge = daysOpen !== null ? '<span class="age-badge ' + ageCls + '">' + daysOpen + 'd · ' + ageLabel + '</span>' : '';
+    // Age badge — uses getDaysOpen() for correct cycle-aware days
+    var daysOpen = getDaysOpen(jo);
+    var ageCls = daysOpen >= 7 ? 'age-overdue' : daysOpen >= 4 ? 'age-followup' : 'age-fresh';
+    var ageLabel = daysOpen >= 7 ? 'OVERDUE' : daysOpen >= 4 ? 'Follow Up' : 'Fresh';
+    var ageBadge = '<span class="age-badge ' + ageCls + '">' + daysOpen + 'd \xB7 ' + ageLabel + '</span>';
+    // Reopen count badge for tab button
+    var rc2 = getReopenCount(jo.id);
+    var tabReopEvts = getJobOrderEvents(jo.id).filter(function(e){ return e.type==='reopened'; });
+    var tabLastReason = tabReopEvts.length ? (tabReopEvts[tabReopEvts.length-1].reason||'') : '';
+    var tabReopenBadge = rc2 > 0 ? '<span class="reopen-badge' + (tabLastReason.indexOf('Guarantee')>=0?' reopen-badge-guarantee':'') + '">' + (tabLastReason.indexOf('Guarantee')>=0?'🛡':'🔄') + ' \xD7' + rc2 + '</span>' : '';
 
     const btn = document.createElement('button');
     btn.className = 'jo-tab-btn' + (i === activeJOTab ? ' active' : '') + (jo.status !== 'Active' ? ' jo-tab-nactive' : '');
     const _cxInfo = (() => { try { return JSON.parse(localStorage.getItem('jo_cancellation_' + jo.id) || 'null'); } catch(e) { return null; } })();
     btn.innerHTML =
-      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">' +
         '<div class="jo-tab-id">' + escHtml(jo.id) + '</div>' +
         '<span class="jo-status-pill" style="color:' + (statusColors[jo.status] || 'var(--text3)') + '">' + escHtml(jo.status) + '</span>' +
-        ageBadge +
+        ageBadge + tabReopenBadge +
       '</div>' +
       '<div class="jo-tab-pos">' + escHtml(jo.position) + '</div>' +
       '<div class="jo-tab-company">' + escHtml(jo.company) + '</div>' +
@@ -3494,11 +3728,11 @@ function buildJOPanel(jo, joPlacements) {
     'Cancelled': [['Reopen','Active','btn-green'],['Hold','On Hold','btn-ghost']],
     'Fulfilled': [['Reopen','Active','btn-green']],
   };
-  const statusBtns = (statusActions[joStatus]||[]).map(([label,newStatus,cls])=>
-    newStatus === 'Cancelled'
-      ? `<button class="btn ${cls}" onclick="openCancelModal('${escAttr(jo.id)}','${escAttr(jo.position)}')">${label}</button>`
-      : `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`
-  ).join('');
+  const statusBtns = (statusActions[joStatus]||[]).map(([label,newStatus,cls])=> {
+    if (newStatus === 'Cancelled') return `<button class="btn ${cls}" onclick="openCancelModal('${escAttr(jo.id)}','${escAttr(jo.position)}')">${label}</button>`;
+    if (label === 'Reopen') return `<button class="btn ${cls}" onclick="openReopenModal('${escAttr(jo.id)}')">${label}</button>`;
+    return `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`;
+  }).join('');
 
   const canAdd = joStatus === 'Active' && !isFulfilled;
 
@@ -3514,18 +3748,20 @@ function buildJOPanel(jo, joPlacements) {
     } catch(e){ return null; }
   })();
 
-  // Days open calculation
-  var joDaysOpen = null;
+  // Days open — uses getDaysOpen() which respects reopen cycles
+  var joDaysOpen = getDaysOpen(jo);
   var joAgeBadgeHtml = '';
-  if (jo.timestamp) {
-    var joDt = parseDateFlex(jo.timestamp);
-    if (joDt && !isNaN(joDt)) {
-      joDaysOpen = Math.floor((Date.now() - joDt.getTime()) / 86400000);
-      var joAgeCls   = joDaysOpen >= 7 ? 'age-overdue' : joDaysOpen >= 4 ? 'age-followup' : 'age-fresh';
-      var joAgeLabel = joDaysOpen >= 7 ? 'OVERDUE'     : joDaysOpen >= 4 ? 'Follow Up'    : 'Fresh';
-      joAgeBadgeHtml = '<span class="age-badge ' + joAgeCls + '">' + joDaysOpen + ' days open \xB7 ' + joAgeLabel + '</span>';
-    }
+  if (joDaysOpen !== null) {
+    var joAgeCls   = joDaysOpen >= 7 ? 'age-overdue' : joDaysOpen >= 4 ? 'age-followup' : 'age-fresh';
+    var joAgeLabel = joDaysOpen >= 7 ? 'OVERDUE'     : joDaysOpen >= 4 ? 'Follow Up'    : 'Fresh';
+    joAgeBadgeHtml = '<span class="age-badge ' + joAgeCls + '">' + joDaysOpen + ' days open \xB7 ' + joAgeLabel + '</span>';
   }
+  // Reopen count badge
+  var reopenCount = getReopenCount(jo.id);
+  var reopenEvents = getJobOrderEvents(jo.id).filter(function(e){ return e.type==='reopened'; });
+  var lastReopenReason = reopenEvents.length ? (reopenEvents[reopenEvents.length-1].reason||'') : '';
+  var isGuaranteeReopen = lastReopenReason.indexOf('Guarantee') >= 0;
+  var reopenBadgeHtml = reopenCount > 0 ? '<span class="reopen-badge' + (isGuaranteeReopen?' reopen-badge-guarantee':'') + '" onclick="toggleJOHistory(\'' + escAttr(jo.id) + '\')">' + (isGuaranteeReopen?'🛡 Guarantee Replacement':'🔄 Reopened ×'+reopenCount) + '</span>' : '';
 
   // Coordinator "Handled By" field
   var existingCoordEmail = getCoordinatorEmail(jo.id);
@@ -3560,6 +3796,7 @@ function buildJOPanel(jo, joPlacements) {
           <div class="jo-meta-item"><span>${joPlacements.length} total</span></div>
           <div class="jo-meta-item"><span style="color:var(--accent)">${activeCount} active</span></div>
           ${joAgeBadgeHtml ? '<div class="jo-meta-item">' + joAgeBadgeHtml + '</div>' : ''}
+          ${reopenBadgeHtml ? '<div class="jo-meta-item">' + reopenBadgeHtml + '</div>' : ''}
         </div>
         <div class="jo-hire-progress">
           <div class="jo-hire-bar" style="width:${hiringPct}%"></div>
@@ -3643,7 +3880,7 @@ function buildJOPanel(jo, joPlacements) {
     panel.appendChild(jdSection);
   }
 
-  // Pipeline funnel
+  // Pipeline funnel — current cycle only
   if (joPlacements.length > 0) {
     const funnelSec = document.createElement('div');
     funnelSec.className = 'pipeline-section';
@@ -3651,7 +3888,15 @@ function buildJOPanel(jo, joPlacements) {
     const stageCounts = {};
     funnelStages.forEach(function(s) { stageCounts[s] = 0; });
     stageCounts['Dropped / Unavailable'] = 0;
-    joPlacements.forEach(function(p) {
+    var cycleStart = getLastCycleStartDate(jo.id);
+    var cycleStartMs = cycleStart ? parseDateFlex(cycleStart) : null;
+    // Only count current-cycle placements in funnel
+    var funnelPlacements = joPlacements.filter(function(p) {
+      if (!cycleStartMs) return true;
+      var pd = parseDateFlex(p.date || '');
+      return !pd || pd >= cycleStartMs;
+    });
+    funnelPlacements.forEach(function(p) {
       var pid2 = p.placementId || p.candidateId;
       var ex2 = {}; try { ex2 = JSON.parse(localStorage.getItem('prow_extra_' + pid2) || '{}'); } catch(e) {}
       var stg = getEffectiveStage(ex2, p);
@@ -3691,21 +3936,75 @@ function buildJOPanel(jo, joPlacements) {
     panel.appendChild(funnelSec);
   }
 
-  // Candidate list
+  // History timeline section
+  var histSec = document.createElement('div');
+  histSec.className = 'joc-timeline';
+  histSec.id = 'joc-timeline-' + jo.id;
+  histSec.style.display = 'none'; // collapsed by default
+  var evts = getJobOrderEvents(jo.id);
+  var evtDotCls = { created:'joc-dot-created', fulfilled:'joc-dot-fulfilled', reopened:'joc-dot-reopened', on_hold:'joc-dot-onhold', resumed:'joc-dot-created', cancelled:'joc-dot-cancelled' };
+  var evtItems = evts.map(function(e) {
+    var dc = evtDotCls[e.type] || 'joc-dot-default';
+    var dt = e.date ? new Date(e.date).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) : '';
+    var detail = '';
+    if (isAdmin()) {
+      if (e.candidateName) detail += escHtml(e.candidateName) + ' · ';
+      if (e.reason)        detail += escHtml(e.reason);
+      if (e.notes)         detail += ' — <em>' + escHtml(e.notes) + '</em>';
+    }
+    var label = e.type.charAt(0).toUpperCase() + e.type.slice(1).replace('_', ' ');
+    return '<div class="joc-event"><div class="joc-dot ' + dc + '">' + label.charAt(0) + '</div>' +
+      '<div class="joc-event-body"><div class="joc-event-type">' + escHtml(label) + '</div>' +
+      '<div class="joc-event-date">' + dt + (e.migrated?' <em style="color:var(--text3)">(estimated)</em>':'') + '</div>' +
+      (detail?'<div class="joc-event-detail">' + detail + '</div>':'') + '</div></div>';
+  }).join('');
+  if (joDaysOpen > 0 && (joStatusOverrides[jo.id]==='Active'||jo.status==='Active')) {
+    evtItems += '<div class="joc-event"><div class="joc-dot joc-dot-created" style="background:var(--green-dim);border-color:var(--green);color:var(--green)">●</div>' +
+      '<div class="joc-event-body"><div class="joc-event-type" style="color:var(--green)">Active Now</div>' +
+      '<div class="joc-event-date">Day ' + joDaysOpen + '</div></div></div>';
+  }
+  histSec.innerHTML = '<div class="joc-timeline-title" onclick="toggleJOHistory(\'' + escAttr(jo.id) + '\')" style="display:flex;justify-content:space-between">' +
+    '<span>History</span><span id="joc-toggle-icon-' + escAttr(jo.id) + '" style="font-size:10px">▶ Show</span></div>' +
+    '<div id="joc-events-' + escAttr(jo.id) + '" style="display:none">' + (evtItems || '<div style="color:var(--text3);font-size:11px">No events recorded.</div>') + '</div>';
+  panel.appendChild(histSec);
+
+  // Candidate list with cycle toggle
   const placeSec = document.createElement('div');
   placeSec.className = 'placements-section';
-  placeSec.innerHTML = `<div class="placements-title">Candidates in This Job Order</div>`;
+
+  var cycleStartForFilter = getLastCycleStartDate(jo.id);
+  var cycleStartMsForFilter = cycleStartForFilter ? parseDateFlex(cycleStartForFilter) : null;
+  var hasPrevCycle = cycleStartMsForFilter && joPlacements.some(function(p) {
+    var pd = parseDateFlex(p.date || ''); return pd && pd < cycleStartMsForFilter;
+  });
+  var showAllCycles = window['_joAllCycles_' + jo.id] === true;
+
+  var toggleHtml = '';
+  if (hasPrevCycle) {
+    toggleHtml = '<div class="cycle-toggle">' +
+      '<button class="cycle-toggle-btn' + (!showAllCycles?' active':'') + '" onclick="window[\'_joAllCycles_' + jo.id + '\']=false;renderJobOrders([...placements,...manualPlacements])">Current Cycle</button>' +
+      '<button class="cycle-toggle-btn' + (showAllCycles?' active':'') + '" onclick="window[\'_joAllCycles_' + jo.id + '\']=true;renderJobOrders([...placements,...manualPlacements])">Show All Cycles</button>' +
+      '</div>';
+  }
+  placeSec.innerHTML = '<div class="placements-title">Candidates in This Job Order</div>' + toggleHtml;
 
   if (joPlacements.length === 0) {
-    placeSec.innerHTML += `<div class="empty-placements">No candidates assigned yet.</div>`;
+    placeSec.innerHTML += '<div class="empty-placements">No candidates assigned yet.</div>';
   } else {
+    // Filter by cycle unless "show all" is on
+    var visiblePlacements = joPlacements;
+    if (!showAllCycles && cycleStartMsForFilter) {
+      visiblePlacements = joPlacements.filter(function(p) {
+        var pd = parseDateFlex(p.date || ''); return !pd || pd >= cycleStartMsForFilter;
+      });
+      if (visiblePlacements.length === 0) visiblePlacements = joPlacements; // fallback: show all if filter removes everything
+    }
     // Sort: active statuses first, inactive (Dropped/Not Interested) at bottom
     const statusOrder = { 'For Interview':0, 'Interviewed':1, 'Messaged':2, 'Hired':3, 'Dropped':4 };
     const responseOrder = { 'Interested':0, 'No Response':1, 'Not Interested':2 };
     const sorted = [...joPlacements].sort((a,b) => {
-      // Load saved overrides for sorting
-      const getPid = (p, i) => p.placementId || `${jo.id}_${p.candidateId}_${i}`;
-      const getExtra = (p, i) => { try { return JSON.parse(localStorage.getItem(`prow_extra_${getPid(p,i)}`) || '{}'); } catch(e){ return {}; } };
+      const getPid = (p, i) => p.placementId || (jo.id + '_' + p.candidateId + '_' + i);
+      const getExtra = (p, i) => { try { return JSON.parse(localStorage.getItem('prow_extra_' + getPid(p,i)) || '{}'); } catch(e){ return {}; } };
       const extraA = getExtra(a, 0); const extraB = getExtra(b, 0);
       const aResp = extraA.response || a.response || '';
       const bResp = extraB.response || b.response || '';
@@ -3720,13 +4019,39 @@ function buildJOPanel(jo, joPlacements) {
       return (responseOrder[aResp]??3) - (responseOrder[bResp]??3);
     });
     sorted.forEach((p, idx) => {
+      var isPrevCycle = cycleStartMsForFilter && !showAllCycles === false && (function(){ var pd=parseDateFlex(p.date||''); return pd && pd < cycleStartMsForFilter; })();
+      var isFiltered = !showAllCycles && cycleStartMsForFilter && visiblePlacements.indexOf(p) < 0;
+      if (isFiltered) return; // skip if filtered out
       const row = createPlacementRow(p, idx, jo.id);
+      // Add prev-cycle badge
+      if (isPrevCycle) {
+        var nameEl = row.querySelector('.prow-name');
+        if (nameEl) nameEl.innerHTML += '<span class="prev-cycle-badge">Prev. Cycle</span>';
+      }
       placeSec.appendChild(row);
     });
   }
 
   panel.appendChild(placeSec);
   return panel;
+}
+
+function toggleJOHistory(joId) {
+  var evtsEl = document.getElementById('joc-events-' + joId);
+  var iconEl = document.getElementById('joc-toggle-icon-' + joId);
+  var secEl  = document.getElementById('joc-timeline-' + joId);
+  if (!evtsEl) {
+    // History section might be collapsed — find in panel and show
+    var panelEl = document.querySelector('.jo-panel');
+    if (!panelEl) return;
+    var timelines = panelEl.querySelectorAll('.joc-timeline');
+    timelines.forEach(function(t) { t.style.display=''; });
+    return;
+  }
+  var isOpen = evtsEl.style.display !== 'none';
+  evtsEl.style.display = isOpen ? 'none' : '';
+  if (iconEl) iconEl.textContent = isOpen ? '▶ Show' : '▼ Hide';
+  if (secEl) secEl.style.display = '';
 }
 
 function getStageDotClass(stage) {
@@ -4317,12 +4642,8 @@ function renderBriefingPanel() {
   // Open job orders count
   const openJOs = jobOrders.filter(function(jo) { return jo.status === 'Active' || jo.status === 'On Hold'; });
 
-  // Days open per JO
-  var daysOpenArr = openJOs.map(function(jo) {
-    var d = parseDateFlex(jo.timestamp);
-    if (!d || isNaN(d)) return 0;
-    return Math.floor((today - d.getTime()) / 86400000);
-  });
+  // Days open per JO — uses getDaysOpen() which respects reopen cycles
+  var daysOpenArr = openJOs.map(function(jo) { return getDaysOpen(jo); });
 
   var overdue = daysOpenArr.filter(function(d) { return d > 7; }).length;
   var atRisk  = daysOpenArr.filter(function(d) { return d >= 5 && d <= 6; }).length;
@@ -5993,12 +6314,20 @@ function setJOFilter(status) {
 function changeJOStatus(joId, newStatus) {
   joStatusOverrides[joId] = newStatus;
   saveJOStatusOverrides();
-  // Update in-memory jobOrders
   const jo = jobOrders.find(j => j.id === joId);
   if (jo) jo.status = newStatus;
+  // Log lifecycle event
+  var today = new Date().toISOString().split('T')[0];
+  if (newStatus === 'Fulfilled') {
+    addJobOrderEvent(joId, { type: 'fulfilled', date: today, changedBy: currentUserEmail });
+  } else if (newStatus === 'On Hold') {
+    addJobOrderEvent(joId, { type: 'on_hold', date: today, changedBy: currentUserEmail });
+  } else if (newStatus === 'Active') {
+    addJobOrderEvent(joId, { type: 'resumed', date: today, changedBy: currentUserEmail });
+  }
   renderJobOrders([...placements, ...manualPlacements]);
   buildReminderBanner();
-  showToast(`Job Order ${joId} → ${newStatus}`, newStatus === 'Active' ? 'green' : 'orange');
+  showToast('Job Order ' + joId + ' → ' + newStatus, newStatus === 'Active' ? 'green' : 'orange');
 }
 
 function onCancelReasonChange(sel) {
@@ -8026,6 +8355,8 @@ async function fbPullSilent() {
     if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
+    if (data.jo_events)
+      Object.entries(data.jo_events).forEach(function(e) { localStorage.setItem('jo_events_' + e[0], JSON.stringify(e[1])); });
     if (data.config && data.config.roles) {
       _mergedRoleConfig = {
         admins: data.config.roles.admins || ROLE_CONFIG.admins,
@@ -8076,6 +8407,8 @@ async function loadFromFirebase() {
     if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
+    if (data.jo_events)
+      Object.entries(data.jo_events).forEach(function(e) { localStorage.setItem('jo_events_' + e[0], JSON.stringify(e[1])); });
     if (data.config && data.config.roles) {
       _mergedRoleConfig = { admins: data.config.roles.admins || ROLE_CONFIG.admins, coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.config.roles.coordinators || {}) };
       if (currentUserEmail) { currentUserRole = getUserRole(currentUserEmail); applyRoleUI(); }
@@ -8097,7 +8430,7 @@ async function loadFromFirebase() {
 async function pushAllToFirebase() {
   const url = getFirebaseUrl('');
   if (!url) return;
-  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {}, joCoords = {};
+  const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {}, joCoords = {}, joEvtsMap = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     try {
@@ -8108,6 +8441,9 @@ async function pushAllToFirebase() {
       else if (k.startsWith('jo_delayed_close_')) joDelayedClose[k.slice(17)] = localStorage.getItem(k);
       else if (k.startsWith('reflection_'))       reflections[k.slice(11)]    = JSON.parse(localStorage.getItem(k));
       else if (k.startsWith('jo_coordinator_'))   joCoords[k.slice(15)]       = localStorage.getItem(k);
+      else if (k.startsWith('jo_events_') && !k.startsWith('jo_events_migrated')) {
+        try { joEvtsMap[k.slice(10)] = JSON.parse(localStorage.getItem(k)); } catch(e2) {}
+      }
       else if (k.startsWith('jo_cancellation_')) {
         const cx = JSON.parse(localStorage.getItem(k));
         const cxId = k.slice(16);
@@ -8134,6 +8470,7 @@ async function pushAllToFirebase() {
     reflections:         reflections,
     jobOrders:           joOrders,
     jo_coordinators:     joCoords,
+    jo_events:           joEvtsMap,
     broadcast_log:       (function(){ try { return JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { return []; } })(),
     config:              { roles: getRoleConfig() }
   };
@@ -9196,6 +9533,7 @@ function renderAnalyticsTab() {
 
   var navItems = [
     { key: 'cancellation', label: 'Cancellations' },
+    { key: 'reopen',       label: 'Reopen Patterns' },
     { key: 'pipeline',     label: 'Pipeline Drop-off' },
     { key: 'timing',       label: 'Time-to-Placement' },
     { key: 'employers',    label: 'Employers' },
@@ -9210,6 +9548,7 @@ function renderAnalyticsTab() {
 
   var content = '';
   if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
+  else if (_analyticsSection === 'reopen')   content = buildReopenAnalysis();
   else if (_analyticsSection === 'pipeline') content = buildPipelineDropoff();
   else if (_analyticsSection === 'timing')   content = buildTimingDistribution();
   else if (_analyticsSection === 'employers') content = buildEmployerTable();
@@ -9220,6 +9559,103 @@ function renderAnalyticsTab() {
   inner.innerHTML = nav + content;
 }
 
+function buildReopenAnalysis() {
+  // Gather all reopen events across all job orders
+  var reopenEvents = [];
+  var allJOIds = jobOrders.map(function(jo){ return jo.id; });
+  // Also check overrides that have been cancelled/fulfilled to catch all JOs ever touched
+  Object.keys(joStatusOverrides).forEach(function(id){ if (allJOIds.indexOf(id)<0) allJOIds.push(id); });
+  allJOIds.forEach(function(joId) {
+    var events = getJobOrderEvents(joId);
+    events.filter(function(e){ return e.type==='reopened'; }).forEach(function(e) {
+      reopenEvents.push({ joId: joId, event: e });
+    });
+  });
+  var total = reopenEvents.length;
+  var totalFulfilled = allJOIds.filter(function(joId) {
+    var events = getJobOrderEvents(joId);
+    return events.some(function(e){ return e.type==='fulfilled'; });
+  }).length;
+  var reopenRate = totalFulfilled > 0 ? Math.round(total/totalFulfilled*100) : 0;
+
+  // Avg time from last fulfillment to reopen
+  var timeToReopenDays = [];
+  allJOIds.forEach(function(joId) {
+    var events = getJobOrderEvents(joId).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+    for (var i=1;i<events.length;i++) {
+      if (events[i].type==='reopened') {
+        // Find preceding fulfilled
+        for (var j=i-1;j>=0;j--) {
+          if (events[j].type==='fulfilled') {
+            var d1=parseDateFlex(events[j].date), d2=parseDateFlex(events[i].date);
+            if (d1&&d2) { timeToReopenDays.push(Math.round((d2-d1)/86400000)); break; }
+          }
+        }
+      }
+    }
+  });
+  var avgTimeToReopen = timeToReopenDays.length ? Math.round(timeToReopenDays.reduce(function(a,b){return a+b;},0)/timeToReopenDays.length) : null;
+  var avgLabel = avgTimeToReopen===null ? '—' : avgTimeToReopen + 'd';
+  var avgInsight = '';
+  if (avgTimeToReopen!==null) {
+    if (avgTimeToReopen < 7) avgInsight = ' — Candidates failing in probation window';
+    else if (avgTimeToReopen <= 30) avgInsight = ' — Likely guarantee replacements';
+    else avgInsight = ' — Employer opening a new need';
+  }
+
+  // Reason breakdown
+  var reasonCounts = {};
+  reopenEvents.forEach(function(re) {
+    var r = (re.event.reason||'Unknown').replace(/^Other:\s*/,'Other');
+    reasonCounts[r] = (reasonCounts[r]||0)+1;
+  });
+  var reasons = Object.entries(reasonCounts).sort(function(a,b){ return b[1]-a[1]; });
+  var maxR = reasons.length ? reasons[0][1] : 1;
+  var bars = reasons.map(function(r) {
+    var pct = Math.round(r[1]/maxR*100);
+    var pcOfTotal = total ? Math.round(r[1]/total*100) : 0;
+    return '<div class="chart-bar-row"><div class="chart-bar-label" style="min-width:240px">' + escHtml(r[0]) + '</div>' +
+      '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:' + pct + '%;background:var(--orange)"><span>' + r[1] + '</span></div></div>' +
+      '<div class="chart-bar-count">' + pcOfTotal + '%</div></div>';
+  }).join('');
+
+  // Reopen rate by coordinator (admin only)
+  var coordRows = '';
+  if (isAdmin()) {
+    var rc = getRoleConfig();
+    var coordStats = {};
+    Object.keys(rc.coordinators||{}).forEach(function(email){ coordStats[email]={fulfilled:0,reopened:0}; });
+    allJOIds.forEach(function(joId) {
+      var ce = getCoordinatorEmail(joId); if(!ce||!coordStats[ce]) return;
+      var events = getJobOrderEvents(joId);
+      if (events.some(function(e){ return e.type==='fulfilled'; })) coordStats[ce].fulfilled++;
+      if (events.some(function(e){ return e.type==='reopened'; })) coordStats[ce].reopened++;
+    });
+    coordRows = '<div class="analytics-table-wrap" style="margin-top:14px"><table class="analytics-table"><thead><tr><th>Coordinator</th><th>Fulfilled</th><th>Reopened</th><th>Reopen Rate</th></tr></thead><tbody>' +
+      Object.entries(coordStats).map(function(e) {
+        var nm=escHtml((rc.coordinators[e[0]]||{}).name||e[0]);
+        var rate=e[1].fulfilled>0?Math.round(e[1].reopened/e[1].fulfilled*100)+'%':'—';
+        return '<tr><td>' + nm + '</td><td>' + e[1].fulfilled + '</td><td>' + e[1].reopened + '</td><td>' + rate + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  // Summary cards
+  var cards = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">' +
+    [['Total Reopened', total, 'var(--orange)'],
+     ['Reopen Rate', reopenRate+'%', 'var(--gold2)'],
+     ['Avg Days to Reopen', avgLabel, 'var(--text)']
+    ].map(function(x) {
+      return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 16px">' +
+        '<div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">' + x[0] + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + x[2] + '">' + x[1] + '</div>' +
+        (x[0]==='Avg Days to Reopen'?'<div style="font-size:10px;color:var(--text3)">' + avgInsight + '</div>':'') +
+        '</div>';
+    }).join('') + '</div>';
+
+  return '<div class="analytics-section"><div class="analytics-section-title">Reopen Patterns <span style="font-size:11px;font-weight:600;color:var(--text3)">' + total + ' total reopened</span></div>' +
+    cards + (bars||'<div style="color:var(--text3);font-size:12px">No reopen events recorded.</div>') + coordRows + '</div>';
+}
+
 function buildCancellationAnalysis() {
   // Gather cancelled JO data
   var cancelled = [];
@@ -9227,9 +9663,12 @@ function buildCancellationAnalysis() {
     var cxRaw = localStorage.getItem('jo_cancellation_' + jo.id);
     if (!cxRaw) return;
     var cx = {}; try { cx = JSON.parse(cxRaw); } catch(e) { return; }
+    // Use last cycle start for days open (not original creation date)
     var daysOpen = 0;
-    if (jo.timestamp) { var dt = parseDateFlex(jo.timestamp); if (dt) daysOpen = Math.floor((new Date(cx.cancelledAt||Date.now()) - dt) / 86400000); }
-    cancelled.push({ jo: jo, cx: cx, daysOpen: daysOpen });
+    var cycleS = getLastCycleStartDate(jo.id);
+    var refDate = cycleS ? parseDateFlex(cycleS) : (jo.timestamp ? parseDateFlex(jo.timestamp) : null);
+    if (refDate) daysOpen = Math.floor((new Date(cx.cancelledAt||Date.now()) - refDate) / 86400000);
+    cancelled.push({ jo: jo, cx: cx, daysOpen: Math.max(0, daysOpen) });
   });
   // Also count from joStatusOverrides
   Object.keys(joStatusOverrides).forEach(function(joId) {
@@ -9365,8 +9804,9 @@ function buildTimingDistribution() {
     if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
     var hireDate = hd.hireDate; if(!hireDate) return;
     var jo = jobOrders.find(function(j){ return j.id===p.jobOrderId; });
-    if (!jo||!jo.timestamp) return;
-    var hdMs=parseDateFlex(hireDate), joMs=parseDateFlex(jo.timestamp);
+    if (!jo) return;
+    var cycleS = getLastCycleStartDate(p.jobOrderId);
+    var hdMs=parseDateFlex(hireDate), joMs=cycleS ? parseDateFlex(cycleS) : (jo.timestamp ? parseDateFlex(jo.timestamp) : null);
     if (!hdMs||!joMs) return;
     var days = Math.round((hdMs-joMs)/86400000);
     if (days<=3) buckets['1-3d']++;
