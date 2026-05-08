@@ -109,7 +109,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not(.light) {
       --bg:    #0F1117;
       --bg2:   #1A1D27;
       --card:  #1A1D27;
@@ -153,6 +153,51 @@
       --status-blue-bg:  #0F1C3A;
       --status-grey-bg:  #1A1D27;
     }
+  }
+
+  :root.dark {
+    --bg:    #0F1117;
+    --bg2:   #1A1D27;
+    --card:  #1A1D27;
+    --card2: #1E2130;
+    --card3: #252840;
+    --border:  #2A2E42;
+    --border2: #363B55;
+    --border3: #4A506A;
+    --accent:     #3B82F6;
+    --accent2:    #2563EB;
+    --accent3:    #60A5FA;
+    --accent-dim:  rgba(59,130,246,0.10);
+    --accent-dim2: rgba(59,130,246,0.18);
+    --gold:     #F59E0B;
+    --gold2:    #D97706;
+    --gold-dim:  rgba(245,158,11,0.10);
+    --gold-dim2: rgba(245,158,11,0.18);
+    --green:    #22C55E;
+    --green-dim: rgba(34,197,94,0.10);
+    --red:    #EF4444;
+    --red-dim: rgba(239,68,68,0.10);
+    --blue:    #3B82F6;
+    --blue-dim: rgba(59,130,246,0.10);
+    --text:  #F1F5F9;
+    --text2: #94A3B8;
+    --text3: #64748B;
+    --bg-base:      #0F1117;
+    --bg-surface:   #1A1D27;
+    --bg-elevated:  #222535;
+    --bg-subtle:    #1E2130;
+    --bg-hover:     #252840;
+    --border-strong: #363B55;
+    --text-primary:   #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted:     #64748B;
+    --accent-light:   rgba(59,130,246,0.15);
+    --accent-hover:   #2563EB;
+    --status-green-bg: #052E16;
+    --status-amber-bg: #1C1407;
+    --status-red-bg:   #1C0A0A;
+    --status-blue-bg:  #0F1C3A;
+    --status-grey-bg:  #1A1D27;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2661,6 +2706,7 @@ function doLogin(){
 <button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
         <span class="sync-dot status-dot" id="sync-dot" style="margin-right:4px"></span><span id="sync-label">Sync</span>
       </button>
+      <button class="btn-refresh" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode" style="font-size:16px;padding:6px 10px"></button>
       <button class="btn-refresh" onclick="window._fbSignOut()" style="display:flex;align-items:center;gap:6px">
         <span id="role-badge" class="role-badge" style="display:none"></span>
         <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
@@ -3162,6 +3208,41 @@ function doLogin(){
 </div>
 
 <script>
+// ═══════════════════════════════════════════════
+// THEME (light / dark)
+// ═══════════════════════════════════════════════
+(function() {
+  var saved = localStorage.getItem('jsph-theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var isDark = saved ? saved === 'dark' : prefersDark;
+  if (isDark) document.documentElement.classList.add('dark');
+  else document.documentElement.classList.add('light');
+})();
+
+function _updateThemeBtn() {
+  var btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  var isDark = document.documentElement.classList.contains('dark');
+  btn.textContent = isDark ? '☀️' : '🌙';
+  btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+}
+
+function toggleTheme() {
+  var html = document.documentElement;
+  if (html.classList.contains('dark')) {
+    html.classList.remove('dark');
+    html.classList.add('light');
+    localStorage.setItem('jsph-theme', 'light');
+  } else {
+    html.classList.remove('light');
+    html.classList.add('dark');
+    localStorage.setItem('jsph-theme', 'dark');
+  }
+  _updateThemeBtn();
+}
+
+document.addEventListener('DOMContentLoaded', _updateThemeBtn);
+
 // ═══════════════════════════════════════════════
 // SVG ICON SYSTEM
 // ═══════════════════════════════════════════════
