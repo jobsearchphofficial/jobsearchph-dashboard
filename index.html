@@ -2630,7 +2630,21 @@
   const auth = getAuth(app);
   window._fbSignIn  = (e, p) => signInWithEmailAndPassword(auth, e, p);
   window._fbSignOut = () => signOut(auth);
-  onAuthStateChanged(auth, user => {
+  window._fbAuthToken = null;
+  window._fbTokenRefreshInterval = null;
+  async function _refreshFbToken() {
+    if (window._fbUser) {
+      try { window._fbAuthToken = await window._fbUser.getIdToken(true); } catch(e) {}
+    }
+  }
+  onAuthStateChanged(auth, async user => {
+    window._fbUser = user;
+    window._fbAuthToken = null;
+    clearInterval(window._fbTokenRefreshInterval);
+    if (user) {
+      try { window._fbAuthToken = await user.getIdToken(); } catch(e) {}
+      window._fbTokenRefreshInterval = setInterval(_refreshFbToken, 50 * 60 * 1000);
+    }
     document.getElementById('login-screen').style.display = user ? 'none' : 'flex';
     document.getElementById('app-shell').style.display    = user ? 'block' : 'none';
     const el = document.getElementById('header-user-email');
@@ -3380,10 +3394,11 @@ async function loadFirebaseRoleConfig() {
 
 async function saveFirebaseRoleConfig() {
   var url = getFirebaseUrl('config/roles');
-  if (!url) { showToast('Firebase not configured.', 'red'); return; }
+  if (!url) { showToast('Firebase not configured. Open Sync to set up.', 'red'); return; }
   var rc = getRoleConfig();
   try {
-    await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rc) });
+    var res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rc) });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — check Firebase permissions.');
     showToast('Team config saved.', 'green');
   } catch(e) {
     showToast('Save failed: ' + e.message, 'red');
@@ -8852,8 +8867,8 @@ function escAttr(str) {
 function getFirebaseUrl(path) {
   const dbUrl = localStorage.getItem('firebase_db_url');
   if (!dbUrl) return null;
-  const secret = localStorage.getItem('firebase_secret');
-  const auth = secret ? '?auth=' + encodeURIComponent(secret) : '';
+  const token = window._fbAuthToken || localStorage.getItem('firebase_secret');
+  const auth = token ? '?auth=' + encodeURIComponent(token) : '';
   const base = dbUrl.replace(/\/$/, '');
   return base + '/jobsearchph' + (path ? '/' + path : '') + '.json' + auth;
 }
