@@ -2612,6 +2612,40 @@
     .tabs { padding: 0 16px; gap: 0; overflow-x: auto; }
     .tab { padding: 12px 12px; font-size: 12px; }
   }
+
+  /* ─── GUIDED TOUR ─── */
+  #tour-overlay { position:fixed;inset:0;z-index:99980;display:none;pointer-events:all; }
+  #tour-overlay.active { display:block; }
+  #tour-highlight {
+    position:fixed;z-index:99981;border-radius:8px;opacity:0;pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(15,23,42,.72);
+    border:2.5px solid var(--accent,#1755ed);
+    transition:top .28s ease,left .28s ease,width .28s ease,height .28s ease,opacity .2s ease;
+  }
+  #tour-tooltip {
+    position:fixed;z-index:99982;display:none;
+    background:var(--card,#fff);border:1px solid var(--border,#dde5f5);
+    border-radius:14px;padding:18px 20px;max-width:320px;width:calc(100vw - 24px);
+    box-shadow:0 12px 48px rgba(0,0,0,.28);font-family:var(--sans,inherit);
+  }
+  @media(min-width:640px){ #tour-tooltip { width:320px; } }
+  .tour-step-lbl { font-size:10px;font-weight:700;color:var(--text3,#64748b);letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px; }
+  .tour-title { font-size:15px;font-weight:800;color:var(--text,#0f172a);margin-bottom:7px; }
+  .tour-body  { font-size:13px;color:var(--text2,#334155);line-height:1.58;margin-bottom:14px; }
+  .tour-row   { display:flex;align-items:center;gap:8px; }
+  .tour-btn   { padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid var(--border,#dde5f5);background:none;color:var(--text2,#334155); }
+  .tour-btn-primary { background:var(--accent,#1755ed);color:#fff;border-color:var(--accent,#1755ed); }
+  .tour-skip { margin-left:auto;font-size:11px;color:var(--text3,#64748b);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 0; }
+
+  /* ─── HELP MODAL ─── */
+  #help-modal-overlay { position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center; }
+  #help-modal-overlay.open { display:flex; }
+  .help-modal { background:var(--card,#fff);border:1px solid var(--border,#dde5f5);border-radius:18px;padding:28px 28px 24px;max-width:540px;width:calc(100vw - 24px);max-height:82vh;overflow-y:auto;box-shadow:0 20px 64px rgba(15,23,42,.18); }
+  .help-section { margin-bottom:20px; }
+  .help-section:last-child { margin-bottom:0; }
+  .help-section h4 { font-size:13px;font-weight:800;color:var(--accent,#1755ed);margin:0 0 5px;text-transform:uppercase;letter-spacing:.04em; }
+  .help-section p { font-size:13px;color:var(--text2,#334155);line-height:1.6;margin:0; }
+  #help-btn { font-size:13px;font-weight:800;padding:6px 12px;border-radius:99px; }
 </style>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -2655,6 +2689,12 @@
       console.error('[FB upload]', e.message);
       return false;
     }
+  };
+
+  // Mark tour as seen in Firebase (called when tour ends or is skipped)
+  window._fbMarkTourSeen = async function() {
+    if (!window._fbUser) return;
+    try { await set(ref(db, 'users/' + window._fbUser.uid + '/hasSeenTour'), true); } catch(e) {}
   };
 
   // SDK read — used for manual Download + forced pull
@@ -2711,12 +2751,13 @@
     if (user) {
       try { window._fbAuthToken = await user.getIdToken(); } catch(e) {}
       window._fbTokenRefreshInterval = setInterval(_refreshFbToken, 50 * 60 * 1000);
-      // Fetch UID-based role from users/{uid}/role before showing the app
+      // Fetch users/{uid} once — gets role + hasSeenTour together
       try {
-        const snap = await get(ref(db, 'users/' + user.uid + '/role'));
-        const val = snap.val();
-        if (val === 'admin' || val === 'coordinator') uidRole = val;
-      } catch(e) { console.warn('[Role fetch]', e.message); }
+        const snap = await get(ref(db, 'users/' + user.uid));
+        const ud = snap.val() || {};
+        if (ud.role === 'admin' || ud.role === 'coordinator') uidRole = ud.role;
+        window._fbHasSeenTour = ud.hasSeenTour === true;
+      } catch(e) { console.warn('[User data fetch]', e.message); }
       window._fbStartRealtime(); // starts listener → fires immediately with current DB data
     }
 
@@ -2797,6 +2838,7 @@ function doLogin(){
         <span class="sync-dot status-dot" id="sync-dot" style="margin-right:4px"></span><span id="sync-label">Sync</span>
       </button>
       <button class="btn-refresh" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode" style="font-size:16px;padding:6px 10px"></button>
+      <button id="help-btn" class="btn-refresh" onclick="openHelpModal()" title="Help & guided tour">?</button>
       <button class="btn-refresh" onclick="window._fbSignOut()" style="display:flex;align-items:center;gap:6px">
         <span id="role-badge" class="role-badge" style="display:none"></span>
         <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
@@ -3441,7 +3483,6 @@ function applyRoleUI() {
 
 window._onUserRoleReady = function(email, uidRole) {
   currentUserEmail = email;
-  // UID role takes priority; fall back to email config; default to coordinator
   if (uidRole === 'admin' || uidRole === 'coordinator') {
     _uidRole = uidRole;
   } else {
@@ -3449,6 +3490,8 @@ window._onUserRoleReady = function(email, uidRole) {
   }
   currentUserRole = getUserRole(email);
   applyRoleUI();
+  // Start guided tour for first-time coordinators
+  if (typeof checkAndStartTour === 'function') checkAndStartTour();
 };
 
 async function loadFirebaseRoleConfig() {
@@ -10976,6 +11019,179 @@ function renderMyEarnings() {
   container.style.display='';
 }
 
+// ═══════════════════════════════════════════════
+// GUIDED TOUR
+// ═══════════════════════════════════════════════
+
+var TOUR_STEPS = [
+  {
+    tab: null,
+    targetFn: function() { return document.querySelector('.tabs'); },
+    title: 'Job Orders Tab',
+    body: 'This is where all employer requests live. Click a job order to expand it and see its full candidate pipeline.'
+  },
+  {
+    tab: 'jobs',
+    targetFn: function() { return document.querySelector('#jo-container .pipeline-section') || document.getElementById('jo-container'); },
+    title: 'Pipeline Funnel',
+    body: 'Track where each candidate is: Broadcasted → Confirmed Interested → For Employer Review → Interview Scheduled → Hired ✓. Expand any job order to see its funnel.'
+  },
+  {
+    tab: 'jobs',
+    targetFn: function() { return document.querySelector('.jo-panel-actions .btn-secondary') || document.querySelector('.jo-panel-actions'); },
+    title: 'Broadcast Button',
+    body: 'Send job details to a filtered list of matching candidates. Filter by job type, age, ERA score, gender, and location — then select and broadcast.'
+  },
+  {
+    tab: 'jobs',
+    targetFn: function() {
+      var btns = document.querySelectorAll('.jo-panel-actions .btn-green');
+      return btns[0] || document.querySelector('.jo-panel-actions');
+    },
+    title: '+ Add Button',
+    body: 'Manually add a specific candidate to this job order when you already know who to place. Use this for direct referrals or AI Matcher picks.'
+  },
+  {
+    tab: 'candidates',
+    targetFn: function() { return document.querySelectorAll('.tab')[1] || null; },
+    title: 'Candidates Tab',
+    body: 'Your full candidate pool. Use the filter bar to narrow by job type, location, ERA score, age, gender, or setup. Click any card to open their full profile.'
+  },
+  {
+    tab: 'candidates',
+    targetFn: function() { return document.querySelector('#cand-container .cand-card-actions .btn-green') || document.getElementById('cand-container'); },
+    title: '+ Add to Job Order',
+    body: 'From any candidate card, click "+ Add to Job Order" to assign them directly to an open job order without leaving the Candidates tab.'
+  },
+  {
+    tab: 'screening',
+    targetFn: function() { return document.querySelector('.tab[onclick*="screening"]') || document.querySelectorAll('.tab')[3]; },
+    title: 'Screening Tab',
+    body: 'Work through unscreened candidates systematically. Move each from Unscreened → Contacted → In Progress → Ready for Matching using the ERA scoring system.'
+  },
+  {
+    tab: 'screening',
+    targetFn: function() { return document.querySelector('.era-hero') || document.querySelector('.sp-era-score-hero') || document.getElementById('screening-inner'); },
+    title: 'ERA Score',
+    body: 'ERA = Eligibility, Responsiveness, Attitude. Score each candidate as you screen them. Candidates scoring 7–10 are Ready for Matching and are prioritised in the AI Matcher.'
+  }
+];
+
+var _tourStep = 0;
+var _tourActive = false;
+
+function startTour(fromHelp) {
+  _tourStep = 0;
+  _tourActive = true;
+  var ov = document.getElementById('tour-overlay');
+  var tt = document.getElementById('tour-tooltip');
+  if (ov) ov.classList.add('active');
+  if (tt) tt.style.display = 'block';
+  _showTourStep();
+}
+
+function _showTourStep() {
+  var step = TOUR_STEPS[_tourStep];
+  if (!step) { endTour(); return; }
+  if (step.tab) {
+    switchTab(step.tab);
+    setTimeout(_positionTour, 320);
+  } else {
+    _positionTour();
+  }
+}
+
+function _positionTour() {
+  var step = TOUR_STEPS[_tourStep];
+  var hl = document.getElementById('tour-highlight');
+  var tt = document.getElementById('tour-tooltip');
+  if (!hl || !tt) return;
+
+  var target = step.targetFn();
+  if (target) {
+    var r = target.getBoundingClientRect();
+    var pad = 6;
+    hl.style.top    = (r.top    - pad) + 'px';
+    hl.style.left   = (r.left   - pad) + 'px';
+    hl.style.width  = (r.width  + pad*2) + 'px';
+    hl.style.height = (r.height + pad*2) + 'px';
+    hl.style.opacity = '1';
+
+    var mobile = window.innerWidth < 640;
+    var ttW = mobile ? window.innerWidth - 24 : 320;
+    var ttH = 200;
+    var spaceBelow = window.innerHeight - r.bottom;
+    var spaceAbove = r.top;
+    var left = Math.max(12, Math.min(r.left, window.innerWidth - ttW - 12));
+    var top;
+    if (!mobile && spaceBelow > ttH + 20) {
+      top = r.bottom + 14;
+    } else if (spaceAbove > ttH + 20) {
+      top = r.top - ttH - 14;
+    } else {
+      top = Math.max(60, r.bottom + 10);
+      left = 12;
+    }
+    tt.style.top  = top  + 'px';
+    tt.style.left = left + 'px';
+    tt.style.transform = '';
+  } else {
+    hl.style.opacity = '0';
+    tt.style.top = '50%';
+    tt.style.left = '50%';
+    tt.style.transform = 'translate(-50%,-50%)';
+  }
+
+  document.getElementById('tour-step-lbl').textContent = 'Step ' + (_tourStep+1) + ' of ' + TOUR_STEPS.length;
+  document.getElementById('tour-title').textContent = step.title;
+  document.getElementById('tour-body').textContent  = step.body;
+  document.getElementById('tour-prev').style.display = _tourStep > 0 ? '' : 'none';
+  var isLast = _tourStep === TOUR_STEPS.length - 1;
+  var nxt = document.getElementById('tour-next');
+  nxt.textContent = isLast ? 'Done ✓' : 'Next →';
+}
+
+function tourNext() {
+  if (_tourStep >= TOUR_STEPS.length - 1) { endTour(); return; }
+  _tourStep++;
+  _showTourStep();
+}
+
+function tourPrev() {
+  if (_tourStep > 0) { _tourStep--; _showTourStep(); }
+}
+
+function skipTour() { endTour(); }
+
+function endTour() {
+  _tourActive = false;
+  var ov = document.getElementById('tour-overlay');
+  var hl = document.getElementById('tour-highlight');
+  var tt = document.getElementById('tour-tooltip');
+  if (ov) ov.classList.remove('active');
+  if (hl) hl.style.opacity = '0';
+  if (tt) tt.style.display = 'none';
+  if (typeof window._fbMarkTourSeen === 'function') window._fbMarkTourSeen();
+  showToast('Tour complete! Open Help anytime to relaunch.', 'green');
+}
+
+function checkAndStartTour() {
+  if (isAdmin()) return;
+  if (window._fbHasSeenTour === true) return;
+  setTimeout(startTour, 900);
+}
+
+// ═══════════════════════════════════════════════
+// HELP MODAL
+// ═══════════════════════════════════════════════
+
+function openHelpModal() {
+  document.getElementById('help-modal-overlay').classList.add('open');
+}
+function closeHelpModal() {
+  document.getElementById('help-modal-overlay').classList.remove('open');
+}
+
 loadAll().then(function() {
   loadFirebaseRoleConfig().then(function() {
     if (window._currentUserEmail) {
@@ -11028,6 +11244,63 @@ loadAll().then(function() {
   </div>
 </div>
 
+</div>
+
+<!-- ─── GUIDED TOUR ELEMENTS ─── -->
+<div id="tour-overlay"></div>
+<div id="tour-highlight"></div>
+<div id="tour-tooltip">
+  <div class="tour-step-lbl" id="tour-step-lbl">Step 1 of 8</div>
+  <div class="tour-title"    id="tour-title"></div>
+  <div class="tour-body"     id="tour-body"></div>
+  <div class="tour-row">
+    <button class="tour-btn" id="tour-prev" onclick="tourPrev()" style="display:none">← Back</button>
+    <button class="tour-btn tour-btn-primary" id="tour-next" onclick="tourNext()">Next →</button>
+    <button class="tour-skip" onclick="skipTour()">Skip tour</button>
+  </div>
+</div>
+
+<!-- ─── HELP MODAL ─── -->
+<div id="help-modal-overlay" onclick="if(event.target===this)closeHelpModal()">
+  <div class="help-modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-size:17px;font-weight:800;color:var(--text)">Help Guide</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeHelpModal()">× Close</button>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:20px" onclick="closeHelpModal();startTour(true)">▶ Relaunch Guided Tour</button>
+    <div class="help-section">
+      <h4>Job Orders Tab</h4>
+      <p>All employer job requests live here. Each card shows the position, employer, hiring progress, and candidate pipeline. Click a job order to expand it and see each candidate's status, follow-up dates, and disposition stage.</p>
+    </div>
+    <div class="help-section">
+      <h4>Pipeline Funnel</h4>
+      <p>Inside each expanded job order, the pipeline funnel shows how many candidates are at each stage: Broadcasted → Confirmed Interested → For Employer Review → Interview Scheduled → Hired. Use this to spot bottlenecks — if many are broadcasted but none are confirmed, follow up.</p>
+    </div>
+    <div class="help-section">
+      <h4>Broadcast Button</h4>
+      <p>Sends the job details to a set of matching candidates. Open the Broadcast modal, use filters (job type, age, ERA score, gender, location) to narrow the list, select candidates, then click "Broadcast Selected." This creates a placement record at the Broadcasted stage for each one.</p>
+    </div>
+    <div class="help-section">
+      <h4>+ Add Button (Job Orders)</h4>
+      <p>Manually adds a specific candidate to a job order when you already know who to place. Fill in their name or ID, set an initial status, and save. Use this for direct referrals or AI Matcher suggestions.</p>
+    </div>
+    <div class="help-section">
+      <h4>Candidates Tab</h4>
+      <p>Your full pool of registered candidates. Use the filter bar to search by job type, location, ERA score, age range, gender, or setup preference. Click any candidate card to open their full profile — contact details, past jobs, notes, and ratings history.</p>
+    </div>
+    <div class="help-section">
+      <h4>+ Add to Job Order (from Candidates)</h4>
+      <p>On any candidate card, click "+ Add to Job Order" to assign them directly to an open job order. A modal appears where you select the job order and set the initial response and status.</p>
+    </div>
+    <div class="help-section">
+      <h4>Screening Tab</h4>
+      <p>Work through unscreened candidates systematically. Move each candidate through four stages: Unscreened → Contacted → In Progress → Ready for Matching. Candidates marked Ready appear as priority matches in the AI Matcher.</p>
+    </div>
+    <div class="help-section">
+      <h4>ERA Score</h4>
+      <p>ERA stands for Eligibility, Responsiveness, and Attitude. Score each candidate across three pillars as you screen them. Higher ERA scores (7–10) indicate candidates who are document-verified, reply quickly, and have strong behavioral records — prioritize them for placements.</p>
+    </div>
+  </div>
 </div>
 </body>
 </html>
