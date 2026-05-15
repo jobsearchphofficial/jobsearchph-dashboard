@@ -7029,17 +7029,19 @@ function copyJobDetails(joId) {
   };
   const parts = ['JOB OPENING — Job Search PH', ''];
   if (jo.position) parts.push('Position: ' + jo.position);
-  if (jo.address) parts.push('Location: ' + jo.address);
-  if (jo.salary) parts.push('Salary: ₱' + jo.salary.replace(/^[₱$]+/, '') + '/month');
+  if (jo.jobTitle) parts.push('Location: ' + jo.jobTitle);   // column H = employer city/address
+  if (jo.salary)   parts.push('Salary: ₱' + jo.salary.replace(/^[₱$]+/, '') + '/month');
   if (jo.workSchedule) parts.push('Setup: ' + jo.workSchedule);
-  const reqBullets = toBullets(jo.experience);
-  if (reqBullets) { parts.push(''); parts.push('QUALIFICATIONS'); parts.push(reqBullets); }
+  const qualLines = [];
+  if (jo.genderPref)  qualLines.push('• Gender Pref: ' + jo.genderPref);
+  if (jo.civilStatus) qualLines.push('• Civil Status: ' + jo.civilStatus);
+  if (jo.experience)  qualLines.push('• Experience: ' + jo.experience);
+  if (qualLines.length) { parts.push(''); parts.push('QUALIFICATIONS'); parts.push(qualLines.join('\n')); }
   const dutiesBullets = toBullets(jo.skillsNeeded);
   if (dutiesBullets) { parts.push(''); parts.push('DUTIES & RESPONSIBILITIES'); parts.push(dutiesBullets); }
   const benefitsBullets = toBullets(jo.benefits);
   if (benefitsBullets) { parts.push(''); parts.push('BENEFITS'); parts.push(benefitsBullets); }
-  const employerNotes = jo.otherNotes || jo.company || '';
-  if (employerNotes) { parts.push(''); parts.push('ABOUT THE EMPLOYER'); parts.push(employerNotes); }
+  if (jo.otherNotes) { parts.push(''); parts.push('ABOUT THE EMPLOYER'); parts.push(jo.otherNotes); }
   parts.push('');
   parts.push('Interested? Message us to apply!');
   const text = parts.join('\n');
