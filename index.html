@@ -3510,12 +3510,17 @@ async function loadFirebaseRoleConfig() {
 }
 
 async function saveFirebaseRoleConfig() {
-  if (typeof window._fbSdkSet !== 'function') { showToast('Firebase SDK not ready.', 'red'); return; }
+  if (typeof window._fbSdkSet !== 'function') {
+    console.error('[saveFirebaseRoleConfig] _fbSdkSet not available');
+    showToast('Firebase SDK not ready.', 'red');
+    return;
+  }
   try {
+    console.log('[saveFirebaseRoleConfig] Writing to jobsearchph/config/roles');
     var ok = await window._fbSdkSet('config/roles', getRoleConfig());
-    if (ok) showToast('Team config saved.', 'green');
-    else showToast('Save failed — check console.', 'red');
+    if (!ok) console.error('[saveFirebaseRoleConfig] Write returned false');
   } catch(e) {
+    console.error('[saveFirebaseRoleConfig] Write threw:', e);
     showToast('Save failed: ' + e.message, 'red');
   }
 }
@@ -10956,7 +10961,10 @@ function updateCoordField(email, field, value) {
   if (!rc.coordinators[email]) return;
   rc.coordinators[email][field] = field==='commissionRate' ? parseFloat(value) : value;
   _mergedRoleConfig = rc;
-  saveFirebaseRoleConfig();
+  saveFirebaseRoleConfig().then(function() {
+    // Name changes appear in Handled By dropdown — re-render JO panels
+    renderJobOrders([...placements, ...manualPlacements]);
+  });
 }
 
 function toggleCoordActive(email) {
@@ -10964,7 +10972,10 @@ function toggleCoordActive(email) {
   if (!rc.coordinators[email]) return;
   rc.coordinators[email].active = rc.coordinators[email].active === false ? true : false;
   _mergedRoleConfig = rc;
-  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+  saveFirebaseRoleConfig().then(function() {
+    renderAnalyticsTab();
+    renderJobOrders([...placements, ...manualPlacements]);
+  });
 }
 
 function removeCoordinator(email) {
@@ -10972,19 +10983,52 @@ function removeCoordinator(email) {
   var rc = getRoleConfig();
   delete rc.coordinators[email];
   _mergedRoleConfig = rc;
-  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+  saveFirebaseRoleConfig().then(function() {
+    renderAnalyticsTab();
+    renderJobOrders([...placements, ...manualPlacements]);
+  });
 }
 
-function addCoordinator() {
+async function addCoordinator() {
   var name  = (document.getElementById('new-coord-name')||{}).value||'';
   var email = (document.getElementById('new-coord-email')||{}).value||'';
   var rate  = parseFloat((document.getElementById('new-coord-rate')||{}).value||'30')/100;
   if (!name||!email) { showToast('Name and email required.', 'red'); return; }
+
   var rc = getRoleConfig();
   rc.coordinators = rc.coordinators||{};
   rc.coordinators[email] = { name: name.trim(), commissionRate: rate, active: true };
   _mergedRoleConfig = rc;
-  saveFirebaseRoleConfig().then(function(){ renderAnalyticsTab(); });
+
+  console.log('[AddCoordinator] Writing coordinator to Firebase path: config/roles', rc.coordinators);
+  if (typeof window._fbSdkSet !== 'function') {
+    console.error('[AddCoordinator] _fbSdkSet not available — Firebase SDK not ready');
+    showToast('Firebase not ready. Please refresh and try again.', 'red');
+    return;
+  }
+
+  try {
+    var ok = await window._fbSdkSet('config/roles', rc);
+    console.log('[AddCoordinator] Firebase write result:', ok, 'for coordinator:', email);
+    if (ok) {
+      showToast(name.trim() + ' added to team.', 'green');
+      var nEl = document.getElementById('new-coord-name');
+      var eEl = document.getElementById('new-coord-email');
+      var rEl = document.getElementById('new-coord-rate');
+      if (nEl) nEl.value = '';
+      if (eEl) eEl.value = '';
+      if (rEl) rEl.value = '30';
+      // Re-render Manage Team table AND all JO panels so Handled By dropdown updates immediately
+      renderAnalyticsTab();
+      renderJobOrders([...placements, ...manualPlacements]);
+    } else {
+      console.error('[AddCoordinator] Firebase write returned false — check Firebase rules and network');
+      showToast('Save failed — check browser console for details.', 'red');
+    }
+  } catch(e) {
+    console.error('[AddCoordinator] Firebase write threw:', e);
+    showToast('Save failed: ' + e.message, 'red');
+  }
 }
 
 // ─── COORDINATOR SELF-VIEW (My Earnings card) ───
