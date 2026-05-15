@@ -2707,9 +2707,16 @@
     clearInterval(window._fbTokenRefreshInterval);
     window._fbStopRealtime();
 
+    let uidRole = null;
     if (user) {
       try { window._fbAuthToken = await user.getIdToken(); } catch(e) {}
       window._fbTokenRefreshInterval = setInterval(_refreshFbToken, 50 * 60 * 1000);
+      // Fetch UID-based role from users/{uid}/role before showing the app
+      try {
+        const snap = await get(ref(db, 'users/' + user.uid + '/role'));
+        const val = snap.val();
+        if (val === 'admin' || val === 'coordinator') uidRole = val;
+      } catch(e) { console.warn('[Role fetch]', e.message); }
       window._fbStartRealtime(); // starts listener → fires immediately with current DB data
     }
 
@@ -2718,7 +2725,8 @@
     const el = document.getElementById('header-user-email');
     if (el && user) el.textContent = user.email;
     window._currentUserEmail = user ? user.email : '';
-    if (user && window._onUserRoleReady) window._onUserRoleReady(user.email);
+    window._fbUidRole = uidRole;
+    if (user && window._onUserRoleReady) window._onUserRoleReady(user.email, uidRole);
   });
 </script>
 </head>
@@ -2794,13 +2802,13 @@ function doLogin(){
         <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
         <span>Sign out</span>
       </button>
-      <button class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
+      <button id="quick-add-btn" class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
         + Quick Add
       </button>
     </div>
   </div>
 
-  <div class="stats-bar">
+  <div class="stats-bar" id="stats-bar">
     <div class="stat">
       <div class="stat-icon stat-icon-cand">C</div>
       <div>
@@ -2851,7 +2859,7 @@ function doLogin(){
   <div class="tabs">
     <button class="tab active" onclick="switchTab('jobs')">Job Orders</button>
     <button class="tab" onclick="switchTab('candidates')">Candidates</button>
-    <button class="tab" onclick="switchTab('hired')">Hired</button>
+    <button class="tab" id="tab-btn-hired" onclick="switchTab('hired')">Hired</button>
     <button class="tab hidden" onclick="switchTab('matcher')">AI Matcher</button>
     <button class="tab" onclick="switchTab('screening')">Screening</button>
     <button class="tab hidden" id="tab-btn-analytics" onclick="switchTab('analytics')">Analytics</button>
@@ -3377,15 +3385,18 @@ function getRoleConfig() {
   return _mergedRoleConfig || ROLE_CONFIG;
 }
 
-var currentUserRole  = 'viewer';
+var currentUserRole  = 'coordinator'; // safe default until auth resolves
 var currentUserEmail = '';
+var _uidRole = null; // role fetched from users/{uid}/role — beats email config
 
 function getUserRole(email) {
-  if (!email) return 'viewer';
+  // UID-based role always wins over email config
+  if (_uidRole) return _uidRole;
+  if (!email) return 'coordinator';
   const rc = getRoleConfig();
   if (rc.admins && rc.admins.indexOf(email) >= 0) return 'admin';
   if (rc.coordinators && rc.coordinators[email] && rc.coordinators[email].active !== false) return 'coordinator';
-  return 'viewer';
+  return 'coordinator'; // default: coordinator (safer than viewer)
 }
 
 function isAdmin() { return currentUserRole === 'admin'; }
@@ -3397,33 +3408,46 @@ function renderIfAdmin(value, fallback) {
 }
 
 function applyRoleUI() {
+  var admin = isAdmin();
+  var coord = isCoordinator();
+
   // Role badge
   var badge = document.getElementById('role-badge');
   if (badge) {
     badge.style.display = '';
-    if (isAdmin()) {
-      badge.textContent = 'ADMIN';
-      badge.className = 'role-badge role-admin';
-    } else if (isCoordinator()) {
-      badge.textContent = 'COORD';
-      badge.className = 'role-badge role-coordinator';
-    } else {
-      badge.textContent = 'VIEWER';
-      badge.className = 'role-badge role-viewer';
-    }
+    if (admin) { badge.textContent = 'ADMIN'; badge.className = 'role-badge role-admin'; }
+    else if (coord) { badge.textContent = 'COORD'; badge.className = 'role-badge role-coordinator'; }
+    else { badge.textContent = 'VIEWER'; badge.className = 'role-badge role-viewer'; }
   }
-  // Show/hide Analytics tab
+
+  // Tabs: hide Hired and Analytics for coordinators
+  var hiredTab = document.getElementById('tab-btn-hired');
+  if (hiredTab) hiredTab.style.display = admin ? '' : 'none';
   var atBtn = document.getElementById('tab-btn-analytics');
-  if (atBtn) atBtn.classList.toggle('hidden', !isAdmin());
-  // Show/hide Sync button (admin only)
+  if (atBtn) atBtn.classList.toggle('hidden', !admin);
+
+  // Top stats bar: hidden for coordinators
+  var statsBar = document.getElementById('stats-bar');
+  if (statsBar) statsBar.style.display = admin ? '' : 'none';
+
+  // Header action buttons: admin-only
   var syncBtn = document.getElementById('sync-btn');
-  if (syncBtn) syncBtn.style.display = isAdmin() ? '' : 'none';
-  // Show/hide Cancel JO — handled in buildJOPanel via renderIfAdmin
+  if (syncBtn) syncBtn.style.display = admin ? '' : 'none';
+  var apiBtn = document.getElementById('api-key-btn');
+  if (apiBtn) apiBtn.style.display = admin ? '' : 'none';
+  var qaBtn = document.getElementById('quick-add-btn');
+  if (qaBtn) qaBtn.style.display = admin ? '' : 'none';
 }
 
-window._onUserRoleReady = function(email) {
+window._onUserRoleReady = function(email, uidRole) {
   currentUserEmail = email;
-  currentUserRole  = getUserRole(email);
+  // UID role takes priority; fall back to email config; default to coordinator
+  if (uidRole === 'admin' || uidRole === 'coordinator') {
+    _uidRole = uidRole;
+  } else {
+    _uidRole = null;
+  }
+  currentUserRole = getUserRole(email);
   applyRoleUI();
 };
 
@@ -8759,8 +8783,9 @@ function buildReflectionLog(candId) {
 // TAB SWITCHING
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
-  // Role gate: non-admin redirect away from analytics
+  // Role gates: coordinators can only access jobs, candidates, screening
   if (tab === 'analytics' && !isAdmin()) { tab = 'jobs'; }
+  if (tab === 'hired'     && !isAdmin()) { tab = 'jobs'; }
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   var tabEl = document.getElementById('tab-' + tab);
