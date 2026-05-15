@@ -3642,9 +3642,11 @@ function confirmReopenJO() {
   // Update coordinator if changed
   if (newHandler) setCoordinatorForJO(joId, newHandler);
 
-  // Change status to Active
+  // Change status to Active and clear any pending delayed close
   joStatusOverrides[joId] = 'Active';
   saveJOStatusOverrides();
+  localStorage.removeItem('jo_delayed_close_' + joId);
+  fbSync('jo_delayed_close/' + joId, null);
   var jo = jobOrders.find(function(j) { return j.id === joId; });
   if (jo) jo.status = 'Active';
 
@@ -3655,12 +3657,16 @@ function confirmReopenJO() {
   showToast('Job order ' + joId + ' reopened — ' + reason, 'green');
 }
 
-function saveBlacklist() { localStorage.setItem('blacklist', JSON.stringify(blacklist)); fbSync('blacklist', blacklist); }
-function saveFlaggedCands() { localStorage.setItem('flagged_cands', JSON.stringify(flaggedCands)); fbSync('flagged_cands', flaggedCands); }
-function saveManualPlacements() { localStorage.setItem('manual_placements', JSON.stringify(manualPlacements)); fbSync('manual_placements', manualPlacements); }
-function saveCandidateNotes() { localStorage.setItem('candidate_notes', JSON.stringify(candidateNotes)); fbSync('candidate_notes', candidateNotes); }
-function saveJOStatusOverrides() { localStorage.setItem('jo_status_overrides', JSON.stringify(joStatusOverrides)); fbSync('jo_status_overrides', joStatusOverrides); }
-function saveCandidateRatings() { localStorage.setItem('candidate_ratings', JSON.stringify(candidateRatings)); fbSyncDebounced('candidate_ratings', candidateRatings); }
+function _lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); }
+  catch(e) { if (e.name === 'QuotaExceededError') showToast('Storage full — clear old data', 'red'); else console.error('localStorage write failed:', key, e.message); }
+}
+function saveBlacklist() { _lsSet('blacklist', blacklist); fbSync('blacklist', blacklist); }
+function saveFlaggedCands() { _lsSet('flagged_cands', flaggedCands); fbSync('flagged_cands', flaggedCands); }
+function saveManualPlacements() { _lsSet('manual_placements', manualPlacements); fbSync('manual_placements', manualPlacements); }
+function saveCandidateNotes() { _lsSet('candidate_notes', candidateNotes); fbSync('candidate_notes', candidateNotes); }
+function saveJOStatusOverrides() { _lsSet('jo_status_overrides', joStatusOverrides); fbSync('jo_status_overrides', joStatusOverrides); }
+function saveCandidateRatings() { _lsSet('candidate_ratings', candidateRatings); fbSyncDebounced('candidate_ratings', candidateRatings); }
 
 // ═══════════════════════════════════════════════
 // CSV PARSER
@@ -3805,9 +3811,6 @@ function repairShiftedPlacements() {
 
 async function loadAll() {
   loadLocal();
-  // Pull Firebase data into localStorage BEFORE first render so any device sees latest data
-  await fbPullSilent();
-  loadLocal(); // reload after firebase pull
   repairShiftedPlacements();
   // Apply role from already-set email (may have been set by onAuthStateChanged before loadAll)
   if (window._currentUserEmail) {
@@ -4886,7 +4889,7 @@ function saveProwExtra(pid, field, value) {
   let extra = {};
   try { extra = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e){}
   extra[field] = value;
-  localStorage.setItem(key, JSON.stringify(extra));
+  _lsSet(key, extra);
   fbSyncDebounced('prow_extras/' + pid, extra);
 }
 
@@ -8254,7 +8257,7 @@ function saveHireData(pid, field, value) {
   let d = {};
   try { d = JSON.parse(localStorage.getItem(key)||'{}'); } catch(e){}
   d[field] = value;
-  localStorage.setItem(key, JSON.stringify(d));
+  _lsSet(key, d);
   fbSyncDebounced('hire_data/' + pid, d);
   // Recompute commission when hire date is set
   if (field === 'hireDate' && value) {
@@ -8329,8 +8332,12 @@ function submitIssueReport() {
   const withinGuarantee = hireDateVal && daysSinceHire < 30;
   const triggersReopen = urgency === 'Urgent' || issueType.includes('Replacement');
   if (withinGuarantee && triggersReopen && joId) {
-    delete joStatusOverrides[joId];
+    joStatusOverrides[joId] = 'Active';
     saveJOStatusOverrides();
+    localStorage.removeItem('jo_delayed_close_' + joId);
+    fbSync('jo_delayed_close/' + joId, null);
+    var _rJo = jobOrders.find(function(j) { return j.id === joId; });
+    if (_rJo) _rJo.status = 'Active';
     renderJobOrders([...placements, ...manualPlacements]);
     showToast('Job order ' + joId + ' reopened automatically — within 30-day guarantee', 'green');
   }
@@ -8547,7 +8554,6 @@ async function refreshAll() {
     btn.style.color = hasKey ? 'var(--green)' : 'var(--orange)';
   }
   await loadAll();
-  await loadFromFirebase();
 }
 
 // ═══════════════════════════════════════════════
@@ -8905,6 +8911,11 @@ function fbSyncDebounced(path, data, delay) {
   _fbDebounceTimers[path] = setTimeout(() => fbSync(path, data), delay);
 }
 
+function _fbMergeObj(key, fbData) {
+  var local = {}; try { local = JSON.parse(localStorage.getItem(key) || '{}'); } catch(_e) {}
+  localStorage.setItem(key, JSON.stringify(Object.assign({}, fbData, local)));
+}
+
 async function fbPullSilent() {
   const url = getFirebaseUrl('');
   if (!url) return;
@@ -8913,17 +8924,23 @@ async function fbPullSilent() {
     if (!res.ok) return;
     const data = await res.json();
     if (!data) return;
-    if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
-    if (data.flagged_cands)       localStorage.setItem('flagged_cands',       JSON.stringify(data.flagged_cands));
-    if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
-    if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
-    if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
-    if (data.candidate_ratings)   localStorage.setItem('candidate_ratings',   JSON.stringify(data.candidate_ratings));
-    if (data.templates)           localStorage.setItem('templates',           JSON.stringify(data.templates));
+    if (data.blacklist)           _fbMergeObj('blacklist',           data.blacklist);
+    if (data.flagged_cands)       _fbMergeObj('flagged_cands',       data.flagged_cands);
+    if (data.manual_placements) {
+      var _localMp = []; try { _localMp = JSON.parse(localStorage.getItem('manual_placements') || '[]'); } catch(_e) {}
+      var _fbMp = Array.isArray(data.manual_placements) ? data.manual_placements : [];
+      var _localPids = new Set(_localMp.map(function(p) { return p.placementId; }));
+      var _merged = _localMp.concat(_fbMp.filter(function(p) { return p.placementId && !_localPids.has(p.placementId); }));
+      localStorage.setItem('manual_placements', JSON.stringify(_merged));
+    }
+    if (data.candidate_notes)     _fbMergeObj('candidate_notes',     data.candidate_notes);
+    if (data.jo_status_overrides) _fbMergeObj('jo_status_overrides', data.jo_status_overrides);
+    if (data.candidate_ratings)   _fbMergeObj('candidate_ratings',   data.candidate_ratings);
+    if (data.templates)           localStorage.setItem('templates',   JSON.stringify(data.templates));
     if (data.prow_extras)
-      Object.entries(data.prow_extras).forEach(function(e) { localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
+      Object.entries(data.prow_extras).forEach(function(e) { if (!localStorage.getItem('prow_extra_' + e[0])) localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
     if (data.hire_data)
-      Object.entries(data.hire_data).forEach(function(e) { localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
+      Object.entries(data.hire_data).forEach(function(e) { if (!localStorage.getItem('hire_data_' + e[0])) localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
     if (data.cand_notes)
       Object.entries(data.cand_notes).forEach(function(e) { localStorage.setItem('cand_notes_' + e[0], JSON.stringify(e[1])); });
     if (data.jo_fulfill)
@@ -8936,10 +8953,10 @@ async function fbPullSilent() {
       Object.entries(data.jobOrders).forEach(function(e) {
         if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
       });
-    if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
-    if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
-    if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
-    if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+    if (data.era_stages)       _fbMergeObj('era_stages',       data.era_stages);
+    if (data.era_contact_logs) _fbMergeObj('era_contact_logs', data.era_contact_logs);
+    if (data.pipeline_stages)  _fbMergeObj('pipeline_stages',  data.pipeline_stages);
+    if (data.broadcast_log)    localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
     if (data.jo_events)
@@ -8965,17 +8982,23 @@ async function loadFromFirebase() {
     const data = await res.json();
     if (!data) { setSyncStatus('synced'); return; }
 
-    if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
-    if (data.flagged_cands)       localStorage.setItem('flagged_cands',       JSON.stringify(data.flagged_cands));
-    if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
-    if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
-    if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
-    if (data.candidate_ratings)   localStorage.setItem('candidate_ratings',   JSON.stringify(data.candidate_ratings));
-    if (data.templates)           localStorage.setItem(TMPL_STORAGE_KEY,      JSON.stringify(data.templates));
+    if (data.blacklist)           _fbMergeObj('blacklist',           data.blacklist);
+    if (data.flagged_cands)       _fbMergeObj('flagged_cands',       data.flagged_cands);
+    if (data.manual_placements) {
+      var _localMp2 = []; try { _localMp2 = JSON.parse(localStorage.getItem('manual_placements') || '[]'); } catch(_e2) {}
+      var _fbMp2 = Array.isArray(data.manual_placements) ? data.manual_placements : [];
+      var _localPids2 = new Set(_localMp2.map(function(p) { return p.placementId; }));
+      var _merged2 = _localMp2.concat(_fbMp2.filter(function(p) { return p.placementId && !_localPids2.has(p.placementId); }));
+      localStorage.setItem('manual_placements', JSON.stringify(_merged2));
+    }
+    if (data.candidate_notes)     _fbMergeObj('candidate_notes',     data.candidate_notes);
+    if (data.jo_status_overrides) _fbMergeObj('jo_status_overrides', data.jo_status_overrides);
+    if (data.candidate_ratings)   _fbMergeObj('candidate_ratings',   data.candidate_ratings);
+    if (data.templates)           localStorage.setItem(TMPL_STORAGE_KEY, JSON.stringify(data.templates));
     if (data.prow_extras)
-      Object.entries(data.prow_extras).forEach(function(e) { localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
+      Object.entries(data.prow_extras).forEach(function(e) { if (!localStorage.getItem('prow_extra_' + e[0])) localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
     if (data.hire_data)
-      Object.entries(data.hire_data).forEach(function(e) { localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
+      Object.entries(data.hire_data).forEach(function(e) { if (!localStorage.getItem('hire_data_' + e[0])) localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
     if (data.cand_notes)
       Object.entries(data.cand_notes).forEach(function(e) { localStorage.setItem('cand_notes_' + e[0], JSON.stringify(e[1])); });
     if (data.jo_fulfill)
@@ -8988,10 +9011,10 @@ async function loadFromFirebase() {
       Object.entries(data.jobOrders).forEach(function(e) {
         if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
       });
-    if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
-    if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
-    if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
-    if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+    if (data.era_stages)       _fbMergeObj('era_stages',       data.era_stages);
+    if (data.era_contact_logs) _fbMergeObj('era_contact_logs', data.era_contact_logs);
+    if (data.pipeline_stages)  _fbMergeObj('pipeline_stages',  data.pipeline_stages);
+    if (data.broadcast_log)    localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
     if (data.jo_events)
@@ -9156,9 +9179,9 @@ let eraStages = {};
 let eraContactLogs = {};
 let pipelineStages = {};
 
-function saveEraStages() { localStorage.setItem('era_stages', JSON.stringify(eraStages)); fbSyncDebounced('era_stages', eraStages); }
-function saveEraContactLogs() { localStorage.setItem('era_contact_logs', JSON.stringify(eraContactLogs)); fbSyncDebounced('era_contact_logs', eraContactLogs); }
-function savePipelineStages() { localStorage.setItem('pipeline_stages', JSON.stringify(pipelineStages)); fbSyncDebounced('pipeline_stages', pipelineStages); }
+function saveEraStages() { _lsSet('era_stages', eraStages); fbSyncDebounced('era_stages', eraStages); }
+function saveEraContactLogs() { _lsSet('era_contact_logs', eraContactLogs); fbSyncDebounced('era_contact_logs', eraContactLogs); }
+function savePipelineStages() { _lsSet('pipeline_stages', pipelineStages); fbSyncDebounced('pipeline_stages', pipelineStages); }
 
 const PL_STAGES = ['Unscreened', 'Contacted', 'In Progress', 'Ready for Matching'];
 const PL_COLORS = {
@@ -10083,6 +10106,8 @@ function reopenJOForReplacement(joId, pid, candName, issueType) {
   if (!confirm('Reopen ' + joId + ' for replacement?\n\nThis will set the job order back to Active and flag it as needing a replacement for ' + candName + '.')) return;
   joStatusOverrides[joId] = 'Active';
   saveJOStatusOverrides();
+  localStorage.removeItem('jo_delayed_close_' + joId);
+  fbSync('jo_delayed_close/' + joId, null);
   const jo = jobOrders.find(j => j.id === joId);
   if (jo) jo.status = 'Active';
   localStorage.setItem('pending_replacement_jo_' + joId, JSON.stringify({
@@ -10616,14 +10641,12 @@ function renderMyEarnings() {
 }
 
 loadAll().then(function() {
-  loadFromFirebase().then(function() {
-    loadFirebaseRoleConfig().then(function() {
-      if (window._currentUserEmail) {
-        currentUserEmail = window._currentUserEmail;
-        currentUserRole  = getUserRole(currentUserEmail);
-        applyRoleUI();
-      }
-    });
+  loadFirebaseRoleConfig().then(function() {
+    if (window._currentUserEmail) {
+      currentUserEmail = window._currentUserEmail;
+      currentUserRole  = getUserRole(currentUserEmail);
+      applyRoleUI();
+    }
   });
   initCandFilters();
   initScrFilters();
