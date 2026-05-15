@@ -3247,21 +3247,10 @@ function doLogin(){
         <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px" onclick="closeBroadcastModal()">× Close</button>
       </div>
       <div class="broadcast-jo-summary" id="broadcast-jo-summary"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
         <input type="text" id="broadcast-search" placeholder="Search by name or ID…" oninput="renderBroadcastList()" style="flex:1;min-width:160px;padding:7px 12px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
-        <select id="broadcast-filter-jobtype" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
-          <option value="">All Job Types</option>
-        </select>
-        <select id="broadcast-filter-setup" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
-          <option value="">All Setups</option>
-          <option>Stay-in</option>
-          <option>Stay-out</option>
-          <option>Either</option>
-        </select>
-        <select id="broadcast-filter-location" onchange="renderBroadcastList()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
-          <option value="">All Locations</option>
-        </select>
       </div>
+      <div id="broadcast-cf-bar" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px"></div>
       <div style="display:flex;align-items:center;gap:10px">
         <button class="btn btn-ghost btn-sm" onclick="broadcastSelectAll()">Select All Matching</button>
         <span id="broadcast-selected-count" style="font-size:12px;color:var(--text3)">0 selected</span>
@@ -5463,6 +5452,7 @@ function initCandFilters() {
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.cf-btn-wrap') && !e.target.closest('.cf-bl-wrap')) {
       if (_candActivePanel) { _candActivePanel = null; buildCandFilterBar(); }
+      if (_broadcastActivePanel) { _broadcastActivePanel = null; buildBroadcastFilterBar(); }
     }
   });
 }
@@ -7074,10 +7064,155 @@ function copyJobDetails(joId) {
 
 let _broadcastJoId = null;
 let _broadcastSelected = new Set();
+let _broadcastFilters = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], blacklist:'hide', activeStatus:'active' };
+let _broadcastActivePanel = null;
+
+function buildBroadcastFilterBar() {
+  const bar = document.getElementById('broadcast-cf-bar');
+  if (!bar) return;
+  const f = _broadcastFilters;
+  const defs = [
+    { key:'jobType',  neutral:'All job types',  prefix:'Job Type' },
+    { key:'gender',   neutral:'All genders',     prefix:'Gender' },
+    { key:'location', neutral:'All locations',   prefix:'Location' },
+    { key:'setup',    neutral:'All setups',      prefix:'Setup' },
+    { key:'age',      neutral:'All ages',        prefix:'Age' },
+    { key:'payRange', neutral:'All pay ranges',  prefix:'Pay' },
+    { key:'eraScore', neutral:'All ERA scores',  prefix:'ERA' },
+  ];
+  const as = f.activeStatus;
+  const _aL = { active:'Active Only', inactive:'Inactive', all:'All' };
+  const activeToggle = '<div style="display:flex;gap:3px">' +
+    ['active','inactive','all'].map(function(v) {
+      const sel = as === v;
+      return '<button class="era-tier-btn'+(sel?' sel':'')+'"'+(sel?' style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px"':'')+
+        ' onclick="_broadcastFilters.activeStatus=\''+v+'\';renderBroadcastList()">'+_aL[v]+'</button>';
+    }).join('')+'</div>';
+  const blVal = f.blacklist;
+  const blActive = blVal !== 'hide';
+  const blOpts = [['hide','Hide Blacklisted'],['show','Show All'],['only','Blacklisted Only']];
+  const blSel = '<div class="cf-bl-wrap"><select class="cf-bl-select'+(blActive?' bl-active':'')+'" onchange="setBcBlacklist(this.value)">'+
+    blOpts.map(function(o){ return '<option value="'+o[0]+'"'+(blVal===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+
+    '</select></div>';
+  bar.innerHTML = defs.map(function(d){ return _buildBcBtnWrap(d.key, d.neutral, d.prefix); }).join('')+activeToggle+blSel;
+  if (_broadcastActivePanel === 'age') setTimeout(_initBcAgeInputs, 0);
+}
+
+function _buildBcBtnWrap(key, neutralLabel, prefix) {
+  const f = _broadcastFilters;
+  let isActive = false, label = neutralLabel;
+  if (key === 'age') {
+    isActive = !(f.ageMin === 18 && f.ageMax === 65);
+    label = isActive ? 'Age · '+f.ageMin+'–'+f.ageMax : neutralLabel;
+  } else if (key === 'eraScore') {
+    isActive = f.eraScore.length > 0;
+    label = isActive ? 'ERA · '+f.eraScore.join(', ') : neutralLabel;
+  } else {
+    const arr = f[key] || [];
+    isActive = arr.length > 0;
+    label = isActive ? prefix+' · '+arr.length : neutralLabel;
+  }
+  const isOpen = _broadcastActivePanel === key;
+  const dot = isActive ? '<span class="cf-dot"></span>' : '';
+  const chev = '<span class="cf-chev">'+(isOpen ? '▴' : '▾')+'</span>';
+  const panel = isOpen ? _buildBcPanel(key) : '';
+  return '<div class="cf-btn-wrap"><button class="cf-btn'+(isActive?' active':'')+'" onclick="toggleBcPanel(\''+key+'\')">'+
+    dot+escHtml(label)+chev+'</button>'+panel+'</div>';
+}
+
+function _buildBcPanel(key) {
+  const allJobTypes = _candJobTypes.length ? _candJobTypes : ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','All-around Helper'];
+  if (key === 'jobType')  return _buildBcCheckPanel('jobType',  'Job Type', allJobTypes);
+  if (key === 'gender')   return _buildBcCheckPanel('gender',   'Gender',   ['Female','Male','Others']);
+  if (key === 'setup')    return _buildBcCheckPanel('setup',    'Setup',    ['Stay-in','Stay-out','Either']);
+  if (key === 'payRange') return _buildBcCheckPanel('payRange', 'Pay Range',['Below ₱5,000','₱5,000–₱7,000','₱7,001–₱10,000','₱10,001–₱15,000','Above ₱15,000']);
+  if (key === 'location') {
+    const locs = [...new Set(candidates.map(function(c){ return c.cityFormatted||c.location||''; }).filter(Boolean))].sort();
+    return _buildBcCheckPanel('location', 'Location', locs);
+  }
+  if (key === 'eraScore') {
+    const sel = _broadcastFilters.eraScore || [];
+    const tiers = [['Below 3','var(--red)','rgba(220,38,38,.12)','rgba(220,38,38,.5)'],['3–5','var(--gold)','rgba(245,158,11,.12)','rgba(245,158,11,.5)'],['5–7','var(--accent)','rgba(23,85,237,.10)','rgba(23,85,237,.45)'],['7–8','var(--purple)','rgba(124,58,237,.10)','rgba(124,58,237,.45)'],['8–10','var(--green)','rgba(5,150,105,.10)','rgba(5,150,105,.45)']];
+    const pills = tiers.map(function(t){
+      const lbl=t[0],col=t[1],bg=t[2],border=t[3];
+      const isSel = sel.indexOf(lbl)>=0;
+      const style = isSel ? 'background:'+bg+';border-color:'+border+';color:'+col+';border-width:1.5px' : '';
+      return '<button class="era-tier-btn'+(isSel?' sel':'')+'" style="'+style+'" onclick="bcFilterToggle(\'eraScore\',\''+lbl.replace(/'/g,'\'')+'\')" >'+escHtml(lbl)+'</button>';
+    }).join('');
+    return '<div class="cf-panel open" style="min-width:280px"><div class="cf-panel-hd"><span class="cf-panel-title">ERA Score</span><span class="cf-clear" onclick="bcFilterClear(\'eraScore\')">Clear</span></div><div class="era-tier-row">'+pills+'</div></div>';
+  }
+  if (key === 'age') {
+    const f = _broadcastFilters;
+    return '<div class="cf-panel open" style="min-width:220px"><div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="bcAgeReset()">Reset</span></div>'+
+      '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px">'+
+      '<input type="number" id="bc-age-min" min="15" max="70" value="'+f.ageMin+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeChange()">'+
+      '<span style="color:var(--text3);font-size:12px">to</span>'+
+      '<input type="number" id="bc-age-max" min="15" max="80" value="'+f.ageMax+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeChange()">'+
+      '<span style="color:var(--text3);font-size:12px">yrs</span></div></div>';
+  }
+  return '';
+}
+
+function _buildBcCheckPanel(key, title, opts) {
+  const selected = _broadcastFilters[key] || [];
+  const items = opts.map(function(o) {
+    const safe = o.replace(/'/g,'');
+    const chk = selected.indexOf(o) >= 0 ? ' checked' : '';
+    return '<label class="cf-check-item"><input type="checkbox"'+chk+' onchange="bcFilterToggle(\''+key+'\',\''+safe+'\')">'+escHtml(o)+'</label>';
+  }).join('');
+  return '<div class="cf-panel open"><div class="cf-panel-hd"><span class="cf-panel-title">'+title+'</span><span class="cf-clear" onclick="bcFilterClear(\''+key+'\')">Clear</span></div><div class="cf-checklist">'+items+'</div></div>';
+}
+
+function toggleBcPanel(key) {
+  _broadcastActivePanel = _broadcastActivePanel === key ? null : key;
+  buildBroadcastFilterBar();
+}
+
+function bcFilterToggle(key, val) {
+  if (!_broadcastFilters[key]) _broadcastFilters[key] = [];
+  const arr = _broadcastFilters[key];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  renderBroadcastList();
+  buildBroadcastFilterBar();
+}
+
+function bcFilterClear(key) {
+  _broadcastFilters[key] = [];
+  renderBroadcastList();
+  buildBroadcastFilterBar();
+}
+
+function setBcBlacklist(val) {
+  _broadcastFilters.blacklist = val;
+  renderBroadcastList();
+  buildBroadcastFilterBar();
+}
+
+function bcAgeChange() {
+  const lo = parseInt(document.getElementById('bc-age-min')?.value) || 18;
+  const hi = parseInt(document.getElementById('bc-age-max')?.value) || 65;
+  _broadcastFilters.ageMin = Math.min(lo, hi);
+  _broadcastFilters.ageMax = Math.max(lo, hi);
+  renderBroadcastList();
+  buildBroadcastFilterBar();
+}
+
+function bcAgeReset() {
+  _broadcastFilters.ageMin = 18; _broadcastFilters.ageMax = 65;
+  renderBroadcastList();
+  buildBroadcastFilterBar();
+}
+
+function _initBcAgeInputs() {
+  const el = document.getElementById('bc-age-min');
+  if (el) el.focus();
+}
 
 function openBroadcastModal(joId) {
   _broadcastJoId = joId;
   _broadcastSelected = new Set();
+  _broadcastActivePanel = null;
   const jo = jobOrders.find(j => j.id === joId);
   if (!jo) return;
 
@@ -7090,10 +7225,10 @@ function openBroadcastModal(joId) {
     jo.address  ? `<span>${escHtml(jo.address)}</span>` : '',
   ].filter(Boolean).join('');
 
-  // Populate job type filter from candidates matching the JO position
+  // Pre-fill job type from the JO position
   const pos = (jo.position || '').toLowerCase();
   const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
-  const matchingTypes = [...new Set(candidates
+  const preJobTypes = [...new Set(candidates
     .filter(c => {
       const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
       return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
@@ -7101,19 +7236,12 @@ function openBroadcastModal(joId) {
     .map(c => c.jobTypeFormatted || c.jobType || '')
     .filter(Boolean)
   )];
-  const jtSel = document.getElementById('broadcast-filter-jobtype');
-  jtSel.innerHTML = '<option value="">All Job Types</option>' + matchingTypes.map(t => `<option>${escHtml(t)}</option>`).join('');
 
-  // Populate location filter
-  const allLocs = [...new Set(candidates.map(c => c.cityFormatted || c.location || '').filter(Boolean))].sort();
-  const locSel = document.getElementById('broadcast-filter-location');
-  locSel.innerHTML = '<option value="">All Locations</option>' + allLocs.map(l => `<option>${escHtml(l)}</option>`).join('');
+  // Reset all filters, pre-fill job type
+  _broadcastFilters = { jobType: preJobTypes, location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], blacklist:'hide', activeStatus:'active' };
 
-  // Reset filters
   document.getElementById('broadcast-search').value = '';
-  document.getElementById('broadcast-filter-setup').value = '';
-  document.getElementById('broadcast-filter-location').value = '';
-
+  buildBroadcastFilterBar();
   renderBroadcastList();
   document.getElementById('modal-broadcast').classList.add('open');
 }
@@ -7125,25 +7253,74 @@ function closeBroadcastModal() {
 }
 
 function _getBroadcastFiltered() {
-  const search  = (document.getElementById('broadcast-search')?.value || '').toLowerCase().trim();
-  const jt      = document.getElementById('broadcast-filter-jobtype')?.value || '';
-  const setup   = document.getElementById('broadcast-filter-setup')?.value || '';
-  const loc     = document.getElementById('broadcast-filter-location')?.value || '';
-  const allP    = [...placements, ...manualPlacements].filter(p => p.jobOrderId === _broadcastJoId);
+  const search = (document.getElementById('broadcast-search')?.value || '').toLowerCase().trim();
+  const f = _broadcastFilters;
+  const allP = [...placements, ...manualPlacements].filter(p => p.jobOrderId === _broadcastJoId);
   const alreadyIn = new Set(allP.map(p => p.candidateId));
 
-  return candidates.filter(c => {
+  return candidates.filter(function(c) {
     if (alreadyIn.has(c.id)) return false;
-    if (blacklist[c.id]) return false;
+
+    // Blacklist
+    const isBlacklisted = !!blacklist[c.id];
+    if (f.blacklist === 'hide' && isBlacklisted) return false;
+    if (f.blacklist === 'only' && !isBlacklisted) return false;
+
+    // Search
     if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
-    if (jt && (c.jobTypeFormatted || c.jobType || '') !== jt) return false;
-    if (setup && c.setup !== setup) return false;
-    if (loc && (c.cityFormatted || c.location || '') !== loc) return false;
+
+    // Job type (multi-select — any match passes)
+    if (f.jobType.length) {
+      const ct = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
+      if (!f.jobType.some(function(t) { return ct.indexOf(t) >= 0; })) return false;
+    }
+
+    // Gender
+    if (f.gender.length) {
+      const g = c.gender || '';
+      const gMatch = f.gender.some(function(gv) {
+        if (gv === 'Others') return ['Female','Male'].indexOf(g) < 0;
+        return g === gv;
+      });
+      if (!gMatch) return false;
+    }
+
+    // Location (multi-select)
+    if (f.location.length) {
+      const loc = c.cityFormatted || c.location || '';
+      const knownLocs = ['Bacolod City','Talisay','Silay','Bago City'];
+      const locMatch = f.location.some(function(l) {
+        if (l === 'Others') return !knownLocs.some(function(k) { return loc.includes(k); });
+        return loc.includes(l);
+      });
+      if (!locMatch) return false;
+    }
+
+    // Setup (multi-select)
+    if (f.setup.length) {
+      const su = c.setup || '';
+      if (!f.setup.some(function(v) { return su === v; })) return false;
+    }
+
+    // Age range
+    if (!(f.ageMin === 18 && f.ageMax === 65)) {
+      const age = parseInt(c.age) || 0;
+      if (age > 0 && (age < f.ageMin || age > f.ageMax)) return false;
+    }
+
+    // Pay range
+    if (f.payRange.length && !matchPayRange(c, f.payRange)) return false;
+
+    // ERA score tiers
+    if (f.eraScore.length && !matchEraTier(c.id, f.eraScore)) return false;
+
+    // Active / inactive
+    if (f.activeStatus === 'active' && isCandInactive(c.id)) return false;
+    if (f.activeStatus === 'inactive' && !isCandInactive(c.id)) return false;
+
     return true;
-  }).sort((a, b) => {
-    const eraA = calcERA(a.id).score;
-    const eraB = calcERA(b.id).score;
-    return eraB - eraA;
+  }).sort(function(a, b) {
+    return calcERA(b.id).score - calcERA(a.id).score;
   });
 }
 
