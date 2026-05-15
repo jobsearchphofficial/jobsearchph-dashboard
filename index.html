@@ -7147,9 +7147,9 @@ function _buildBcPanel(key) {
     const f = _broadcastFilters;
     return '<div class="cf-panel open" style="min-width:220px"><div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="bcAgeReset()">Reset</span></div>'+
       '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px">'+
-      '<input type="number" id="bc-age-min" min="15" max="70" value="'+f.ageMin+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeChange()">'+
+      '<input type="number" id="bc-age-min" min="15" max="70" value="'+f.ageMin+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeInput()" onblur="bcAgeCommit()" onkeydown="if(event.key===\'Enter\')bcAgeCommit()">'+
       '<span style="color:var(--text3);font-size:12px">to</span>'+
-      '<input type="number" id="bc-age-max" min="15" max="80" value="'+f.ageMax+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeChange()">'+
+      '<input type="number" id="bc-age-max" min="15" max="80" value="'+f.ageMax+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeInput()" onblur="bcAgeCommit()" onkeydown="if(event.key===\'Enter\')bcAgeCommit()">'+
       '<span style="color:var(--text3);font-size:12px">yrs</span></div></div>';
   }
   return '';
@@ -7191,7 +7191,18 @@ function setBcBlacklist(val) {
   buildBroadcastFilterBar();
 }
 
-function bcAgeChange() {
+function bcAgeInput() {
+  // oninput: update filter + re-filter candidates; do NOT rebuild the bar
+  // (rebuilding destroys the input elements mid-type, causing the reset bug)
+  const lo = parseInt(document.getElementById('bc-age-min')?.value) || 18;
+  const hi = parseInt(document.getElementById('bc-age-max')?.value) || 65;
+  _broadcastFilters.ageMin = Math.min(lo, hi);
+  _broadcastFilters.ageMax = Math.max(lo, hi);
+  renderBroadcastList();
+}
+
+function bcAgeCommit() {
+  // onblur / Enter: same as above, then rebuild bar to update pill label
   const lo = parseInt(document.getElementById('bc-age-min')?.value) || 18;
   const hi = parseInt(document.getElementById('bc-age-max')?.value) || 65;
   _broadcastFilters.ageMin = Math.min(lo, hi);
