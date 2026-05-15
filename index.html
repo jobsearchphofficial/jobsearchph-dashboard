@@ -2790,10 +2790,10 @@ function doLogin(){
       <button class="btn-refresh" onclick="refreshAll()">
         Refresh
       </button>
-      <button class="btn-refresh" onclick="promptApiKey()" id="api-key-btn" title="Set Anthropic API Key">
+      <button class="btn-refresh" onclick="promptApiKey()" id="api-key-btn" title="Set Anthropic API Key" style="display:none">
         API Key
       </button>
-<button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:flex;align-items:center">
+<button class="btn-refresh" id="sync-btn" onclick="openSyncModal()" title="Cloud Sync — access data on any device" style="display:none;align-items:center">
         <span class="sync-dot status-dot" id="sync-dot" style="margin-right:4px"></span><span id="sync-label">Sync</span>
       </button>
       <button class="btn-refresh" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode" style="font-size:16px;padding:6px 10px"></button>
@@ -2802,7 +2802,7 @@ function doLogin(){
         <span id="header-user-email" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)"></span>
         <span>Sign out</span>
       </button>
-      <button id="quick-add-btn" class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
+      <button id="quick-add-btn" class="btn-refresh" onclick="window.open('quick-add-candidate.html','_blank')" title="Quick Add Candidate" style="display:none;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">
         + Quick Add
       </button>
     </div>
@@ -3432,7 +3432,7 @@ function applyRoleUI() {
 
   // Header action buttons: admin-only
   var syncBtn = document.getElementById('sync-btn');
-  if (syncBtn) syncBtn.style.display = admin ? '' : 'none';
+  if (syncBtn) syncBtn.style.display = admin ? 'flex' : 'none';
   var apiBtn = document.getElementById('api-key-btn');
   if (apiBtn) apiBtn.style.display = admin ? '' : 'none';
   var qaBtn = document.getElementById('quick-add-btn');
