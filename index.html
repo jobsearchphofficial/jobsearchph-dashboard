@@ -2613,6 +2613,25 @@
     .tab { padding: 12px 12px; font-size: 12px; }
   }
 
+  /* ─── INTERVIEW SESSIONS ─── */
+  .isess-section { padding: 14px 18px; border-top: 1px solid var(--border); }
+  .isess-section-title { font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;display:flex;align-items:center;gap:8px; }
+  .isess-section-title::before { content:'';display:block;width:3px;height:12px;background:var(--accent);border-radius:2px; }
+  .isess-card { background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px; }
+  .isess-card:last-child { margin-bottom:0; }
+  .isess-header { display:flex;align-items:center;gap:8px;margin-bottom:8px; }
+  .isess-name { font-size:13px;font-weight:700;color:var(--text);flex:1; }
+  .isess-badge { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:99px;border:1px solid transparent; }
+  .isess-badge-draft { background:var(--card3);color:var(--text3);border-color:var(--border2); }
+  .isess-badge-scheduled { background:rgba(23,85,237,.1);color:var(--accent);border-color:rgba(23,85,237,.3); }
+  .isess-badge-completed { background:var(--green-dim);color:var(--green);border-color:var(--green); }
+  .isess-badge-cancelled { background:var(--red-dim);color:var(--red);border-color:var(--red); }
+  .isess-meta { font-size:11px;color:var(--text3);margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px 14px; }
+  .isess-cands { margin-bottom:10px; }
+  .isess-cand { font-size:12px;color:var(--text2);padding:3px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px; }
+  .isess-cand:last-child { border-bottom:none; }
+  .isess-actions { display:flex;flex-wrap:wrap;gap:6px;margin-top:10px; }
+
   /* ─── GUIDED TOUR ─── */
   #tour-overlay { position:fixed;inset:0;z-index:99980;display:none;pointer-events:all; }
   #tour-overlay.active { display:block; }
@@ -4672,6 +4691,10 @@ function buildJOPanel(jo, joPlacements) {
     panel.appendChild(funnelSec);
   }
 
+  // Interview Sessions section
+  var isessEl = buildIsessSection(jo, joPlacements);
+  if (isessEl) panel.appendChild(isessEl);
+
   // History timeline section
   var histSec = document.createElement('div');
   histSec.className = 'joc-timeline';
@@ -5331,6 +5354,10 @@ function saveProwField(pid, field, value, el) {
   // Trigger commission computation when status becomes Hired
   if (field === 'status' && (value || '').trim().toLowerCase() === 'hired' && mp) {
     computeAndSaveCommission(pid, mp.jobOrderId);
+  }
+  // Auto-add to interview session when set to For Interview
+  if (field === 'status' && value === 'For Interview' && mp) {
+    addCandidateToInterviewSession(mp.jobOrderId, pid);
   }
   // Refresh the dot and pill in header without re-rendering
   const row = document.getElementById(`prow-${pid}`);
@@ -9318,6 +9345,11 @@ function _applyFbData(data) {
     Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
   if (data.jo_events)
     Object.entries(data.jo_events).forEach(function(e) { localStorage.setItem('jo_events_' + e[0], JSON.stringify(e[1])); });
+  if (data.interviewSessions)
+    Object.entries(data.interviewSessions).forEach(function(e) {
+      var sessArr = Object.values(e[1] || {});
+      _lsSet('jo_interview_sessions_' + e[0], sessArr);
+    });
   if (data.config && data.config.roles) {
     _mergedRoleConfig = { admins: data.config.roles.admins || ROLE_CONFIG.admins, coordinators: Object.assign({}, ROLE_CONFIG.coordinators, _coordsFromFb(data.config.roles.coordinators)) };
     if (currentUserEmail) { currentUserRole = getUserRole(currentUserEmail); applyRoleUI(); }
@@ -11261,6 +11293,268 @@ function closeHelpModal() {
   document.getElementById('help-modal-overlay').classList.remove('open');
 }
 
+// ═══════════════════════════════════════════════
+// INTERVIEW SESSIONS
+// ═══════════════════════════════════════════════
+
+function getInterviewSessions(joId) {
+  try { return JSON.parse(localStorage.getItem('jo_interview_sessions_' + joId) || '[]'); } catch(e) { return []; }
+}
+
+function saveInterviewSessions(joId, sessions) {
+  _lsSet('jo_interview_sessions_' + joId, sessions);
+  if (typeof window._fbSdkSet === 'function') {
+    var fbMap = {};
+    sessions.forEach(function(s) { fbMap[s.id] = s; });
+    window._fbLastWrite = Date.now();
+    window._fbSdkSet('interviewSessions/' + joId, sessions.length ? fbMap : null);
+  }
+}
+
+function addCandidateToInterviewSession(joId, pid) {
+  var sessions = getInterviewSessions(joId);
+  var alreadyIn = sessions.some(function(s) {
+    return s.status !== 'cancelled' && s.candidateIds && s.candidateIds.indexOf(pid) !== -1;
+  });
+  if (alreadyIn) return;
+  var draft = null;
+  for (var i = 0; i < sessions.length; i++) {
+    if (sessions[i].status === 'draft') { draft = sessions[i]; break; }
+  }
+  if (!draft) {
+    var activeCount = sessions.filter(function(s) { return s.status !== 'cancelled'; }).length;
+    draft = {
+      id: 'sess_' + Date.now(),
+      name: 'Session ' + (activeCount + 1),
+      date: '', time: '', location: '', notes: '', setup: 'In Person',
+      candidateIds: [], status: 'draft',
+      outcome: null, selectedCandidateId: null,
+      createdAt: new Date().toISOString()
+    };
+    sessions.push(draft);
+  }
+  draft.candidateIds.push(pid);
+  saveInterviewSessions(joId, sessions);
+}
+
+function buildIsessSection(jo, joPlacements) {
+  var sessions = getInterviewSessions(jo.id);
+  if (!sessions || !sessions.length) return null;
+  var el = document.createElement('div');
+  el.className = 'isess-section';
+  el.id = 'isess-' + jo.id;
+  el.innerHTML = '<div class="isess-section-title">Interview Sessions</div>' +
+    sessions.map(function(sess) { return buildIsessCard(jo, sess, joPlacements); }).join('');
+  return el;
+}
+
+function buildIsessCard(jo, sess, joPlacements) {
+  var badgeCls = { draft:'isess-badge-draft', scheduled:'isess-badge-scheduled', completed:'isess-badge-completed', cancelled:'isess-badge-cancelled' }[sess.status] || 'isess-badge-draft';
+  var badgeLbl = sess.status.charAt(0).toUpperCase() + sess.status.slice(1);
+  var dateStr = 'Not yet scheduled';
+  if (sess.date && sess.time) {
+    try {
+      var d = new Date(sess.date + 'T' + sess.time);
+      dateStr = d.toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' }) + ' at ' + sess.time;
+    } catch(e) { dateStr = sess.date + ' ' + sess.time; }
+  }
+  var metaParts = ['<span>' + escHtml(dateStr) + '</span>'];
+  if (sess.setup) metaParts.push('<span>' + escHtml(sess.setup) + '</span>');
+  if (sess.location) metaParts.push('<span>' + escHtml(sess.location) + '</span>');
+  var candIds = sess.candidateIds || [];
+  var candHtml = candIds.length ? candIds.map(function(pid) {
+    var p = joPlacements.find(function(x) { return (x.placementId || x.candidateId) === pid; });
+    var name = p ? escHtml(p.candidateName || p.candidateId || pid) : escHtml(pid);
+    var era = calcERA(pid);
+    var eraStr = (era && typeof era.score === 'number') ? ' <span style="font-size:10px;color:var(--text3)">ERA ' + era.score.toFixed(1) + '</span>' : '';
+    return '<div class="isess-cand">' + name + eraStr + '</div>';
+  }).join('') : '<div class="isess-cand" style="color:var(--text3);font-style:italic">No candidates yet</div>';
+  var jA = escAttr(jo.id), sA = escAttr(sess.id);
+  var btns = '';
+  if (sess.status === 'draft') {
+    btns += '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openIsessDateModal(\'' + jA + '\',\'' + sA + '\')">Set Date &amp; Time</button>';
+  }
+  if (sess.status === 'scheduled') {
+    btns += '<button class="btn btn-green" style="font-size:11px;padding:4px 10px" onclick="openIsessCompleteModal(\'' + jA + '\',\'' + sA + '\')">Mark Complete</button>';
+    btns += '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openIsessDateModal(\'' + jA + '\',\'' + sA + '\')">Edit</button>';
+  }
+  if (sess.status !== 'cancelled' && sess.status !== 'completed') {
+    btns += '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="cancelIsess(\'' + jA + '\',\'' + sA + '\')">Cancel</button>';
+  }
+  btns += '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="copyIsessSummary(\'' + jA + '\',\'' + sA + '\')">Copy Summary</button>';
+  return '<div class="isess-card">' +
+    '<div class="isess-header"><span class="isess-name">' + escHtml(sess.name) + '</span><span class="isess-badge ' + badgeCls + '">' + badgeLbl + '</span></div>' +
+    '<div class="isess-meta">' + metaParts.join('') + '</div>' +
+    '<div class="isess-cands">' + candHtml + '</div>' +
+    '<div class="isess-actions">' + btns + '</div>' +
+    '</div>';
+}
+
+function openIsessDateModal(joId, sessId) {
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (!sess) return;
+  document.getElementById('isess-modal-jo-id').value   = joId;
+  document.getElementById('isess-modal-sess-id').value = sessId;
+  document.getElementById('isess-modal-name').value     = sess.name || '';
+  document.getElementById('isess-modal-date').value     = sess.date || '';
+  document.getElementById('isess-modal-time').value     = sess.time || '';
+  document.getElementById('isess-modal-setup').value    = sess.setup || 'In Person';
+  document.getElementById('isess-modal-location').value = sess.location || '';
+  document.getElementById('isess-modal-notes').value    = sess.notes || '';
+  var allP = [].concat(placements, manualPlacements);
+  var names = (sess.candidateIds || []).map(function(pid) {
+    var p = allP.find(function(x) { return (x.placementId || x.candidateId) === pid; });
+    return p ? (p.candidateName || pid) : pid;
+  });
+  document.getElementById('isess-modal-cand-list').textContent = names.length ? names.join(', ') : 'No candidates yet';
+  openModal('modal-isess-date');
+}
+
+function saveIsessDate() {
+  var joId   = document.getElementById('isess-modal-jo-id').value;
+  var sessId = document.getElementById('isess-modal-sess-id').value;
+  var date   = document.getElementById('isess-modal-date').value;
+  var time   = document.getElementById('isess-modal-time').value;
+  if (!date || !time) { showToast('Date and time are required.', 'red'); return; }
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (!sess) { showToast('Session not found.', 'red'); return; }
+  sess.name     = document.getElementById('isess-modal-name').value.trim() || sess.name;
+  sess.date     = date;
+  sess.time     = time;
+  sess.setup    = document.getElementById('isess-modal-setup').value;
+  sess.location = document.getElementById('isess-modal-location').value.trim();
+  sess.notes    = document.getElementById('isess-modal-notes').value.trim();
+  sess.status   = 'scheduled';
+  (sess.candidateIds || []).forEach(function(pid) { saveProwExtra(pid, 'dispositionStage', 'Interview Scheduled'); });
+  saveInterviewSessions(joId, sessions);
+  closeModal('modal-isess-date');
+  showToast('Session scheduled — ' + (sess.candidateIds||[]).length + ' candidate(s) set to Interview Scheduled.', 'green');
+  renderJobOrders([].concat(placements, manualPlacements));
+}
+
+function openIsessCompleteModal(joId, sessId) {
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (!sess) return;
+  document.getElementById('isess-complete-jo-id').value   = joId;
+  document.getElementById('isess-complete-sess-id').value = sessId;
+  document.getElementById('isess-complete-outcome').value = '';
+  var hiredRow = document.getElementById('isess-complete-hired-row');
+  if (hiredRow) hiredRow.style.display = 'none';
+  var sel = document.getElementById('isess-complete-hired-sel');
+  sel.innerHTML = '<option value="">-- Select candidate --</option>';
+  var allP = [].concat(placements, manualPlacements);
+  (sess.candidateIds || []).forEach(function(pid) {
+    var p = allP.find(function(x) { return (x.placementId || x.candidateId) === pid; });
+    var opt = document.createElement('option');
+    opt.value = pid;
+    opt.textContent = p ? (p.candidateName || pid) : pid;
+    sel.appendChild(opt);
+  });
+  openModal('modal-isess-complete');
+}
+
+function _isessUpdateCompleteUI() {
+  var outcome = document.getElementById('isess-complete-outcome').value;
+  var row = document.getElementById('isess-complete-hired-row');
+  if (row) row.style.display = outcome === 'selected' ? '' : 'none';
+}
+
+function confirmIsessComplete() {
+  var joId    = document.getElementById('isess-complete-jo-id').value;
+  var sessId  = document.getElementById('isess-complete-sess-id').value;
+  var outcome = document.getElementById('isess-complete-outcome').value;
+  if (!outcome) { showToast('Please select an outcome.', 'red'); return; }
+  var hiredPid = '';
+  if (outcome === 'selected') {
+    hiredPid = document.getElementById('isess-complete-hired-sel').value;
+    if (!hiredPid) { showToast('Please select the hired candidate.', 'red'); return; }
+  }
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (!sess) { showToast('Session not found.', 'red'); return; }
+  sess.status = 'completed'; sess.outcome = outcome; sess.selectedCandidateId = hiredPid || null;
+  var mpChanged = false;
+  (sess.candidateIds || []).forEach(function(pid) {
+    var mp = manualPlacements.find(function(x) { return x.placementId === pid; });
+    if (outcome === 'selected') {
+      if (pid === hiredPid) {
+        saveProwExtra(pid, 'status', 'Hired'); saveProwExtra(pid, 'dispositionStage', 'Hired ✓');
+        if (mp) { mp.status = 'Hired'; mp.dispositionStage = 'Hired ✓'; mpChanged = true; }
+      } else {
+        saveProwExtra(pid, 'status', 'Dropped'); saveProwExtra(pid, 'dispositionStage', 'Dropped / Unavailable');
+        if (mp) { mp.status = 'Dropped'; mp.dispositionStage = 'Dropped / Unavailable'; mpChanged = true; }
+      }
+    } else {
+      saveProwExtra(pid, 'status', 'Interviewed'); saveProwExtra(pid, 'dispositionStage', '');
+      if (mp) { mp.status = 'Interviewed'; mp.dispositionStage = ''; mpChanged = true; }
+    }
+  });
+  if (mpChanged) saveManualPlacements();
+  saveInterviewSessions(joId, sessions);
+  closeModal('modal-isess-complete');
+  showToast(outcome === 'selected'
+    ? 'Done — 1 hired, ' + ((sess.candidateIds||[]).length - 1) + ' dropped.'
+    : 'Session complete — ' + (sess.candidateIds||[]).length + ' candidate(s) set to Interviewed.', 'green');
+  renderJobOrders([].concat(placements, manualPlacements));
+}
+
+function cancelIsess(joId, sessId) {
+  if (!confirm('Cancel this interview session?')) return;
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (sess) sess.status = 'cancelled';
+  saveInterviewSessions(joId, sessions);
+  showToast('Session cancelled.', 'orange');
+  renderJobOrders([].concat(placements, manualPlacements));
+}
+
+function copyIsessSummary(joId, sessId) {
+  var sessions = getInterviewSessions(joId);
+  var sess = sessions.find(function(s) { return s.id === sessId; });
+  if (!sess) return;
+  var jo = jobOrders.find(function(j) { return j.id === joId; });
+  var dtStr = 'TBD';
+  if (sess.date && sess.time) {
+    try {
+      var d = new Date(sess.date + 'T' + sess.time);
+      dtStr = d.toLocaleDateString('en-PH', { month:'long', day:'numeric', year:'numeric' }) + ' at ' + sess.time;
+    } catch(e) { dtStr = sess.date + ' ' + sess.time; }
+  }
+  var allP = [].concat(placements, manualPlacements);
+  var candLines = (sess.candidateIds || []).map(function(pid) {
+    var p = allP.find(function(x) { return (x.placementId || x.candidateId) === pid; });
+    var name = p ? (p.candidateName || pid) : pid;
+    var c = p ? candidates.find(function(cd) { return cd.id === p.candidateId; }) : null;
+    var jt = c ? (c.jobTypeFormatted || c.jobType || '') : '';
+    var era = calcERA(pid);
+    var eraStr = (era && typeof era.score === 'number') ? era.score.toFixed(1) : 'N/A';
+    return '• ' + name + (jt ? ' — ' + jt : '') + ' — ERA ' + eraStr;
+  }).join('\n') || '(none)';
+  var lines = [
+    'INTERVIEW SCHEDULE — ' + (jo ? jo.position : joId) + ' (' + joId + ')',
+    'Employer: ' + (jo ? jo.company : ''),
+    'Session: ' + sess.name,
+    'Date & Time: ' + dtStr,
+    'Setup: ' + (sess.setup || 'In Person'),
+    'Location/Link: ' + (sess.location || 'TBD'),
+    '', 'Candidates:', candLines
+  ];
+  if (sess.notes && sess.notes.trim()) { lines.push(''); lines.push('Notes: ' + sess.notes.trim()); }
+  var text = lines.join('\n');
+  var fallback = function() {
+    var ta = document.createElement('textarea'); ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Summary copied!', 'green'); } catch(e) { showToast('Copy failed.', 'red'); }
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() { showToast('Summary copied!', 'green'); }).catch(fallback);
+  } else { fallback(); }
+}
+
 loadAll().then(function() {
   loadFirebaseRoleConfig().then(function() {
     if (window._currentUserEmail) {
@@ -11313,6 +11607,56 @@ loadAll().then(function() {
   </div>
 </div>
 
+</div>
+
+<!-- ─── INTERVIEW SESSION: Schedule Date Modal ─── -->
+<div class="modal-overlay" id="modal-isess-date" onclick="if(event.target===this)closeModal('modal-isess-date')">
+  <div class="modal">
+    <h3>Schedule Interview Session</h3>
+    <input type="hidden" id="isess-modal-jo-id">
+    <input type="hidden" id="isess-modal-sess-id">
+    <div class="modal-field"><div class="modal-label">Session Name</div><input type="text" id="isess-modal-name" placeholder="e.g. Session 1"></div>
+    <div class="modal-field"><div class="modal-label">Date</div><input type="date" id="isess-modal-date"></div>
+    <div class="modal-field"><div class="modal-label">Time</div><input type="time" id="isess-modal-time"></div>
+    <div class="modal-field"><div class="modal-label">Setup</div>
+      <select id="isess-modal-setup"><option value="In Person">In Person</option><option value="Online">Online</option></select>
+    </div>
+    <div class="modal-field"><div class="modal-label">Location / Link</div><input type="text" id="isess-modal-location" placeholder="Address or meeting link"></div>
+    <div class="modal-field"><div class="modal-label">Notes</div><textarea id="isess-modal-notes" placeholder="Optional notes..."></textarea></div>
+    <div class="modal-field">
+      <div class="modal-label">Candidates</div>
+      <div id="isess-modal-cand-list" style="font-size:13px;color:var(--text2);padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);min-height:24px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-isess-date')">Cancel</button>
+      <button class="btn btn-green" onclick="saveIsessDate()">Save &amp; Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── INTERVIEW SESSION: Mark Complete Modal ─── -->
+<div class="modal-overlay" id="modal-isess-complete" onclick="if(event.target===this)closeModal('modal-isess-complete')">
+  <div class="modal">
+    <h3>Mark Session Complete</h3>
+    <input type="hidden" id="isess-complete-jo-id">
+    <input type="hidden" id="isess-complete-sess-id">
+    <div class="modal-field"><div class="modal-label">Did the employer select anyone?</div>
+      <select id="isess-complete-outcome" onchange="_isessUpdateCompleteUI()">
+        <option value="">-- Select outcome --</option>
+        <option value="selected">Yes — select hired candidate</option>
+        <option value="none">No — all stay Interviewed</option>
+        <option value="undecided">Undecided — leave as Interviewed</option>
+      </select>
+    </div>
+    <div class="modal-field" id="isess-complete-hired-row" style="display:none">
+      <div class="modal-label">Hired Candidate</div>
+      <select id="isess-complete-hired-sel"><option value="">-- Select candidate --</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-isess-complete')">Cancel</button>
+      <button class="btn btn-green" onclick="confirmIsessComplete()">Confirm</button>
+    </div>
+  </div>
 </div>
 
 <!-- ─── GUIDED TOUR ELEMENTS ─── -->
