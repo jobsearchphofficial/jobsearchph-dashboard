@@ -2617,6 +2617,9 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getDatabase, ref, set, get, onValue }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
   const firebaseConfig = {
     apiKey: "AIzaSyBmiUGO-mKqxZVlrfonbr8sFkpHydZltQ8",
     authDomain: "job-search-ph.firebaseapp.com",
@@ -2626,25 +2629,90 @@
     messagingSenderId: "467012907646",
     appId: "1:467012907646:web:8988ac3aa22265eb589e2f"
   };
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  window._fbSignIn  = (e, p) => signInWithEmailAndPassword(auth, e, p);
-  window._fbSignOut = () => signOut(auth);
+  const db   = getDatabase(app);
+  const ROOT = 'jobsearchph';
+
+  // SDK write — auth handled automatically, no manual token needed
+  window._fbSdkSet = async function(path, data) {
+    try {
+      await set(ref(db, ROOT + '/' + path), data === undefined ? null : data);
+      return true;
+    } catch(e) {
+      console.error('[FB write]', path, e.message);
+      return false;
+    }
+  };
+
+  // SDK full-root write — used by manual Upload
+  window._fbSdkSetRoot = async function(payload) {
+    try {
+      await set(ref(db, ROOT), payload);
+      return true;
+    } catch(e) {
+      console.error('[FB upload]', e.message);
+      return false;
+    }
+  };
+
+  // SDK read — used for manual Download + forced pull
+  window._fbSdkGet = async function() {
+    try {
+      const snap = await get(ref(db, ROOT));
+      return snap.val();
+    } catch(e) {
+      console.error('[FB read]', e.message);
+      return null;
+    }
+  };
+
+  // Real-time listener lifecycle
+  let _unsubscribe = null;
+  window._fbStartRealtime = function() {
+    if (_unsubscribe) return;
+    _unsubscribe = onValue(
+      ref(db, ROOT),
+      function(snapshot) {
+        const data = snapshot.val();
+        if (window._fbOnRemoteData) window._fbOnRemoteData(data);
+      },
+      function(err) {
+        console.error('[FB listener]', err.message);
+        if (window.setSyncStatus) window.setSyncStatus('error');
+      }
+    );
+  };
+  window._fbStopRealtime = function() {
+    if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+  };
+
+  // Auth
   window._fbAuthToken = null;
   window._fbTokenRefreshInterval = null;
+  window._fbUser = null;
+  window._fbSignIn  = function(e, p) { return signInWithEmailAndPassword(auth, e, p); };
+  window._fbSignOut = function() { return signOut(auth); };
+
   async function _refreshFbToken() {
     if (window._fbUser) {
       try { window._fbAuthToken = await window._fbUser.getIdToken(true); } catch(e) {}
     }
   }
-  onAuthStateChanged(auth, async user => {
+
+  onAuthStateChanged(auth, async function(user) {
     window._fbUser = user;
     window._fbAuthToken = null;
     clearInterval(window._fbTokenRefreshInterval);
+    window._fbStopRealtime();
+
     if (user) {
       try { window._fbAuthToken = await user.getIdToken(); } catch(e) {}
       window._fbTokenRefreshInterval = setInterval(_refreshFbToken, 50 * 60 * 1000);
+      window._fbStartRealtime(); // starts listener → fires immediately with current DB data
     }
+
     document.getElementById('login-screen').style.display = user ? 'none' : 'flex';
     document.getElementById('app-shell').style.display    = user ? 'block' : 'none';
     const el = document.getElementById('header-user-email');
@@ -3371,35 +3439,26 @@ window._onUserRoleReady = function(email) {
 };
 
 async function loadFirebaseRoleConfig() {
-  var url = getFirebaseUrl('config/roles');
-  if (!url) return;
+  if (typeof window._fbSdkGet !== 'function') return;
   try {
-    var res = await fetch(url);
-    if (!res.ok) return;
-    var data = await res.json();
-    if (!data) return;
+    var data = await window._fbSdkGet();
+    if (!data || !data.config || !data.config.roles) return;
     _mergedRoleConfig = {
-      admins: data.admins || ROLE_CONFIG.admins,
-      coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.coordinators || {})
+      admins: data.config.roles.admins || ROLE_CONFIG.admins,
+      coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.config.roles.coordinators || {})
     };
-    // Re-evaluate role after Firebase config loads
-    if (currentUserEmail) {
-      currentUserRole = getUserRole(currentUserEmail);
-      applyRoleUI();
-    }
+    if (currentUserEmail) { currentUserRole = getUserRole(currentUserEmail); applyRoleUI(); }
   } catch(e) {
     console.warn('Role config load failed:', e.message);
   }
 }
 
 async function saveFirebaseRoleConfig() {
-  var url = getFirebaseUrl('config/roles');
-  if (!url) { showToast('Firebase not configured. Open Sync to set up.', 'red'); return; }
-  var rc = getRoleConfig();
+  if (typeof window._fbSdkSet !== 'function') { showToast('Firebase SDK not ready.', 'red'); return; }
   try {
-    var res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rc) });
-    if (!res.ok) throw new Error('HTTP ' + res.status + ' — check Firebase permissions.');
-    showToast('Team config saved.', 'green');
+    var ok = await window._fbSdkSet('config/roles', getRoleConfig());
+    if (ok) showToast('Team config saved.', 'green');
+    else showToast('Save failed — check console.', 'red');
   } catch(e) {
     showToast('Save failed: ' + e.message, 'red');
   }
@@ -8890,7 +8949,18 @@ function setSyncStatus(status) {
   else lbl.textContent = 'Sync';
 }
 
+window._fbLastWrite = 0;
+
 async function fbSync(path, data) {
+  window._fbLastWrite = Date.now();
+  // Prefer SDK (handles auth automatically)
+  if (typeof window._fbSdkSet === 'function') {
+    setSyncStatus('syncing');
+    const ok = await window._fbSdkSet(path, data);
+    setSyncStatus(ok ? 'synced' : 'error');
+    return;
+  }
+  // Fallback: REST (used only before SDK module loads)
   const url = getFirebaseUrl(path);
   if (!url) return;
   setSyncStatus('syncing');
@@ -8909,6 +8979,60 @@ function fbSyncDebounced(path, data, delay) {
   delay = delay || 900;
   clearTimeout(_fbDebounceTimers[path]);
   _fbDebounceTimers[path] = setTimeout(() => fbSync(path, data), delay);
+}
+
+// Called by the onValue listener whenever Firebase data changes.
+// Skips re-render if we triggered the change ourselves (within 3 s).
+window._fbOnRemoteData = function(data) {
+  if (!data) return;
+  if (Date.now() - (window._fbLastWrite || 0) < 3000) return;
+  _applyFbData(data);
+  loadLocal();
+  var allP = [...placements, ...manualPlacements];
+  updateStats();
+  renderJobOrders(allP);
+  renderHiredTab();
+  renderCandidates();
+  setSyncStatus('synced');
+};
+
+// Write all Firebase fields to localStorage — plain overwrite (Firebase is authoritative).
+function _applyFbData(data) {
+  if (data.blacklist)           localStorage.setItem('blacklist',           JSON.stringify(data.blacklist));
+  if (data.flagged_cands)       localStorage.setItem('flagged_cands',       JSON.stringify(data.flagged_cands));
+  if (data.manual_placements)   localStorage.setItem('manual_placements',   JSON.stringify(data.manual_placements));
+  if (data.candidate_notes)     localStorage.setItem('candidate_notes',     JSON.stringify(data.candidate_notes));
+  if (data.jo_status_overrides) localStorage.setItem('jo_status_overrides', JSON.stringify(data.jo_status_overrides));
+  if (data.candidate_ratings)   localStorage.setItem('candidate_ratings',   JSON.stringify(data.candidate_ratings));
+  if (data.templates)           localStorage.setItem('templates',           JSON.stringify(data.templates));
+  if (data.prow_extras)
+    Object.entries(data.prow_extras).forEach(function(e) { localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
+  if (data.hire_data)
+    Object.entries(data.hire_data).forEach(function(e) { localStorage.setItem('hire_data_' + e[0], JSON.stringify(e[1])); });
+  if (data.cand_notes)
+    Object.entries(data.cand_notes).forEach(function(e) { localStorage.setItem('cand_notes_' + e[0], JSON.stringify(e[1])); });
+  if (data.jo_fulfill)
+    Object.entries(data.jo_fulfill).forEach(function(e) { localStorage.setItem('jo_fulfill_' + e[0], JSON.stringify(e[1])); });
+  if (data.jo_delayed_close)
+    Object.entries(data.jo_delayed_close).forEach(function(e) { localStorage.setItem('jo_delayed_close_' + e[0], e[1]); });
+  if (data.reflections)
+    Object.entries(data.reflections).forEach(function(e) { localStorage.setItem('reflection_' + e[0], JSON.stringify(e[1])); });
+  if (data.jobOrders)
+    Object.entries(data.jobOrders).forEach(function(e) {
+      if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
+    });
+  if (data.era_stages)       localStorage.setItem('era_stages',       JSON.stringify(data.era_stages));
+  if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
+  if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
+  if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+  if (data.jo_coordinators)
+    Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
+  if (data.jo_events)
+    Object.entries(data.jo_events).forEach(function(e) { localStorage.setItem('jo_events_' + e[0], JSON.stringify(e[1])); });
+  if (data.config && data.config.roles) {
+    _mergedRoleConfig = { admins: data.config.roles.admins || ROLE_CONFIG.admins, coordinators: Object.assign({}, ROLE_CONFIG.coordinators, data.config.roles.coordinators || {}) };
+    if (currentUserEmail) { currentUserRole = getUserRole(currentUserEmail); applyRoleUI(); }
+  }
 }
 
 function _fbMergeObj(key, fbData) {
@@ -8973,13 +9097,10 @@ async function fbPullSilent() {
 }
 
 async function loadFromFirebase() {
-  const url = getFirebaseUrl('');
-  if (!url) return;
+  if (typeof window._fbSdkGet !== 'function') return;
   setSyncStatus('syncing');
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
+    const data = await window._fbSdkGet();
     if (!data) { setSyncStatus('synced'); return; }
 
     if (data.blacklist)           _fbMergeObj('blacklist',           data.blacklist);
@@ -9038,8 +9159,7 @@ async function loadFromFirebase() {
 }
 
 async function pushAllToFirebase() {
-  const url = getFirebaseUrl('');
-  if (!url) return;
+  if (typeof window._fbSdkSetRoot !== 'function') throw new Error('Firebase SDK not ready');
   const prowExtras = {}, hireData = {}, candNotesMap = {}, joFulfill = {}, joDelayedClose = {}, reflections = {}, joOrders = {}, joCoords = {}, joEvtsMap = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
@@ -9085,8 +9205,8 @@ async function pushAllToFirebase() {
     config:              { roles: getRoleConfig() }
   };
   setSyncStatus('syncing');
-  const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const ok = await window._fbSdkSetRoot(payload);
+  if (!ok) throw new Error('Firebase write failed');
   setSyncStatus('synced');
 }
 
