@@ -7260,6 +7260,7 @@ function _getBroadcastFiltered() {
 
   return candidates.filter(function(c) {
     if (alreadyIn.has(c.id)) return false;
+    if (isCandidateHired(c.id)) return false; // globally hired — never broadcast
 
     // Blacklist
     const isBlacklisted = !!blacklist[c.id];
