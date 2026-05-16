@@ -2613,6 +2613,12 @@
     .tab { padding: 12px 12px; font-size: 12px; }
   }
 
+  /* ─── BROADCAST NAME LINK ─── */
+  .bc-cand-name { cursor:pointer;color:var(--text);font-weight:600;font-size:12px;text-decoration:underline;text-decoration-color:transparent;transition:color .12s,text-decoration-color .12s; }
+  .bc-cand-name:hover { color:var(--accent);text-decoration-color:var(--accent); }
+  .bc-cand-id { cursor:pointer;color:var(--text3);font-size:10px;text-decoration:underline;text-decoration-color:transparent;transition:color .12s,text-decoration-color .12s; }
+  .bc-cand-id:hover { color:var(--accent);text-decoration-color:var(--accent); }
+
   /* ─── SETUP TOGGLE ─── */
   .setup-toggle { display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;border:1.5px solid var(--border2);background:none;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--sans,inherit);transition:all .15s; }
   .setup-toggle:hover { border-color:var(--accent);color:var(--accent); }
@@ -7534,7 +7540,10 @@ function renderBroadcastList() {
     const sel = _broadcastSelected.has(c.id);
     return `<div class="broadcast-cand-row${sel ? ' selected' : ''}" id="brow-${escAttr(c.id)}" onclick="toggleBroadcastCand('${escAttr(c.id)}')">
       <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleBroadcastCand('${escAttr(c.id)}')">
-      <div><div style="font-weight:600;font-size:12px">${escHtml(c.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(c.id)}</div></div>
+      <div>
+        <div class="bc-cand-name" onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.name)}</div>
+        <div class="bc-cand-id"   onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.id)}</div>
+      </div>
       <div style="font-weight:700;color:${eraColor}">${era.score.toFixed(1)}</div>
       <div style="color:var(--text2)">${escHtml(c.jobTypeFormatted || c.jobType || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
