@@ -2613,6 +2613,14 @@
     .tab { padding: 12px 12px; font-size: 12px; }
   }
 
+  /* ─── SETUP TOGGLE ─── */
+  .setup-toggle { display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;border:1.5px solid var(--border2);background:none;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--sans,inherit);transition:all .15s; }
+  .setup-toggle:hover { border-color:var(--accent);color:var(--accent); }
+  .setup-toggle.st-in.active  { background:rgba(23,85,237,.1);border-color:rgba(23,85,237,.5);color:var(--accent); }
+  .setup-toggle.st-out.active { background:rgba(5,150,105,.1);border-color:rgba(5,150,105,.5);color:var(--green); }
+  .setup-toggle.st-ei.active  { background:rgba(100,116,139,.1);border-color:rgba(100,116,139,.4);color:var(--text2); }
+  .setup-toggle-wrap { display:flex;align-items:center;gap:4px;flex-wrap:wrap; }
+
   /* ─── INTERVIEW SESSIONS ─── */
   .isess-section { padding: 14px 18px; border-top: 1px solid var(--border); }
   .isess-section-title { font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;display:flex;align-items:center;gap:8px; }
@@ -5568,7 +5576,41 @@ function saveNote(key, val) {
 // CANDIDATES — COMPACT FILTER BAR
 // ═══════════════════════════════════════════════
 
-let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], setup: [], blacklist: 'hide', showHired: false, activeStatus: 'active', regDateRange: 'all' };
+let _candFilters = { jobType: [], location: [], status: [], gender: [], ageMin: 18, ageMax: 65, payRange: [], eraScore: [], setup: [], blacklist: 'hide', showHired: false, activeStatus: 'active', regDateRange: 'all', sortBy: 'newest' };
+
+// ─── SETUP OVERRIDE (user-editable work arrangement per candidate) ───
+function getEffectiveSetup(c) {
+  var ratings = candidateRatings[c.id] || {};
+  return ratings.setupOverride !== undefined ? ratings.setupOverride : (c.setup || '');
+}
+
+function setSetupOverride(candId, value) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  if (value) {
+    candidateRatings[candId].setupOverride = value;
+  } else {
+    delete candidateRatings[candId].setupOverride;
+  }
+  saveCandidateRatings();
+  renderCandidates();
+  // Refresh profile modal if open for this candidate
+  var modalInner = document.getElementById('cand-modal-inner');
+  if (modalInner && modalInner.dataset.candId === candId) openCandModal(candId);
+}
+
+function buildSetupToggleHTML(candId) {
+  var setup = getEffectiveSetup({ id: candId, setup: (candidates.find(function(c){ return c.id===candId; })||{}).setup });
+  var idA = escAttr(candId);
+  function btn(val, label, cls) {
+    var active = setup === val ? ' active' : '';
+    return '<button class="setup-toggle ' + cls + active + '" onclick="event.stopPropagation();setSetupOverride(\'' + idA + '\',\'' + val + '\')">' + label + '</button>';
+  }
+  var notSetActive = (!setup || setup === '') ? ' active' : '';
+  return btn('Stay-in', 'Stay-In', 'st-in') +
+         btn('Stay-out', 'Stay-Out', 'st-out') +
+         btn('Either', 'Either', 'st-ei') +
+         '<button class="setup-toggle st-ei' + notSetActive + '" onclick="event.stopPropagation();setSetupOverride(\'' + idA + '\',\'\')" style="color:var(--text3)">Not Set</button>';
+}
 let _candActivePanel = null;
 let _candJobTypes = [];
 
@@ -5606,8 +5648,17 @@ function buildCandFilterBar() {
         (sel ? ' style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px"' : '') +
         ' onclick="_candFilters.activeStatus=\'' + v + '\';renderCandidates()">' + _aLabels[v] + '</button>';
     }).join('') + '</div>';
+  const sb = _candFilters.sortBy || 'newest';
+  const _sLabels = { newest: 'Newest First', oldest: 'Oldest First', era: 'Highest ERA' };
+  const sortToggle = '<div style="display:flex;gap:3px">' +
+    ['newest','oldest','era'].map(function(v) {
+      const sel = sb === v;
+      return '<button class="era-tier-btn' + (sel ? ' sel' : '') + '"' +
+        (sel ? ' style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px"' : '') +
+        ' onclick="_candFilters.sortBy=\'' + v + '\';renderCandidates()">' + _sLabels[v] + '</button>';
+    }).join('') + '</div>';
   const btns = defs.map(function(d) { return buildCfBtnWrap(d.key, d.neutral, d.prefix); }).join('') +
-    hiredBtn + activeToggle + buildRegDateBtn() + buildCfBlWrap();
+    hiredBtn + activeToggle + sortToggle + buildRegDateBtn() + buildCfBlWrap();
   bar.innerHTML = btns;
   if (_candActivePanel === 'age') setTimeout(initAgeSlider, 0);
 }
@@ -5957,7 +6008,7 @@ function renderCandidates() {
 
       // Setup / arrangement
       if (f.setup && f.setup.length) {
-        const su = c.setup || '';
+        const su = getEffectiveSetup(c);
         if (!f.setup.some(function(v) { return su === v; })) return false;
       }
 
@@ -6006,13 +6057,14 @@ function renderCandidates() {
 
     container.innerHTML = '';
 
+    const sortMode = f.sortBy || 'newest';
     filtered.sort(function(a, b) {
-      // Newest-first override when registration date filter is active
-      if (f.regDateRange !== 'all') {
+      if (sortMode === 'newest' || sortMode === 'oldest') {
         const tsA = (a.timestamp || '').split(' ')[0];
         const tsB = (b.timestamp || '').split(' ')[0];
-        return tsB.localeCompare(tsA);
+        return sortMode === 'newest' ? tsB.localeCompare(tsA) : tsA.localeCompare(tsB);
       }
+      // ERA highest first
       const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
       if (scoreDiff !== 0) return scoreDiff;
       const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
@@ -6022,8 +6074,6 @@ function renderCandidates() {
       if (rdDiff !== 0) return rdDiff;
       const verDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
       if (verDiff !== 0) return verDiff;
-      const laDiff = getCandidateLastActive(b.id).localeCompare(getCandidateLastActive(a.id));
-      if (laDiff !== 0) return laDiff;
       return String(a.name || '').localeCompare(String(b.name || ''));
     });
 
@@ -6105,7 +6155,10 @@ function createCandCard(c) {
       </div>
       ${isHighDemand(c.id) ? '<div class="cand-detail" style="grid-column:1/-1"><span style="font-size:10px;font-weight:700;color:var(--orange)">High Demand — in multiple active orders</span></div>' : ''}
       <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
-      <div class="cand-detail"><span class="cand-detail-label">Setup</span><span class="cand-detail-val">${escHtml(c.setup||'—')}</span></div>
+      <div class="cand-detail" style="grid-column:1/-1">
+        <span class="cand-detail-label">Setup</span>
+        <span class="setup-toggle-wrap">${buildSetupToggleHTML(c.id)}</span>
+      </div>
       <div class="cand-detail"><span class="cand-detail-label">Past Jobs</span><span class="cand-detail-val">${escHtml(c.pastJobs||'—')}</span></div>
     </div>
     ${c.skills ? `<div class="cand-skills">${escHtml(c.skills)}</div>` : ''}
@@ -6406,7 +6459,7 @@ async function runMatcher() {
     const readiness = getCandReadiness(c.id);
     const candNotes = getCandNotes(c.id);
     const latestNote = candNotes.length ? candNotes[0].text : '';
-    const setupPref = c.setup || '';
+    const setupPref = getEffectiveSetup(c);
     const candSalaryNum = parseSalary(c.expectedPay);
     const salaryFlag = joSalaryNum && candSalaryNum && candSalaryNum > joSalaryNum ? 'SalaryHigh' : (joSalaryNum && candSalaryNum && candSalaryNum <= joSalaryNum ? 'SalaryOK' : 'SalaryUnknown');
     const missing = [];
@@ -6708,6 +6761,7 @@ function _openCandModalInner(candId) {
   const lastContactedVia = allLastContactsMeta[0]?.via || '';
 
   const inner = document.getElementById('cand-modal-inner');
+  inner.dataset.candId = c.id;
   inner.innerHTML = `
     <div class="cand-modal-hero">
       <div class="cand-modal-avatar">${genderEmoji(c.gender)}</div>
@@ -6903,7 +6957,7 @@ function _openCandModalInner(candId) {
           ${field('Gender', c.gender)}
           ${field('Location', c.locationRaw || c.location)}
           ${field('Expected Pay', c.expectedPay)}
-          ${field('Setup', c.setup)}
+          <div class="cand-modal-field"><div class="cand-modal-field-label">Setup</div><div class="cand-modal-field-val"><span class="setup-toggle-wrap">${buildSetupToggleHTML(c.id)}</span></div></div>
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
           ${field('Last Contacted', lastContactedOverall ? (fmtDate(lastContactedOverall) + (lastContactedVia ? ' · ' + lastContactedVia : '')) : '—')}
@@ -7436,7 +7490,7 @@ function _getBroadcastFiltered() {
 
     // Setup (multi-select)
     if (f.setup.length) {
-      const su = c.setup || '';
+      const su = getEffectiveSetup(c);
       if (!f.setup.some(function(v) { return su === v; })) return false;
     }
 
@@ -7484,7 +7538,7 @@ function renderBroadcastList() {
       <div style="font-weight:700;color:${eraColor}">${era.score.toFixed(1)}</div>
       <div style="color:var(--text2)">${escHtml(c.jobTypeFormatted || c.jobType || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
-      <div style="color:var(--text2)">${escHtml(c.setup || '—')}</div>
+      <div style="color:var(--text2)">${escHtml(getEffectiveSetup(c) || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.expectedPay || '—')}</div>
     </div>`;
   }).join('');
@@ -7622,7 +7676,7 @@ function copyShortlist(joId) {
       lines.push('- Location: ' + (c.cityFormatted || c.location || '?'));
       if (expText) lines.push('- Experience: ' + expText);
       lines.push('- Expected Pay: ' + (c.expectedPay || '?'));
-      lines.push('- Setup: ' + (c.setup || '?'));
+      lines.push('- Setup: ' + (getEffectiveSetup(c) || '?'));
       lines.push('- Available: ' + (c.startDate || '?'));
     }
     lines.push('');
@@ -10357,7 +10411,7 @@ function buildScreeningPanelInner(candId) {
     ['Gender',       c.gender || '—'],
     ['Location',     c.location || '—'],
     ['Expected Pay', c.expectedPay || '—'],
-    ['Setup',        c.setup || '—'],
+    ['Setup',        getEffectiveSetup(c) || '—'],
     ['Civil Status', c.civilStatus || '—'],
     ['Can Start',    c.startDate || '—'],
     ['Facebook',     c.facebook || '—'],
