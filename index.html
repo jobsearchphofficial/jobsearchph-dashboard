@@ -2687,6 +2687,10 @@
   import { getDatabase, ref, set, get, onValue }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+  // SECURITY: Firebase Database Rules MUST be set to auth != null (not true/true).
+  // Open rules expose all candidate PII, placements, and commission data to anyone
+  // with the project URL. Set rules in Firebase Console → Realtime Database → Rules:
+  // { "rules": { "jobsearchph": { ".read": "auth != null", ".write": "auth != null" } } }
   const firebaseConfig = {
     apiKey: "AIzaSyBmiUGO-mKqxZVlrfonbr8sFkpHydZltQ8",
     authDomain: "job-search-ph.firebaseapp.com",
@@ -4125,7 +4129,6 @@ async function loadAll() {
       const cityFormatted = normLocCity(r[9] || '');
       const jobTypes = normJobTypeValues(r[7] || '');
       const jobTypeFormatted = jobTypes.join(', ');
-      console.log('Row columns count:', r.length, 'Last cols:', r.slice(-5));
       return {
         id: r[0].trim() || '',
         timestamp: r[1] || '',
@@ -4787,8 +4790,8 @@ function buildJOPanel(jo, joPlacements) {
       const bResp = extraB.response || b.response || '';
       const aStat = extraA.status   || a.status   || '';
       const bStat = extraB.status   || b.status   || '';
-      const aInactive = aStat === 'Dropped' || aResp === 'Not Interested';
-      const bInactive = bStat === 'Dropped' || bResp === 'Not Interested';
+      const aInactive = aStat === 'Dropped / Unavailable' || aStat === 'Dropped' || aResp === 'Not Interested';
+      const bInactive = bStat === 'Dropped / Unavailable' || bStat === 'Dropped' || bResp === 'Not Interested';
       if (aInactive !== bInactive) return aInactive ? 1 : -1;
       const sa = statusOrder[aStat] ?? 5;
       const sb = statusOrder[bStat] ?? 5;
@@ -4863,6 +4866,14 @@ function getEffectiveStage(ex, p) {
   if (ex.dispositionStage) return ex.dispositionStage;
   const s = ex.status   || (p ? p.status   : '') || '';
   const r = ex.response || (p ? p.response : '') || '';
+  // New broadcast-flow status values
+  if (s === 'Confirmed')              return 'Confirmed Interested';
+  if (s === 'Called')                 return 'Confirmed Interested';
+  if (s === 'For Employer Review')    return 'For Employer Review';
+  if (s === 'Interview Scheduled')    return 'Interview Scheduled';
+  if (s === 'Dropped / Unavailable')  return 'Dropped / Unavailable';
+  if (s === 'Dropped / Rejected')     return 'Dropped / Unavailable';
+  // Legacy status values
   if (s === 'Hired')          return 'Hired ✓';
   if (s === 'Dropped')        return 'Dropped / Unavailable';
   if (r === 'Not Interested') return 'Rejected by Candidate';
@@ -4870,6 +4881,7 @@ function getEffectiveStage(ex, p) {
   if (s === 'For Interview')  return 'Interview Scheduled';
   if (r === 'Interested')     return 'Confirmed Interested';
   if (s === 'Messaged')       return 'Broadcasted';
+  if (s === 'Broadcasted')    return 'Broadcasted';
   if (p && p.source === 'broadcast') return 'Broadcasted';
   return '';
 }
@@ -4900,6 +4912,14 @@ function getStatusPillClass(status, response) {
   return m[status] || 'pill-default';
 }
 
+// STAGE SYSTEM ARCHITECTURE:
+// Two fields coexist per placement row:
+//   "Status" (ex.status) — 7-value broadcast-flow shorthand set by coordinators.
+//   "Stage"  (ex.dispositionStage) — 8-value detailed disposition set explicitly.
+// getEffectiveStage() reads dispositionStage FIRST; status is the legacy fallback.
+// The pipeline funnel and analytics ALWAYS use getEffectiveStage() output.
+// Coordinators should set the Stage dropdown for detailed tracking; the Status
+// dropdown remains for quick updates and backward compatibility with existing data.
 const DISPOSITION_STAGES = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
 
@@ -4963,8 +4983,8 @@ function createPlacementRow(p, idx, joId) {
     ? daysDiff(effectiveLastContact) : 0;
 
   // Auto-mark as No Response if 14+ days stale (save silently)
-  if (staleDays >= 14 && savedResponse !== 'Not Interested' && savedStatus !== 'Dropped'
-      && savedStatus !== 'Hired' && savedStatus !== 'Interviewed') {
+  if (staleDays >= 14 && savedResponse !== 'Not Interested' && savedStatus !== 'Dropped / Unavailable'
+      && savedStatus !== 'Dropped' && savedStatus !== 'Hired' && savedStatus !== 'Interviewed') {
     if (!extra.autoMarkedNoResp) {
       extra.autoMarkedNoResp = true;
       extra.response = 'No Response';
@@ -5135,7 +5155,7 @@ function refreshProwBody(pid) {
   const statusSel = document.getElementById(`status-sel-${pid}`);
   const newStatus = statusSel?.value || '';
   const interviewField = row.querySelector('.prow-interview-field');
-  const showInterview = ['For Interview','Interviewed'].includes(newStatus);
+  const showInterview = ['Interview Scheduled','For Interview','Interviewed'].includes(newStatus);
   if (interviewField) {
     interviewField.style.display = showInterview ? '' : 'none';
   }
@@ -5202,7 +5222,7 @@ function checkUrgentAlerts() {
     let extra = {};
     try { extra = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e){}
     const savedStatus = extra.status || p.status || '';
-    if (savedStatus === 'Dropped' || savedStatus === 'Hired') return;
+    if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || savedStatus === 'Hired') return;
 
     const interviewDate = extra.interviewDate || '';
     const followupDate = extra.followupDate || '';
@@ -5265,7 +5285,7 @@ function buildReminderBanner() {
 
     const savedResponse = extra.response || p.response || '';
     const savedStatus   = extra.status   || p.status   || '';
-    if (savedStatus === 'Dropped' || savedStatus === 'Hired' || savedResponse === 'Not Interested') return;
+    if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || savedStatus === 'Hired' || savedResponse === 'Not Interested') return;
 
     const lastContact = extra.lastContacted || p.date || '';
     const followupDate = extra.followupDate || '';
@@ -5397,8 +5417,8 @@ function saveProwField(pid, field, value, el) {
   if (field === 'status' && (value || '').trim().toLowerCase() === 'hired' && mp) {
     computeAndSaveCommission(pid, mp.jobOrderId);
   }
-  // Auto-add to interview session when set to For Interview
-  if (field === 'status' && value === 'For Interview' && mp) {
+  // Auto-add to interview session when set to Interview Scheduled
+  if (field === 'status' && (value === 'Interview Scheduled' || value === 'For Interview') && mp) {
     addCandidateToInterviewSession(mp.jobOrderId, pid);
   }
   // Refresh the dot and pill in header without re-rendering
@@ -6287,6 +6307,7 @@ function savePlacement() {
       placement.replacesCandidate = replacementCtx.candId;
       placement.replacementReason = replacementCtx.issueType;
       localStorage.removeItem('pending_replacement_jo_' + joId);
+      fbSync('pending_replacement/' + joId, null);
     }
     manualPlacements.push(placement);
     saveManualPlacements();
@@ -6352,6 +6373,7 @@ function saveAtjPlacement() {
     placement.replacesCandidate = replacementCtxAtj.candId;
     placement.replacementReason = replacementCtxAtj.issueType;
     localStorage.removeItem('pending_replacement_jo_' + joId);
+    fbSync('pending_replacement/' + joId, null);
   }
 
   manualPlacements.push(placement);
@@ -7241,7 +7263,7 @@ function copyJobDetails(joId) {
   };
   const parts = ['JOB OPENING — Job Search PH', ''];
   if (jo.position) parts.push('Position: ' + jo.position);
-  if (jo.jobTitle) parts.push('Location: ' + jo.jobTitle);   // column H = employer city/address
+  if (jo.address)  parts.push('Location: ' + jo.address);
   if (jo.salary)   parts.push('Salary: ₱' + jo.salary.replace(/^[₱$]+/, '') + '/month');
   if (jo.workSchedule) parts.push('Setup: ' + jo.workSchedule);
   const qualLines = [];
@@ -8809,7 +8831,9 @@ function submitIssueReport() {
 
   const replacementTypes = ['Candidate Abandonment / No-Show', 'Replacement Requested'];
   if (replacementTypes.includes(issueType)) {
-    localStorage.setItem('pending_replacement_jo_' + joId, JSON.stringify({ candId: candId, candName: document.getElementById('ri-cand-name').textContent, issueType: issueType, ts: new Date().toISOString() }));
+    const _repCtx = { candId: candId, candName: document.getElementById('ri-cand-name').textContent, issueType: issueType, ts: new Date().toISOString() };
+    localStorage.setItem('pending_replacement_jo_' + joId, JSON.stringify(_repCtx));
+    fbSync('pending_replacement/' + joId, _repCtx);
     setTimeout(function() {
       if (confirm('Do you want to open AI Matcher now to find a replacement?')) {
         openMatcherForJO(joId);
@@ -9360,25 +9384,20 @@ window._fbLastWrite = 0;
 
 async function fbSync(path, data) {
   window._fbLastWrite = Date.now();
-  // Prefer SDK (handles auth automatically)
-  if (typeof window._fbSdkSet === 'function') {
-    setSyncStatus('syncing');
-    const ok = await window._fbSdkSet(path, data);
-    setSyncStatus(ok ? 'synced' : 'error');
+  if (typeof window._fbSdkSet !== 'function') {
+    // SDK not loaded yet — data is safe in localStorage; skip silently.
+    // The REST fallback was removed because it sent unauthenticated PUT requests.
+    console.warn('[fbSync] SDK not ready, write queued locally for path:', path);
     return;
   }
-  // Fallback: REST (used only before SDK module loads)
-  const url = getFirebaseUrl(path);
-  if (!url) return;
   setSyncStatus('syncing');
-  try {
-    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data === undefined ? null : data) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    setSyncStatus('synced');
-  } catch(e) {
+  const ok = await window._fbSdkSet(path, data);
+  if (!ok) {
     setSyncStatus('error');
-    console.error('Firebase sync error [' + path + ']:', e.message);
+    showToast('Cloud sync failed for ' + path.split('/')[0] + ' — data saved locally only. Check your connection.', 'red');
+    return;
   }
+  setSyncStatus('synced');
 }
 
 const _fbDebounceTimers = {};
@@ -9432,6 +9451,11 @@ function _applyFbData(data) {
   if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
   if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
   if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+  if (data.pending_replacement)
+    Object.entries(data.pending_replacement).forEach(function(e) {
+      if (e[1]) localStorage.setItem('pending_replacement_jo_' + e[0], JSON.stringify(e[1]));
+      else localStorage.removeItem('pending_replacement_jo_' + e[0]);
+    });
   if (data.jo_coordinators)
     Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
   if (data.jo_events)
