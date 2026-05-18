@@ -334,6 +334,19 @@
           <label>Email <span style="font-weight:400;text-transform:none;font-size:10px">(optional)</span></label>
           <input type="email" id="f_email" placeholder="optional" />
         </div>
+        <div class="field">
+          <label>Candidate Source</label>
+          <select id="f_source">
+            <option value="Unknown">&#x2014; select source &#x2014;</option>
+            <option value="Facebook Ad">Facebook Ad</option>
+            <option value="Facebook Organic">Facebook Organic</option>
+            <option value="Referral">Referral</option>
+            <option value="Walk-in">Walk-in</option>
+            <option value="Botcake Chatbot">Botcake Chatbot</option>
+            <option value="Google Form">Google Form</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -805,11 +818,13 @@ function buildPrefilledUrl() {
 // ── Save internal-only data to localStorage ──
 function savePendingIntake(name) {
   var notesVal  = document.getElementById('f_notes').value.trim();
-  if (!notesVal) return;
+  var sourceVal = (document.getElementById('f_source') || {}).value || 'Unknown';
   var key = 'quick_intake_' + name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  var existing = {}; try { existing = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
   localStorage.setItem(key, JSON.stringify({
-    notes: notesVal,
-    ts:    new Date().toISOString()
+    notes:  notesVal || existing.notes || '',
+    source: sourceVal,
+    ts:     new Date().toISOString()
   }));
 }
 
@@ -845,7 +860,7 @@ function resetToForm() {
 // ── Clear form ──
 var TEXT_FIELDS    = ['f_name','f_facebook','f_age','f_contact','f_email',
                       'f_salary','f_available','f_skills','f_experience','f_resume','f_notes'];
-var SELECT_FIELDS  = ['f_gender','f_jobtype','f_location','f_civil'];
+var SELECT_FIELDS  = ['f_gender','f_jobtype','f_location','f_civil','f_source'];
 
 function clearForm() {
   TEXT_FIELDS.forEach(function(id) {

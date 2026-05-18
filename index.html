@@ -2971,6 +2971,7 @@ function doLogin(){
     <div class="section-header">
       <div class="section-title">Candidate Pool</div>
       <div class="badge" id="cand-count">0</div>
+      <button id="cleanup-btn" class="btn btn-ghost" onclick="openCleanupModal()" style="display:none;font-size:11px;padding:5px 12px;margin-left:8px">Cleanup</button>
     </div>
     <div id="pool-health-bar" class="pool-health-bar" style="display:none"></div>
     <div class="cf-top-row">
@@ -3002,6 +3003,7 @@ function doLogin(){
       <select id="hired-filter-fee" onchange="renderHiredTab()">
         <option value="">All Fee Status</option>
         <option value="Paid">Paid</option>
+        <option value="Unpaid">Unpaid (Outstanding)</option>
         <option value="Pending">Pending</option>
         <option value="Waived">Waived</option>
       </select>
@@ -3325,6 +3327,51 @@ function doLogin(){
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
       <button class="btn btn-red" id="cancel-confirm-btn" disabled onclick="confirmCancelJO()">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CANDIDATE CLEANUP MODAL ─── -->
+<div class="modal-overlay" id="modal-cleanup" onclick="if(event.target===this)closeModal('modal-cleanup')" style="align-items:flex-start;padding:40px 20px;overflow-y:auto">
+  <div class="modal" style="max-width:760px;width:100%;max-height:none">
+    <h3>Candidate Cleanup</h3>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Review hidden candidates and decide: archive (removes permanently) or keep both in pool.</p>
+    <div id="cleanup-inner"></div>
+    <div class="modal-actions" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cleanup')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── FEE PAYMENT MODAL ─── -->
+<div class="modal-overlay" id="modal-fee-pay" onclick="if(event.target===this)closeModal('modal-fee-pay')">
+  <div class="modal" style="max-width:420px">
+    <h3>Mark Fee Paid</h3>
+    <input type="hidden" id="fee-pay-pid">
+    <div class="modal-field">
+      <div class="modal-label">Amount Paid (₱)</div>
+      <input type="number" id="fee-pay-amount" placeholder="e.g. 1400" min="0" step="1">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Payment Date</div>
+      <input type="date" id="fee-pay-date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Payment Method</div>
+      <select id="fee-pay-method">
+        <option value="Cash">Cash</option>
+        <option value="GCash">GCash</option>
+        <option value="Bank Transfer">Bank Transfer</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes (optional)</div>
+      <input type="text" id="fee-pay-notes" placeholder="Reference number, remarks…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-fee-pay')">Cancel</button>
+      <button class="btn btn-green" onclick="saveFeePayment()">Save Payment</button>
     </div>
   </div>
 </div>
@@ -3687,6 +3734,8 @@ let flaggedCands = {};
 let manualPlacements = [];
 let _hiddenDuplicates = [];   // candidate IDs skipped as duplicates
 let _hiddenUnderage   = [];   // candidate IDs skipped as underage
+let _dupPairs         = [];   // [{hiddenCand, keptId, matchType}] for cleanup modal
+let _underageCands    = [];   // full candidate objects for cleanup modal
 let candidateNotes = {};
 let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
 let candidateRatings = {};    // { candId: { rating, docs, notes } }
@@ -4161,22 +4210,37 @@ async function loadAll() {
     // ── Deduplicate: hide all but the first occurrence of a phone/email ──
     const _seenPhone = new Set();
     const _seenEmail = new Set();
+    const _phoneToId = {}, _emailToId = {};
     _hiddenDuplicates = [];
+    _dupPairs = [];
     candidates = candidates.filter(function(c) {
+      if (candidateRatings[c.id] && candidateRatings[c.id].keepBoth) return true; // whitelisted
+      if (candidateRatings[c.id] && candidateRatings[c.id].archived) return false; // archived silently
       const ph = (c.phone || '').replace(/\D/g, '').slice(-10);
       const em = (c.email || '').trim().toLowerCase();
       const dupPhone = ph.length >= 7 && _seenPhone.has(ph);
       const dupEmail = em.includes('@') && _seenEmail.has(em);
-      if (dupPhone || dupEmail) { _hiddenDuplicates.push(c.id); return false; }
-      if (ph.length >= 7) _seenPhone.add(ph);
-      if (em.includes('@')) _seenEmail.add(em);
+      if (dupPhone || dupEmail) {
+        _hiddenDuplicates.push(c.id);
+        const keptId = dupPhone ? _phoneToId[ph] : _emailToId[em];
+        _dupPairs.push({ hiddenCand: c, keptId: keptId || '', matchType: dupPhone ? 'phone' : 'email' });
+        return false;
+      }
+      if (ph.length >= 7) { _seenPhone.add(ph); _phoneToId[ph] = c.id; }
+      if (em.includes('@')) { _seenEmail.add(em); _emailToId[em] = c.id; }
       return true;
     });
 
     // ── Underage: hide candidates below 18 ──
     _hiddenUnderage = [];
+    _underageCands = [];
     candidates = candidates.filter(function(c) {
-      if (c.ageInt > 0 && c.ageInt < 18) { _hiddenUnderage.push(c.id); return false; }
+      if (candidateRatings[c.id] && candidateRatings[c.id].archived) return false;
+      if (c.ageInt > 0 && c.ageInt < 18) {
+        _hiddenUnderage.push(c.id);
+        _underageCands.push(c);
+        return false;
+      }
       return true;
     });
 
@@ -4289,6 +4353,12 @@ function updateStats() {
     noteEl.textContent = totalHidden > 0
       ? totalHidden + ' hidden (' + _hiddenDuplicates.length + ' dup · ' + _hiddenUnderage.length + ' underage)'
       : '';
+  }
+  // Show cleanup button for admins when there are unresolved hidden candidates
+  var cleanupBtn = document.getElementById('cleanup-btn');
+  if (cleanupBtn) {
+    cleanupBtn.style.display = (isAdmin() && totalHidden > 0) ? '' : 'none';
+    cleanupBtn.textContent = 'Cleanup (' + totalHidden + ')';
   }
 
   // Avg Days to Place (last 30 days)
@@ -7017,6 +7087,14 @@ function _openCandModalInner(candId) {
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
           ${field('Last Contacted', lastContactedOverall ? (fmtDate(lastContactedOverall) + (lastContactedVia ? ' · ' + lastContactedVia : '')) : '—')}
+          <div class="cand-modal-field">
+            <div class="cand-modal-field-label">Source</div>
+            <div class="cand-modal-field-val">
+              <select onchange="setCandSource('${escAttr(c.id)}',this.value)" style="font-size:12px;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text)">
+                ${['Unknown','Facebook Ad','Facebook Organic','Referral','Walk-in','Botcake Chatbot','Google Form','Other'].map(function(s){ var sel=(storedRating.source||'Unknown')===s?' selected':''; return '<option'+sel+'>'+s+'</option>'; }).join('')}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -8437,7 +8515,8 @@ function renderHiredTab() {
   // Filter
   let filtered = hiredRows;
   if (filterJO)  filtered = filtered.filter(r => r.p.jobOrderId === filterJO);
-  if (filterFee) filtered = filtered.filter(r => (r.hireData.feeStatus || 'Pending') === filterFee);
+  if (filterFee === 'Unpaid') filtered = filtered.filter(r => (r.hireData.feeStatus || 'Pending') !== 'Paid' && (r.hireData.feeStatus || 'Pending') !== 'Waived');
+  else if (filterFee) filtered = filtered.filter(r => (r.hireData.feeStatus || 'Pending') === filterFee);
   if (filterGuar) {
     filtered = filtered.filter(r => {
       const g = getGuaranteeStatus(r);
@@ -8600,12 +8679,26 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
 
   const gStatus = getGuaranteeStatus({ hireData, pid });
   const feeStatus = hireData.feeStatus || 'Pending';
-  const feeColors = { 'Paid': ['#059669','rgba(5,150,105,.12)'], 'Pending': ['#ea580c','rgba(234,88,12,.12)'], 'Waived': ['#64748b','rgba(100,116,139,.12)'] };
-  const feePillsHtml = ['Paid','Pending','Waived'].map(v => {
-    const [col, bg] = feeColors[v];
-    const active = v === feeStatus;
-    return `<button onclick="saveHireData('${escAttr(pid)}','feeStatus','${v}');renderHiredTab()" style="padding:5px 14px;border-radius:99px;border:1.5px solid ${active ? col : 'var(--border2)'};background:${active ? bg : 'transparent'};color:${active ? col : 'var(--text3)'};font-weight:700;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s">${v}</button>`;
-  }).join('');
+  const feePaidAmount = hireData.feePaidAmount || hireData.feeAmount || '';
+  const feePaidAmountNum = parseFloat((feePaidAmount + '').replace(/[^0-9.]/g, '')) || 0;
+  const feeUiHtml = feeStatus === 'Paid'
+    ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+         <span style="background:rgba(5,150,105,.12);color:#059669;border:1.5px solid rgba(5,150,105,.4);border-radius:99px;padding:4px 14px;font-size:12px;font-weight:800">
+           Paid ${feePaidAmountNum > 0 ? '₱' + feePaidAmountNum.toLocaleString('en-PH') : ''}
+           ${hireData.feePaidDate ? ' · ' + hireData.feePaidDate : ''}
+           ${hireData.feePaymentMethod ? ' · ' + hireData.feePaymentMethod : ''}
+         </span>
+         <button onclick="openFeePayModal('${escAttr(pid)}','${escAttr(p.jobOrderId)}')" style="padding:3px 10px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--sans)">Edit</button>
+       </div>`
+    : feeStatus === 'Waived'
+      ? `<div style="display:flex;align-items:center;gap:8px">
+           <span style="background:rgba(100,116,139,.12);color:#64748b;border:1.5px solid rgba(100,116,139,.4);border-radius:99px;padding:4px 14px;font-size:12px;font-weight:700">Waived</span>
+           <button onclick="saveHireData('${escAttr(pid)}','feeStatus','Pending');renderHiredTab()" style="padding:3px 10px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;font-family:var(--sans)">Undo</button>
+         </div>`
+      : `<div style="display:flex;gap:6px;flex-wrap:wrap">
+           <button onclick="openFeePayModal('${escAttr(pid)}','${escAttr(p.jobOrderId)}')" style="padding:6px 16px;border-radius:9px;border:1.5px solid rgba(5,150,105,.5);background:rgba(5,150,105,.08);color:#059669;font-weight:700;font-size:12px;cursor:pointer;font-family:var(--sans)">Mark Fee Paid</button>
+           <button onclick="saveHireData('${escAttr(pid)}','feeStatus','Waived');renderHiredTab()" style="padding:6px 12px;border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;font-family:var(--sans)">Waive</button>
+         </div>`;
   const hireDate = hireData.hireDate || '';
   const feeAmount = hireData.feeAmount || '';
   const c = candidates.find(x => x.id === p.candidateId);
@@ -8664,7 +8757,7 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
       </div>
       <div class="hired-meta-item" style="grid-column:1/-1">
         <span class="hm-label">Fee Status</span>
-        <div style="display:flex;gap:6px;margin-top:4px">${feePillsHtml}</div>
+        <div style="margin-top:6px">${feeUiHtml}</div>
       </div>
     </div>
 
@@ -8751,6 +8844,141 @@ function saveHireData(pid, field, value) {
     var p = [...placements, ...manualPlacements].find(function(pl) { return (pl.placementId || pl.candidateId) === pid; });
     if (p) computeAndSaveCommission(pid, p.jobOrderId);
   }
+}
+
+function openFeePayModal(pid, joId) {
+  document.getElementById('fee-pay-pid').value = pid;
+  // Pre-fill amount from hire_data or job order
+  let hd = {};
+  try { hd = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+  const jo = jobOrders.find(j => j.id === joId);
+  const prefillAmount = hd.feePaidAmount || hd.feeAmount || (jo ? jo.feeAmount : '') || '';
+  const numericAmount = parseFloat((prefillAmount + '').replace(/[^0-9.]/g, '')) || '';
+  document.getElementById('fee-pay-amount').value = numericAmount || '';
+  document.getElementById('fee-pay-date').value = hd.feePaidDate || new Date().toISOString().split('T')[0];
+  document.getElementById('fee-pay-method').value = hd.feePaymentMethod || 'Cash';
+  document.getElementById('fee-pay-notes').value = hd.feePaymentNotes || '';
+  openModal('modal-fee-pay');
+}
+
+function saveFeePayment() {
+  const pid = document.getElementById('fee-pay-pid').value;
+  if (!pid) return;
+  const amount = document.getElementById('fee-pay-amount').value.trim();
+  const date   = document.getElementById('fee-pay-date').value;
+  const method = document.getElementById('fee-pay-method').value;
+  const notes  = document.getElementById('fee-pay-notes').value.trim();
+  if (!amount || !date) { showToast('Amount and date are required.', 'red'); return; }
+  const key = 'hire_data_' + pid;
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+  d.feeStatus          = 'Paid';
+  d.feePaidAmount      = amount;
+  d.feePaidDate        = date;
+  d.feePaymentMethod   = method;
+  d.feePaymentNotes    = notes;
+  // Also set feeAmount if not already set, so analytics can pick it up
+  if (!d.feeAmount) d.feeAmount = amount;
+  _lsSet(key, d);
+  fbSync('hire_data/' + pid, d);
+  closeModal('modal-fee-pay');
+  renderHiredTab();
+  showToast('Fee payment recorded — ₱' + parseFloat(amount).toLocaleString('en-PH'), 'green');
+}
+
+function openCleanupModal() {
+  if (!isAdmin()) return;
+  var inner = document.getElementById('cleanup-inner');
+  if (!inner) return;
+
+  function candCard(c, badgeHtml, actionHtml) {
+    var era = calcCandRating(c.id);
+    var eraColor = era >= 7 ? 'var(--green)' : era >= 5 ? 'var(--gold)' : 'var(--red)';
+    return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;flex:1;min-width:180px">' +
+      '<div style="font-size:13px;font-weight:700;margin-bottom:2px">' + escHtml(c.name) + '</div>' +
+      '<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">' + escHtml(c.id) + '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">' + badgeHtml + '</div>' +
+      '<div style="font-size:11px;color:var(--text2)">' +
+        (c.jobTypeFormatted || c.jobType || '—') + ' · ' + (c.location || '—') + '<br>' +
+        'Age: ' + (c.age || '—') + ' · ' + (c.timestamp ? c.timestamp.split(' ')[0] : '—') +
+      '</div>' +
+      '<div style="margin-top:4px;font-size:12px;font-weight:800;color:' + eraColor + '">ERA ' + era + '</div>' +
+      (actionHtml ? '<div style="margin-top:8px">' + actionHtml + '</div>' : '') +
+      '</div>';
+  }
+
+  // ── Duplicates ──
+  var dupHtml = '';
+  if (_dupPairs.length > 0) {
+    dupHtml = '<div style="font-size:13px;font-weight:800;margin-bottom:10px;color:var(--orange)">Duplicates (' + _dupPairs.length + ')</div>';
+    _dupPairs.forEach(function(pair, i) {
+      var hc = pair.hiddenCand;
+      var kc = candidates.find(function(x) { return x.id === pair.keptId; });
+      var matchBadge = '<span style="font-size:10px;background:var(--orange-dim);color:var(--orange);padding:1px 7px;border-radius:4px;font-weight:700">Same ' + pair.matchType + '</span>';
+      var hiddenActions = '<button onclick="archiveCandFromCleanup(\'' + escAttr(hc.id) + '\')" class="btn btn-red" style="font-size:11px;padding:4px 10px;width:100%">Archive This</button>' +
+        '<button onclick="keepBothCandidates(\'' + escAttr(hc.id) + '\')" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-top:4px">Keep Both</button>';
+      var keptActions = kc ? '<button onclick="archiveCandFromCleanup(\'' + escAttr(kc.id) + '\')" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;color:var(--red)">Archive Kept Instead</button>' : '';
+      dupHtml += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--card)">' +
+        '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Pair ' + (i+1) + ' — ' + pair.matchType + ' match</div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+          (kc ? candCard(kc, '<span style="font-size:10px;background:var(--green-dim);color:var(--green);padding:1px 7px;border-radius:4px;font-weight:700">In Pool</span>' + matchBadge, keptActions) : '<div style="flex:1;min-width:180px;color:var(--text3);font-size:12px;padding:10px">Original not found</div>') +
+          candCard(hc, '<span style="font-size:10px;background:var(--red-dim);color:var(--red);padding:1px 7px;border-radius:4px;font-weight:700">Hidden</span>' + matchBadge, hiddenActions) +
+        '</div></div>';
+    });
+  } else {
+    dupHtml = '<div style="color:var(--text3);font-size:12px;padding:12px 0">No duplicate candidates.</div>';
+  }
+
+  // ── Underage ──
+  var undHtml = '';
+  if (_underageCands.length > 0) {
+    undHtml = '<div style="font-size:13px;font-weight:800;margin:16px 0 10px;color:var(--red)">Underage (' + _underageCands.length + ')</div>';
+    _underageCands.forEach(function(c) {
+      var actions = '<button onclick="archiveCandFromCleanup(\'' + escAttr(c.id) + '\')" class="btn btn-red" style="font-size:11px;padding:4px 10px;width:100%">Archive</button>';
+      undHtml += '<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--card);display:flex;gap:10px">' +
+        candCard(c, '<span style="font-size:10px;background:var(--red-dim);color:var(--red);padding:1px 7px;border-radius:4px;font-weight:700">Age ' + escHtml(c.age) + '</span>', actions) +
+        '</div>';
+    });
+  } else {
+    undHtml = '<div style="color:var(--text3);font-size:12px;padding:12px 0">No underage candidates.</div>';
+  }
+
+  inner.innerHTML = dupHtml + undHtml;
+  openModal('modal-cleanup');
+}
+
+function archiveCandFromCleanup(candId) {
+  if (!confirm('Archive candidate ' + candId + '? They will be permanently removed from the pool.')) return;
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  candidateRatings[candId].archived = true;
+  saveCandidateRatings();
+  // Remove from tracking arrays immediately
+  _dupPairs = _dupPairs.filter(function(p) { return p.hiddenCand.id !== candId && p.keptId !== candId; });
+  _hiddenDuplicates = _hiddenDuplicates.filter(function(id) { return id !== candId; });
+  _underageCands = _underageCands.filter(function(c) { return c.id !== candId; });
+  _hiddenUnderage = _hiddenUnderage.filter(function(id) { return id !== candId; });
+  // Also remove from main candidates if it was the kept one
+  candidates = candidates.filter(function(c) { return c.id !== candId; });
+  updateStats();
+  renderCandidates();
+  openCleanupModal(); // re-render modal
+  showToast('Candidate ' + candId + ' archived.', 'green');
+}
+
+function keepBothCandidates(hiddenCandId) {
+  var pair = _dupPairs.find(function(p) { return p.hiddenCand.id === hiddenCandId; });
+  if (!pair) return;
+  if (!candidateRatings[hiddenCandId]) candidateRatings[hiddenCandId] = {};
+  candidateRatings[hiddenCandId].keepBoth = true;
+  saveCandidateRatings();
+  // Add hidden candidate back to candidates array immediately
+  candidates.push(pair.hiddenCand);
+  _dupPairs = _dupPairs.filter(function(p) { return p.hiddenCand.id !== hiddenCandId; });
+  _hiddenDuplicates = _hiddenDuplicates.filter(function(id) { return id !== hiddenCandId; });
+  updateStats();
+  renderCandidates();
+  openCleanupModal();
+  showToast('Both candidates are now in the pool.', 'green');
 }
 
 function openIssueModal(pid) {
@@ -8872,9 +9100,24 @@ function importPendingIntakeNotes(candId, name) {
         notes.unshift({ text: data.notes, ts: data.ts || new Date().toISOString(), source: 'intake' });
         localStorage.setItem('cand_notes_' + candId, JSON.stringify(notes.slice(0, 50)));
       }
-      localStorage.removeItem(key);
     }
+    // Import source if set and not already recorded
+    if (data.source && data.source !== 'Unknown') {
+      if (!candidateRatings[candId]) candidateRatings[candId] = {};
+      if (!candidateRatings[candId].source) {
+        candidateRatings[candId].source = data.source;
+        saveCandidateRatings();
+      }
+    }
+    localStorage.removeItem(key);
   } catch(e) {}
+}
+
+function setCandSource(candId, source) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  candidateRatings[candId].source = source;
+  saveCandidateRatings();
+  showToast('Source updated: ' + source, 'green');
 }
 
 function deleteCandNote(candId, idx) {
@@ -10121,8 +10364,12 @@ function renderScreeningTab() {
   const _noteInp = _scrSelectedCand ? document.getElementById('sp-note-input-' + _scrSelectedCand) : null;
   const _noteDraft = _noteInp ? _noteInp.value : '';
 
-  const viewBar = '<div class="screening-view-bar">' +
-    '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)">' +
+  const viewBar = '<div class="screening-view-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+    '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)" style="flex:1;min-width:160px">' +
+    '<div style="display:flex;gap:4px">' +
+      '<button class="btn ' + (_scrView !== 'reengage' ? 'btn-gold' : 'btn-ghost') + '" style="font-size:11px;padding:5px 12px" onclick="switchScreeningView(\'nurture\')">Pipeline</button>' +
+      '<button class="btn ' + (_scrView === 'reengage' ? 'btn-gold' : 'btn-ghost') + '" style="font-size:11px;padding:5px 12px" onclick="switchScreeningView(\'reengage\')">Re-engage</button>' +
+    '</div>' +
     '</div>';
 
   const hasActiveFilter = Object.keys(_scrFilters).some(function(k) {
@@ -10158,6 +10405,11 @@ function renderScreeningTab() {
         '<div class="scr-stat-label">' + d.label + '</div></div></div>';
     }).join('') + '</div>';
 
+  if (_scrView === 'reengage') {
+    el.innerHTML = viewBar + renderReengageView();
+    return;
+  }
+
   const viewHtml = renderPipelineBoard();
 
   el.innerHTML = viewBar + filterBarDiv + statsRow + '<div id="scr-board">' + viewHtml + '</div>';
@@ -10170,6 +10422,116 @@ function renderScreeningTab() {
     const _newNoteInp = document.getElementById('sp-note-input-' + _scrSelectedCand);
     if (_newNoteInp) _newNoteInp.value = _noteDraft;
   }
+}
+
+function renderReengageView() {
+  const DAYS_THRESHOLD = 30;
+  const today = Date.now();
+  const hiredIds = new Set([...placements, ...manualPlacements].filter(function(p) {
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
+    return (ex.status || p.status || '').toLowerCase() === 'hired';
+  }).map(function(p) { return p.candidateId; }));
+
+  const eligible = candidates.filter(function(c) {
+    if (blacklist[c.id]) return false;
+    if (hiredIds.has(c.id)) return false;
+    // Find most recent contact date across all sources
+    var logs = eraContactLogs[c.id] || [];
+    var lastLogDate = logs.length ? logs[logs.length - 1].date : null;
+    // Also check placement rows
+    var allP = [...placements, ...manualPlacements].filter(function(p) { return p.candidateId === c.id; });
+    var latestPlacDate = allP.reduce(function(acc, p) {
+      var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
+      var lc = ex.lastContacted || p.date || '';
+      return lc > acc ? lc : acc;
+    }, '');
+    var lastContact = lastLogDate && latestPlacDate ? (lastLogDate > latestPlacDate ? lastLogDate : latestPlacDate) : (lastLogDate || latestPlacDate || null);
+    if (!lastContact) { c._reengageDays = null; return true; } // never contacted
+    var ms = parseDateFlex(lastContact);
+    if (!ms || isNaN(ms)) { c._reengageDays = null; return true; }
+    var daysSinceContact = Math.floor((today - ms.getTime()) / 86400000);
+    c._reengageDays = daysSinceContact;
+    return daysSinceContact >= DAYS_THRESHOLD;
+  });
+
+  // Sort newest registration first
+  eligible.sort(function(a, b) {
+    var ta = (a.timestamp || '').split(' ')[0];
+    var tb = (b.timestamp || '').split(' ')[0];
+    return tb.localeCompare(ta);
+  });
+
+  if (!eligible.length) {
+    return '<div style="padding:32px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px">All active candidates have been contacted within the last ' + DAYS_THRESHOLD + ' days.</div>';
+  }
+
+  var bulkMsgs = eligible.map(function(c) {
+    var jobType = c.jobTypeFormatted || c.jobType || 'available positions';
+    var loc = c.cityFormatted || c.location || 'your area';
+    return 'Hi ' + (c.name.split(' ')[0] || c.name) + '! 👋 This is Job Search PH. We have new job openings for ' + jobType + ' in ' + loc + '. Interested? Reply YES and we\'ll send you details right away! 😊';
+  }).join('\n\n---\n\n');
+
+  var header = '<div style="display:flex;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap">' +
+    '<div style="font-size:14px;font-weight:700;flex:1">' + eligible.length + ' candidates need re-engagement (30+ days no contact)</div>' +
+    '<button class="btn btn-gold" onclick="copyReengageBulk()" style="font-size:12px">Select All + Bulk Copy</button>' +
+    '</div>' +
+    '<textarea id="reengage-bulk-area" style="display:none;width:100%;min-height:180px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;font-family:var(--sans);resize:vertical;margin-bottom:12px">' + escHtml(bulkMsgs) + '</textarea>';
+
+  var rows = eligible.map(function(c) {
+    var jobType = c.jobTypeFormatted || c.jobType || 'available positions';
+    var loc = c.cityFormatted || c.location || 'your area';
+    var firstName = c.name.split(' ')[0] || c.name;
+    var msg = 'Hi ' + firstName + '! 👋 This is Job Search PH. We have new job openings for ' + jobType + ' in ' + loc + '. Interested? Reply YES and we\'ll send you details right away! 😊';
+    var era = calcCandRating(c.id);
+    var eraColor = era >= 7 ? 'var(--green)' : era >= 5 ? 'var(--gold)' : 'var(--red)';
+    var daysLabel = c._reengageDays === null ? 'Never contacted' : c._reengageDays + 'd ago';
+    var daysColor = c._reengageDays === null ? 'var(--text3)' : c._reengageDays >= 60 ? 'var(--red)' : 'var(--orange)';
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:160px">' +
+        '<div style="font-size:13px;font-weight:700">' + escHtml(c.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + escHtml(c.id) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + escHtml(jobType) + ' · ' + escHtml(c.location || '—') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:12px;align-items:center;flex-shrink:0">' +
+        '<span style="font-size:11px;font-weight:700;color:' + daysColor + '">' + escHtml(daysLabel) + '</span>' +
+        '<span style="font-size:12px;font-weight:800;color:' + eraColor + '">ERA ' + era + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="copyReengageMsg(\'' + escAttr(c.id) + '\',\'' + escAttr(msg) + '\',this)">Copy Message</button>' +
+        '<button class="btn btn-green" style="font-size:11px;padding:4px 10px" onclick="markReengaged(\'' + escAttr(c.id) + '\')">Mark Re-engaged</button>' +
+      '</div>' +
+      '</div>';
+  }).join('');
+
+  return header + '<div>' + rows + '</div>';
+}
+
+function copyReengageMsg(candId, msg, btn) {
+  navigator.clipboard.writeText(msg).then(function() {
+    var orig = btn.textContent;
+    btn.textContent = 'Copied!'; btn.style.color = 'var(--green)';
+    setTimeout(function() { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  }).catch(function() { fallbackCopy(msg); });
+}
+
+function copyReengageBulk() {
+  var area = document.getElementById('reengage-bulk-area');
+  if (!area) return;
+  area.style.display = area.style.display === 'none' ? '' : 'none';
+  if (area.style.display !== 'none') {
+    navigator.clipboard.writeText(area.value).then(function() {
+      showToast('All re-engagement messages copied!', 'green');
+    }).catch(function() { area.select(); document.execCommand('copy'); });
+  }
+}
+
+function markReengaged(candId) {
+  var today = new Date().toISOString().split('T')[0];
+  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
+  eraContactLogs[candId].push({ method: 'Re-engagement', outcome: 'Attempted', date: today, ts: Date.now() });
+  saveEraContactLogs();
+  showToast('Contact logged for ' + candId, 'green');
+  renderScreeningTab();
 }
 
 function renderPipelineBoard() {
@@ -10692,7 +11054,9 @@ function setUrgency(val) {
 // ═══════════════════════════════════════════════
 // ANALYTICS TAB
 // ═══════════════════════════════════════════════
-var _analyticsSection = 'cancellation';
+var _analyticsSection = 'trends';
+var _trendsRange = '6m';
+var _trendsMetrics = { candidates: true, jobOrders: false, placements: true, revenue: false, broadcasts: false };
 
 function renderAnalyticsTab() {
   if (!isAdmin()) { switchTab('jobs'); return; }
@@ -10700,6 +11064,8 @@ function renderAnalyticsTab() {
   if (!inner) return;
 
   var navItems = [
+    { key: 'trends',       label: 'Trends' },
+    { key: 'sources',      label: 'Sources' },
     { key: 'cancellation', label: 'Cancellations' },
     { key: 'reopen',       label: 'Reopen Patterns' },
     { key: 'pipeline',     label: 'Pipeline Drop-off' },
@@ -10715,7 +11081,9 @@ function renderAnalyticsTab() {
     }).join('') + '</div>';
 
   var content = '';
-  if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
+  if (_analyticsSection === 'trends')       content = buildTrendsView();
+  else if (_analyticsSection === 'sources') content = buildSourcesAnalysis();
+  else if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
   else if (_analyticsSection === 'reopen')   content = buildReopenAnalysis();
   else if (_analyticsSection === 'pipeline') content = buildPipelineDropoff();
   else if (_analyticsSection === 'timing')   content = buildTimingDistribution();
@@ -10725,6 +11093,201 @@ function renderAnalyticsTab() {
   else if (_analyticsSection === 'team')     content = buildManageTeam();
 
   inner.innerHTML = nav + content;
+}
+
+function buildSourcesAnalysis() {
+  var ALL_SOURCES = ['Facebook Ad','Facebook Organic','Referral','Walk-in','Botcake Chatbot','Google Form','Other','Unknown'];
+  var COLORS = { 'Facebook Ad':'#2563EB','Facebook Organic':'#7C3AED','Referral':'#16A34A','Walk-in':'#EA580C','Botcake Chatbot':'#D97706','Google Form':'#0284C7','Other':'#64748B','Unknown':'#94A3B8' };
+
+  var sourceCounts = {}, sourceERA = {}, sourcePlaced = {};
+  ALL_SOURCES.forEach(function(s) { sourceCounts[s]=0; sourceERA[s]=[]; sourcePlaced[s]=0; });
+
+  var hiredSet = new Set([...placements,...manualPlacements].filter(function(p) {
+    var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}');}catch(e){}
+    return (ex.status||p.status||'').toLowerCase()==='hired';
+  }).map(function(p){ return p.candidateId; }));
+
+  candidates.forEach(function(c) {
+    var src = (candidateRatings[c.id] && candidateRatings[c.id].source) || 'Unknown';
+    if (!sourceCounts[src] && src !== 'Unknown') { sourceCounts[src] = 0; sourceERA[src] = []; sourcePlaced[src] = 0; }
+    var key = ALL_SOURCES.includes(src) ? src : 'Other';
+    sourceCounts[key]++;
+    sourceERA[key].push(calcCandRating(c.id));
+    if (hiredSet.has(c.id)) sourcePlaced[key]++;
+  });
+
+  var totalCands = candidates.length;
+
+  // ── Donut chart (SVG) ──
+  var cxD = 90, cyD = 90, rOuter = 70, rInner = 40;
+  var sorted = Object.entries(sourceCounts).filter(function(e){ return e[1]>0; }).sort(function(a,b){ return b[1]-a[1]; });
+  var startAngle = -Math.PI / 2;
+  var slices = sorted.map(function(e) {
+    var src = e[0], cnt = e[1];
+    var sweep = (cnt / Math.max(1, totalCands)) * 2 * Math.PI;
+    var endAngle = startAngle + sweep;
+    var x1 = cxD + rOuter * Math.cos(startAngle), y1 = cyD + rOuter * Math.sin(startAngle);
+    var x2 = cxD + rOuter * Math.cos(endAngle),   y2 = cyD + rOuter * Math.sin(endAngle);
+    var xi1 = cxD + rInner * Math.cos(endAngle),  yi1 = cyD + rInner * Math.sin(endAngle);
+    var xi2 = cxD + rInner * Math.cos(startAngle), yi2 = cyD + rInner * Math.sin(startAngle);
+    var largeArc = sweep > Math.PI ? 1 : 0;
+    var d = 'M ' + x1 + ' ' + y1 + ' A ' + rOuter + ' ' + rOuter + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 +
+            ' L ' + xi1 + ' ' + yi1 + ' A ' + rInner + ' ' + rInner + ' 0 ' + largeArc + ' 0 ' + xi2 + ' ' + yi2 + ' Z';
+    startAngle = endAngle;
+    return '<path d="' + d + '" fill="' + (COLORS[src]||'#94A3B8') + '" opacity="0.88"/>';
+  }).join('');
+  var donut = '<svg width="180" height="180" viewBox="0 0 180 180">' + slices + '<text x="90" y="88" text-anchor="middle" font-size="18" font-weight="800" fill="var(--text)">' + totalCands + '</text><text x="90" y="102" text-anchor="middle" font-size="10" fill="var(--text3)">candidates</text></svg>';
+
+  // ── Legend ──
+  var legend = sorted.map(function(e) {
+    var src = e[0], cnt = e[1];
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:12px">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + (COLORS[src]||'#94A3B8') + ';flex-shrink:0"></span>' +
+      escHtml(src) + ': <strong>' + cnt + '</strong></div>';
+  }).join('');
+
+  // ── Table ──
+  var rows = sorted.map(function(e) {
+    var src=e[0], cnt=e[1];
+    var avgEra = sourceERA[src].length ? (sourceERA[src].reduce(function(a,b){return a+b;},0)/sourceERA[src].length).toFixed(1) : '—';
+    var placed = sourcePlaced[src];
+    var rate = cnt>0 ? Math.round(placed/cnt*100)+'%' : '—';
+    var pct = totalCands>0 ? Math.round(cnt/totalCands*100) : 0;
+    return '<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (COLORS[src]||'#94A3B8') + ';margin-right:6px"></span>' + escHtml(src) + '</td>' +
+      '<td style="font-family:var(--mono)">' + cnt + ' (' + pct + '%)</td>' +
+      '<td style="font-family:var(--mono)">' + avgEra + '</td>' +
+      '<td style="font-family:var(--mono)">' + placed + '</td>' +
+      '<td style="font-family:var(--mono);color:' + (placed>0?'var(--green)':'var(--text3)') + ';font-weight:700">' + rate + '</td></tr>';
+  }).join('');
+
+  return '<div class="analytics-section"><div class="analytics-section-title">Candidate Sources</div>' +
+    '<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:20px">' +
+    '<div>' + donut + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + legend + '</div>' +
+    '</div>' +
+    '<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Source</th><th>Candidates</th><th>Avg ERA</th><th>Hired</th><th>Placement Rate</th></tr></thead><tbody>' +
+    (rows||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">No source data. Set source on candidate profiles.</td></tr>') + '</tbody></table></div></div>';
+}
+
+function buildTrendsView() {
+  // ── Build period buckets ──
+  var now = new Date();
+  var periods = [];
+  var fmt, groupFn;
+  if (_trendsRange === '4w') {
+    for (var w = 3; w >= 0; w--) {
+      var d = new Date(now); d.setDate(d.getDate() - w * 7);
+      var wk = d.getFullYear() + '-W' + String(Math.ceil((d - new Date(d.getFullYear(),0,1))/86400000/7)+1).padStart(2,'0');
+      periods.push({ key: wk, label: 'Wk ' + (4-w) });
+    }
+    groupFn = function(ds) {
+      var d = parseDateFlex(ds); if (!d || isNaN(d)) return null;
+      return d.getFullYear() + '-W' + String(Math.ceil((d - new Date(d.getFullYear(),0,1))/86400000/7)+1).padStart(2,'0');
+    };
+  } else if (_trendsRange === '12m') {
+    for (var m = 11; m >= 0; m--) { var dt2 = new Date(now.getFullYear(), now.getMonth()-m, 1); periods.push({ key: dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0'), label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt2.getMonth()]+' '+dt2.getFullYear().toString().slice(2) }); }
+    groupFn = function(ds) { var d=parseDateFlex(ds); if(!d||isNaN(d))return null; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+  } else { // 6m default
+    for (var m2 = 5; m2 >= 0; m2--) { var dt3 = new Date(now.getFullYear(), now.getMonth()-m2, 1); periods.push({ key: dt3.getFullYear()+'-'+String(dt3.getMonth()+1).padStart(2,'0'), label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt3.getMonth()] }); }
+    groupFn = function(ds) { var d=parseDateFlex(ds); if(!d||isNaN(d))return null; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+  }
+
+  var data = { candidates:{}, jobOrders:{}, placements:{}, revenue:{}, broadcasts:{} };
+  periods.forEach(function(p) { Object.keys(data).forEach(function(k) { data[k][p.key] = 0; }); });
+
+  // Candidates registered
+  candidates.forEach(function(c) { var k=groupFn((c.timestamp||'').split(' ')[0]); if(k&&data.candidates[k]!==undefined) data.candidates[k]++; });
+  // Job orders created
+  jobOrders.forEach(function(jo) { var k=groupFn((jo.timestamp||'').split(' ')[0]); if(k&&data.jobOrders[k]!==undefined) data.jobOrders[k]++; });
+  // Placements made (by hire date)
+  var allP=[...placements,...manualPlacements];
+  allP.forEach(function(p) {
+    var pid=p.placementId||p.candidateId;
+    var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
+    if((ex.status||p.status||'').toLowerCase()!=='hired') return;
+    var k=groupFn(hd.hireDate||(ex.lastContacted||'')); if(k&&data.placements[k]!==undefined) data.placements[k]++;
+    var fee=parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
+    if(hd.feeStatus==='Paid'&&k&&data.revenue[k]!==undefined) data.revenue[k]+=fee;
+  });
+  // Broadcasts
+  var log=[]; try{log=JSON.parse(localStorage.getItem('broadcast_log')||'[]');}catch(e){}
+  log.forEach(function(e) { var k=groupFn((e.ts||'').split('T')[0]); if(k&&data.broadcasts[k]!==undefined) data.broadcasts[k]+=(e.count||0); });
+
+  // ── SVG chart ──
+  var metricDefs = [
+    { key:'candidates', label:'New Candidates', color:'#2563EB' },
+    { key:'jobOrders',  label:'Job Orders',     color:'#EA580C' },
+    { key:'placements', label:'Placements',     color:'#16A34A' },
+    { key:'revenue',    label:'Revenue (₱)',     color:'#7C3AED' },
+    { key:'broadcasts', label:'Broadcasts Sent', color:'#D97706' },
+  ];
+  var activeMetrics = metricDefs.filter(function(m) { return _trendsMetrics[m.key]; });
+
+  var svgW = 560, svgH = 180, padL = 40, padB = 24, padR = 10, padT = 10;
+  var chartW = svgW - padL - padR, chartH = svgH - padB - padT;
+  var n = periods.length;
+  var allVals = []; activeMetrics.forEach(function(m) { periods.forEach(function(p) { allVals.push(data[m.key][p.key]||0); }); });
+  var maxVal = Math.max(1, Math.max.apply(null, allVals));
+
+  function xPos(i) { return padL + (i / Math.max(1, n-1)) * chartW; }
+  function yPos(v) { return padT + chartH - (v / maxVal) * chartH; }
+
+  var svgContent = '';
+  // Grid lines
+  for (var gi = 0; gi <= 4; gi++) {
+    var gy = padT + (gi/4)*chartH;
+    var gv = Math.round(maxVal*(1-gi/4));
+    svgContent += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (svgW-padR) + '" y2="' + gy + '" stroke="var(--border)" stroke-width="1"/>';
+    svgContent += '<text x="' + (padL-4) + '" y="' + (gy+4) + '" text-anchor="end" font-size="8" fill="var(--text3)">' + (gv>=1000?(gv/1000).toFixed(1)+'k':gv) + '</text>';
+  }
+  // X axis labels
+  periods.forEach(function(p, i) { svgContent += '<text x="' + xPos(i) + '" y="' + (svgH-4) + '" text-anchor="middle" font-size="9" fill="var(--text3)">' + escHtml(p.label) + '</text>'; });
+  // Lines
+  activeMetrics.forEach(function(m) {
+    var pts = periods.map(function(p, i) { return xPos(i) + ',' + yPos(data[m.key][p.key]||0); }).join(' ');
+    svgContent += '<polyline points="' + pts + '" fill="none" stroke="' + m.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    periods.forEach(function(p, i) { var v=data[m.key][p.key]||0; svgContent += '<circle cx="' + xPos(i) + '" cy="' + yPos(v) + '" r="3.5" fill="' + m.color + '"/>'; });
+  });
+
+  var svg = '<svg width="100%" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="overflow:visible">' + svgContent + '</svg>';
+
+  // ── Legend ──
+  var legend = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">' +
+    metricDefs.map(function(m) {
+      var on = _trendsMetrics[m.key];
+      return '<button onclick="_trendsMetrics[\'' + m.key + '\']=!' + (on?'true':'false') + ';renderAnalyticsTab()" style="display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;border:1.5px solid ' + (on?m.color:'var(--border2)') + ';background:' + (on?m.color+'18':'transparent') + ';cursor:pointer;font-family:var(--sans);font-size:11px;font-weight:600;color:' + (on?m.color:'var(--text3)') + '">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + m.color + ';display:inline-block"></span>' + escHtml(m.label) + '</button>';
+    }).join('') + '</div>';
+
+  // ── Range selector ──
+  var ranges = [['4w','Last 4 Weeks'],['6m','Last 6 Months'],['12m','Last 12 Months']];
+  var rangeSel = '<div style="display:flex;gap:6px;margin-bottom:16px">' +
+    ranges.map(function(r) {
+      var act = _trendsRange === r[0];
+      return '<button onclick="_trendsRange=\'' + r[0] + '\';renderAnalyticsTab()" style="padding:4px 12px;border-radius:8px;border:1.5px solid ' + (act?'var(--accent)':'var(--border2)') + ';background:' + (act?'var(--accent-dim2)':'transparent') + ';color:' + (act?'var(--accent)':'var(--text2)') + ';font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans)">' + r[1] + '</button>';
+    }).join('') + '</div>';
+
+  // ── Summary table: current vs previous period ──
+  var cur = periods[periods.length-1].key;
+  var prev = periods.length >= 2 ? periods[periods.length-2].key : null;
+  var tableRows = metricDefs.map(function(m) {
+    var cv = data[m.key][cur]||0, pv = prev ? (data[m.key][prev]||0) : null;
+    var chg = (pv !== null && pv > 0) ? Math.round((cv-pv)/pv*100) : null;
+    var chgHtml = chg === null ? '<span style="color:var(--text3)">—</span>' :
+      '<span style="font-weight:700;color:' + (chg>=0?'var(--green)':'var(--red)') + '">' + (chg>=0?'+':'') + chg + '%</span>';
+    return '<tr><td style="font-weight:600">' + escHtml(m.label) + '</td>' +
+      '<td style="font-family:var(--mono);text-align:right">' + (m.key==='revenue'?'₱'+cv.toLocaleString('en-PH'):cv) + '</td>' +
+      '<td style="font-family:var(--mono);text-align:right;color:var(--text3)">' + (prev?(m.key==='revenue'?'₱'+pv.toLocaleString('en-PH'):pv):'—') + '</td>' +
+      '<td style="text-align:right">' + chgHtml + '</td></tr>';
+  }).join('');
+  var table = '<div class="analytics-table-wrap" style="margin-top:16px"><table class="analytics-table"><thead><tr><th>Metric</th><th style="text-align:right">Current</th><th style="text-align:right">Previous</th><th style="text-align:right">Change</th></tr></thead><tbody>' + tableRows + '</tbody></table></div>';
+
+  return '<div class="analytics-section">' +
+    '<div class="analytics-section-title">Trends</div>' +
+    rangeSel + legend +
+    '<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px">' + svg + '</div>' +
+    table + '</div>';
 }
 
 function buildReopenAnalysis() {
@@ -10997,35 +11560,80 @@ function buildEmployerTable() {
   var employerMap = {};
   jobOrders.forEach(function(jo) {
     var key = (jo.company||'Unknown').trim();
-    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0 };
+    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0, firstJO:'', lastActivity:'', joList:[] };
     employerMap[key].orders++;
+    var ts = (jo.timestamp||'').split(' ')[0];
+    if (!employerMap[key].firstJO || ts < employerMap[key].firstJO) employerMap[key].firstJO = ts;
+    if (ts > employerMap[key].lastActivity) employerMap[key].lastActivity = ts;
     var isCancelled = jo.status==='Cancelled'||joStatusOverrides[jo.id]==='Cancelled';
     if (isCancelled) employerMap[key].cancellations++;
+    employerMap[key].joList.push({ id: jo.id, position: jo.position, status: jo.status, ts: ts, placements: 0, hired: 0 });
   });
   var allP = [...placements,...manualPlacements];
   allP.forEach(function(p) {
     var jo = jobOrders.find(function(j){ return j.id===p.jobOrderId; });
     var key = jo ? (jo.company||'Unknown').trim() : 'Unknown';
-    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0 };
+    if (!employerMap[key]) employerMap[key] = { orders:0, placements:0, cancellations:0, replacements:0, revenue:0, firstJO:'', lastActivity:'', joList:[] };
     var pid = p.placementId||p.candidateId;
     var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
     var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
+    var joEntry = employerMap[key].joList.find(function(j){ return j.id===p.jobOrderId; });
+    if (joEntry) joEntry.placements++;
     if ((ex.status||p.status||'').trim().toLowerCase()==='hired') {
       employerMap[key].placements++;
-      var fee = parseFloat((hd.feeAmount||'').replace(/[^0-9.]/g,''))||0;
+      if (joEntry) joEntry.hired++;
+      var fee = parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
       if (hd.feeStatus==='Paid') employerMap[key].revenue+=fee;
+      var hd2 = hd.hireDate || (ex.lastContacted||'');
+      if (hd2 > employerMap[key].lastActivity) employerMap[key].lastActivity = hd2;
     }
     if (hd.issueReported&&(hd.issues||[]).some(function(i){ return i.type==='Replacement Requested'||i.type==='Candidate Abandonment / No-Show'; })) employerMap[key].replacements++;
   });
-  var rows = Object.entries(employerMap).sort(function(a,b){ return b[1].orders-a[1].orders; }).map(function(e) {
-    var key=e[0],em=e[1];
-    var isRepeat = em.orders>=2;
+
+  var sorted = Object.entries(employerMap).sort(function(a,b){ return b[1].placements-a[1].placements; });
+  var total = sorted.length;
+  var returning = sorted.filter(function(e){ return e[1].orders>=2; }).length;
+  var loyal = sorted.filter(function(e){ return e[1].orders>=3; }).length;
+
+  // Summary bar
+  var summary = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">' +
+    [['Total Employers', total, 'var(--accent)'],['% Returning (2+ JOs)', total?Math.round(returning/total*100)+'%':'—','var(--gold2)'],['% Loyal (3+ JOs)', total?Math.round(loyal/total*100)+'%':'—','var(--green)']].map(function(s) {
+      return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;flex:1;min-width:100px">' +
+        '<div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">' + s[0] + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + s[2] + '">' + s[1] + '</div></div>';
+    }).join('') + '</div>';
+
+  var rows = sorted.map(function(e, idx) {
+    var key=e[0], em=e[1];
+    var badge = em.orders>=3 ? '<span style="font-size:10px;background:rgba(22,163,74,.12);color:var(--green);border:1px solid rgba(22,163,74,.3);padding:1px 7px;border-radius:4px;font-weight:700">Loyal</span>'
+      : em.orders>=2 ? '<span style="font-size:10px;background:var(--gold-dim);color:var(--gold2);border:1px solid rgba(217,119,6,.3);padding:1px 7px;border-radius:4px;font-weight:700">Returning</span>'
+      : '<span style="font-size:10px;background:var(--card3);color:var(--text3);border:1px solid var(--border2);padding:1px 7px;border-radius:4px;font-weight:700">New</span>';
     var replRate = em.placements>0 ? Math.round(em.replacements/em.placements*100)+'%' : '—';
-    var flagWarn = em.replacements>1 ? ' [!]' : '';
-    return '<tr><td>' + (isRepeat?'&#9733; ':' ') + escHtml(key) + '</td><td style="font-family:var(--mono)">' + em.orders + '</td><td style="font-family:var(--mono)">' + em.placements + '</td>' +
-      '<td style="font-family:var(--mono)">' + em.cancellations + '</td><td>' + replRate + flagWarn + '</td><td style="font-family:var(--mono)">' + formatPeso(em.revenue) + '</td></tr>';
+    var joDetail = '<tr id="emp-detail-' + idx + '" style="display:none"><td colspan="8" style="padding:0"><div style="background:var(--card2);border-top:1px solid var(--border);padding:10px 14px">' +
+      '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
+      '<tr style="color:var(--text3);font-weight:700"><td style="padding:4px 8px">JO ID</td><td>Position</td><td>Status</td><td>Placements</td><td>Hired</td><td>Date</td></tr>' +
+      em.joList.map(function(j) {
+        return '<tr style="border-top:1px solid var(--border)"><td style="padding:4px 8px;font-family:var(--mono);font-size:10px">' + escHtml(j.id) + '</td><td>' + escHtml(j.position||'—') + '</td>' +
+          '<td><span style="font-weight:600;color:' + (j.status==='Active'?'var(--accent)':j.status==='Fulfilled'?'var(--green)':'var(--text3)') + '">' + escHtml(j.status||'—') + '</span></td>' +
+          '<td style="font-family:var(--mono)">' + j.placements + '</td><td style="font-family:var(--mono)">' + j.hired + '</td><td style="font-family:var(--mono);font-size:10px">' + escHtml(j.ts||'—') + '</td></tr>';
+      }).join('') + '</table></div></td></tr>';
+    return '<tr style="cursor:pointer" onclick="var r=document.getElementById(\'emp-detail-' + idx + '\');r.style.display=r.style.display===\'none\'?\'table-row\':\'none\'">' +
+      '<td>' + escHtml(key) + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td style="font-family:var(--mono)">' + em.firstJO + '</td>' +
+      '<td style="font-family:var(--mono)">' + em.orders + '</td>' +
+      '<td style="font-family:var(--mono)">' + em.placements + '</td>' +
+      '<td style="font-family:var(--mono)">' + em.lastActivity + '</td>' +
+      '<td>' + replRate + '</td>' +
+      '<td style="font-family:var(--mono)">' + formatPeso(em.revenue) + '</td>' +
+      '<td style="color:var(--text3);font-size:10px">▾</td></tr>' + joDetail;
   }).join('');
-  return '<div class="analytics-section"><div class="analytics-section-title">Employer Repeat Rate</div><div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Employer</th><th>Job Orders</th><th>Placements</th><th>Cancellations</th><th>Replacement Rate</th><th>Revenue Collected</th></tr></thead><tbody>' + (rows||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">No data.</td></tr>') + '</tbody></table></div></div>';
+
+  return '<div class="analytics-section"><div class="analytics-section-title">Employer Retention</div>' +
+    summary +
+    '<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr>' +
+    '<th>Employer</th><th>Retention</th><th>First JO</th><th>Total JOs</th><th>Total Placements</th><th>Last Activity</th><th>Replace Rate</th><th>Revenue</th><th></th>' +
+    '</tr></thead><tbody>' + (rows||'<tr><td colspan="9" style="text-align:center;color:var(--text3)">No data.</td></tr>') + '</tbody></table></div></div>';
 }
 
 function buildRevenueTable() {
@@ -11046,7 +11654,7 @@ function buildRevenueTable() {
     if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
     var mk=getMonthKey(hd.hireDate); if(!mk||!monthMap[mk]) return;
     monthMap[mk].placed++;
-    var fee=parseFloat((hd.feeAmount||'').replace(/[^0-9.]/g,''))||0;
+    var fee=parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
     if (hd.feeStatus==='Paid') monthMap[mk].collected+=fee; else monthMap[mk].pending+=fee;
   });
   var monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
