@@ -3092,11 +3092,13 @@ function doLogin(){
     <div class="modal-field">
       <div class="modal-label">Status</div>
       <select id="modal-status">
-        <option>Messaged</option>
-        <option>For Interview</option>
-        <option>Interviewed</option>
+        <option>Broadcasted</option>
+        <option>Confirmed</option>
+        <option>Called</option>
+        <option>Interview Scheduled</option>
+        <option>For Employer Review</option>
         <option>Hired</option>
-        <option>Dropped</option>
+        <option>Dropped / Unavailable</option>
       </select>
     </div>
     <div class="modal-field">
@@ -3169,11 +3171,13 @@ function doLogin(){
     <div class="modal-field">
       <div class="modal-label">Status</div>
       <select id="atj-status">
-        <option>Messaged</option>
-        <option>For Interview</option>
-        <option>Interviewed</option>
+        <option>Broadcasted</option>
+        <option>Confirmed</option>
+        <option>Called</option>
+        <option>Interview Scheduled</option>
+        <option>For Employer Review</option>
         <option>Hired</option>
-        <option>Dropped</option>
+        <option>Dropped / Unavailable</option>
       </select>
     </div>
     <div class="modal-field">
@@ -4234,7 +4238,7 @@ async function loadAll() {
 
   // PLACEMENTS (dynamic start — scan for first row where col B looks like a JO ID)
   // Statuses that should be treated as "Dropped"
-  const DROPPED_STATUSES = ['ineligible','rejected by employer','rejected','cancelled','blacklisted','withdrawn','no show','no show for interview','not qualified','failed interview','backed out'];
+  const DROPPED_STATUSES = ['ineligible','rejected by employer','rejected','cancelled','blacklisted','withdrawn','no show','no show for interview','not qualified','failed interview','backed out','dropped / unavailable'];
 
   // Placements sheet disabled — all placements come from manualPlacements (localStorage/Firebase)
   placements = [];
@@ -4773,7 +4777,7 @@ function buildJOPanel(jo, joPlacements) {
       if (visiblePlacements.length === 0) visiblePlacements = joPlacements; // fallback: show all if filter removes everything
     }
     // Sort: active statuses first, inactive (Dropped/Not Interested) at bottom
-    const statusOrder = { 'For Interview':0, 'Interviewed':1, 'Messaged':2, 'Hired':3, 'Dropped':4 };
+    const statusOrder = { 'Confirmed':0, 'Called':1, 'Interview Scheduled':2, 'For Employer Review':3, 'Broadcasted':4, 'Hired':5, 'Dropped / Unavailable':6 };
     const responseOrder = { 'Interested':0, 'No Response':1, 'Not Interested':2 };
     const sorted = [...joPlacements].sort((a,b) => {
       const getPid = (p, i) => p.placementId || (jo.id + '_' + p.candidateId + '_' + i);
@@ -4869,8 +4873,32 @@ function getEffectiveStage(ex, p) {
   if (p && p.source === 'broadcast') return 'Broadcasted';
   return '';
 }
-function getStatusDotClass(status, response) { return getStageDotClass(getEffectiveStage({ status, response }, null)); }
-function getStatusPillClass(status, response) { return getStagePillClass(getEffectiveStage({ status, response }, null)); }
+function getStatusDotClass(status, response) {
+  if (response === 'Not Interested') return 'dot-notint';
+  const m = {
+    'Broadcasted':           'dot-messaged',
+    'Confirmed':             'dot-interview',
+    'Called':                'dot-interviewed',
+    'Interview Scheduled':   'dot-interview',
+    'For Employer Review':   'dot-interviewed',
+    'Hired':                 'dot-hired',
+    'Dropped / Unavailable': 'dot-dropped'
+  };
+  return m[status] || 'dot-default';
+}
+function getStatusPillClass(status, response) {
+  if (response === 'Not Interested') return 'pill-notint';
+  const m = {
+    'Broadcasted':           'pill-messaged',
+    'Confirmed':             'pill-interview',
+    'Called':                'pill-interviewed',
+    'Interview Scheduled':   'pill-interview',
+    'For Employer Review':   'pill-interviewed',
+    'Hired':                 'pill-hired',
+    'Dropped / Unavailable': 'pill-dropped'
+  };
+  return m[status] || 'pill-default';
+}
 
 const DISPOSITION_STAGES = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
@@ -4976,7 +5004,7 @@ function createPlacementRow(p, idx, joId) {
         <div class="prow-field">
           <div class="prow-field-label">Status</div>
           <select id="status-sel-${escAttr(pid)}" onchange="saveProwField('${escAttr(pid)}','status',this.value,this);refreshProwBody('${escAttr(pid)}')">
-            ${['Messaged','For Interview','Interviewed','Hired','Dropped'].map(v=>`<option${v===savedStatus?' selected':''}>${v}</option>`).join('')}
+            ${['Broadcasted','Confirmed','Called','Interview Scheduled','For Employer Review','Hired','Dropped / Unavailable'].map(v=>`<option${v===savedStatus?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
@@ -5388,7 +5416,7 @@ function saveProwField(pid, field, value, el) {
     pill.textContent = response === 'Not Interested' ? 'Not Interested' : (status || 'No Status');
   }
   // Toggle inactive class
-  const isInactive = status === 'Dropped' || response === 'Not Interested';
+  const isInactive = status === 'Dropped / Unavailable' || response === 'Not Interested';
   row.classList.toggle('prow-inactive', isInactive);
 }
 
