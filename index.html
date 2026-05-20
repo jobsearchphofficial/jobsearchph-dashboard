@@ -3331,6 +3331,39 @@ function doLogin(){
   </div>
 </div>
 
+<!-- ─── REMOVE FROM POOL MODAL ─── -->
+<div class="modal-overlay" id="modal-remove-pool" onclick="if(event.target===this)closeModal('modal-remove-pool')">
+  <div class="modal" style="max-width:440px">
+    <h3>Remove from Pool</h3>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Select a reason. The candidate's data is kept — they can be reactivated at any time.</p>
+    <input type="hidden" id="rfp-cand-id">
+    <div class="modal-field">
+      <div class="modal-label">Reason</div>
+      <div id="rfp-reasons" style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Found a Job"> ✅ Found a Job (elsewhere)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="No Longer Looking"> 🏠 No Longer Looking</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Relocated"> 📍 Relocated / Not Available in Area</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Uncontactable"> 💬 Uncontactable (number dead, no social media)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Temporarily Unavailable"> ⏸️ Temporarily Unavailable (can return later)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Candidate Withdrew"> ❌ Candidate Withdrew</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="rfp-reason" value="Other"> 📝 Other</label>
+      </div>
+    </div>
+    <div class="modal-field" id="rfp-available-field" style="display:none">
+      <div class="modal-label">Available From (date)</div>
+      <input type="date" id="rfp-available-from">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Notes (optional)</div>
+      <input type="text" id="rfp-notes" placeholder="Additional context…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-remove-pool')">Cancel</button>
+      <button class="btn btn-ghost" style="border-color:var(--orange);color:var(--orange)" onclick="saveRemoveFromPool()">Remove from Pool</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─── CANDIDATE CLEANUP MODAL ─── -->
 <div class="modal-overlay" id="modal-cleanup" onclick="if(event.target===this)closeModal('modal-cleanup')" style="align-items:flex-start;padding:40px 20px;overflow-y:auto">
   <div class="modal" style="max-width:760px;width:100%;max-height:none">
@@ -4314,6 +4347,7 @@ async function loadAll() {
   const allPlacements = [...placements, ...manualPlacements];
 
   checkDelayedCloses();
+  checkPoolRemovals(); // auto-reactivate candidates whose availableFrom date has passed
   updateStats();
   migrateJobOrderEvents(); // one-time migration; no-op after first run
   renderJobOrders(allPlacements);
@@ -4869,6 +4903,7 @@ function buildJOPanel(jo, joPlacements) {
       return (responseOrder[aResp]??3) - (responseOrder[bResp]??3);
     });
     sorted.forEach((p, idx) => {
+      if (blacklist[p.candidateId]) return; // always exclude blacklisted candidates
       var isPrevCycle = cycleStartMsForFilter && !showAllCycles === false && (function(){ var pd=parseDateFlex(p.date||''); return pd && pd < cycleStartMsForFilter; })();
       var isFiltered = !showAllCycles && cycleStartMsForFilter && visiblePlacements.indexOf(p) < 0;
       if (isFiltered) return; // skip if filtered out
@@ -5634,6 +5669,7 @@ function renderPoolHealth() {
   var noResponse = 0;
   messagedIds.forEach(function(id) { if (!respondedIds.has(id)) noResponse++; });
   var blacklisted = Object.keys(blacklist).length;
+  var removedFromPool = Object.values(candidateRatings).filter(function(r) { return r && r.removedFromPool; }).length;
   var pct = totalCands > 0 ? Math.round(responded / totalCands * 100) : 0;
 
   bar.innerHTML = '<div class="pool-health-label">Pool Health</div>' +
@@ -5643,6 +5679,7 @@ function renderPoolHealth() {
     '<div class="pool-stat-item">Total: <b>' + totalCands + '</b></div>' +
     '<div class="pool-stat-item">Responded: <b style="color:var(--green)">' + responded + '</b></div>' +
     '<div class="pool-stat-item">No Response: <b style="color:var(--gold2)">' + noResponse + '</b></div>' +
+    (removedFromPool > 0 ? '<div class="pool-stat-item">Removed: <b style="color:var(--text3)">' + removedFromPool + '</b></div>' : '') +
     '<div class="pool-stat-item">Blacklisted: <b style="color:var(--red)">' + blacklisted + '</b></div>' +
     '</div>';
   bar.style.display = 'flex';
@@ -5823,7 +5860,7 @@ function buildCfBlWrap() {
 function buildCfPanel(key) {
   if (key === 'jobType') return buildCfCheckPanel('jobType', 'Job Type', _candJobTypes.length ? _candJobTypes : ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter']);
   if (key === 'location') return buildCfCheckPanel('location', 'Location', ['Bacolod City','Talisay','Silay','Bago City','Others']);
-  if (key === 'status') return buildCfCheckPanel('status', 'Status', ['Not Ready','Needs Verification','Ready','Hired','Blacklisted']);
+  if (key === 'status') return buildCfCheckPanel('status', 'Status', ['Not Ready','Needs Verification','Ready','Hired','Blacklisted','Removed from Pool']);
   if (key === 'gender') return buildCfCheckPanel('gender', 'Gender', ['Female','Male','Others']);
   if (key === 'age') return buildAgePanel();
   if (key === 'payRange') return buildCfCheckPanel('payRange', 'Pay Range', ['Below \u20b15,000','\u20b15,000\u2013\u20b17,000','\u20b17,001\u2013\u20b110,000','\u20b110,001\u2013\u20b115,000','Above \u20b115,000']);
@@ -6082,9 +6119,10 @@ function renderCandidates() {
         if (!locMatch) return false;
       }
 
-      // Status + hired + blacklist
+      // Status + hired + blacklist + removed
       const isBlacklisted = !!blacklist[c.id];
       const isHired = hiredIds.has(c.id);
+      const isRemoved = !!(candidateRatings[c.id] && candidateRatings[c.id].removedFromPool);
       // Hired: always exclude unless showHired is on
       if (isHired && !f.showHired) return false;
 
@@ -6093,19 +6131,23 @@ function renderCandidates() {
         const statusMatch = f.status.some(function(s) {
           if (s === 'Hired') return isHired;
           if (s === 'Blacklisted') return isBlacklisted;
-          if (s === 'Ready') return rl === 'Ready for Matching' && !isHired;
-          if (s === 'Needs Verification') return rl === 'Needs Verification' && !isHired;
-          if (s === 'Not Ready') return rl === 'Not Ready' && !isHired;
+          if (s === 'Removed from Pool') return isRemoved;
+          if (s === 'Ready') return rl === 'Ready for Matching' && !isHired && !isRemoved;
+          if (s === 'Needs Verification') return rl === 'Needs Verification' && !isHired && !isRemoved;
+          if (s === 'Not Ready') return rl === 'Not Ready' && !isHired && !isRemoved;
           return false;
         });
         if (!statusMatch) return false;
-        if (f.status.indexOf('Blacklisted') < 0) {
+        // When explicitly filtering for removed/blacklisted, don't double-hide
+        if (f.status.indexOf('Blacklisted') < 0 && f.status.indexOf('Removed from Pool') < 0) {
           if (f.blacklist === 'hide' && isBlacklisted) return false;
           if (f.blacklist === 'only' && !isBlacklisted) return false;
+          if (isRemoved) return false; // hide removed unless explicitly requested
         }
       } else {
         if (f.blacklist === 'hide' && isBlacklisted) return false;
         if (f.blacklist === 'only' && !isBlacklisted) return false;
+        if (isRemoved) return false; // hide removed by default
       }
 
       // Gender
@@ -6228,9 +6270,11 @@ function genderEmoji(g) {
 function createCandCard(c) {
   const isBlacklisted = !!blacklist[c.id];
   const bl = blacklist[c.id] || {};
+  const isRemoved = !!(candidateRatings[c.id] && candidateRatings[c.id].removedFromPool);
+  const removalReason = isRemoved ? (candidateRatings[c.id].removalReason || '') : '';
 
   const card = document.createElement('div');
-  card.className = 'cand-card' + (isBlacklisted ? ' blacklisted' : '');
+  card.className = 'cand-card' + (isBlacklisted ? ' blacklisted' : '') + (isRemoved ? ' blacklisted' : '');
   const _candIsInactive = isCandInactive(c.id);
   if (_candIsInactive && _candFilters.activeStatus === 'inactive') card.style.opacity = '0.65';
 
@@ -6253,13 +6297,15 @@ function createCandCard(c) {
   const autoTagBadges = cardAutoTags.map(t => `<span class="cand-badge" style="background:${t.color}18;color:${t.color};border-color:${t.color}40">${t.label}</span>`).join('');
   const inactiveBadge = _candIsInactive && _candFilters.activeStatus === 'inactive'
     ? '<span class="cand-badge" style="background:var(--card3);color:var(--text3);border-color:var(--border3)">Inactive</span>' : '';
+  const removedBadge = isRemoved
+    ? `<span class="cand-badge" style="background:var(--card3);color:var(--text3);border-color:var(--border2)">Removed: ${escHtml(removalReason)}</span>` : '';
   card.innerHTML = `
     <div class="cand-card-top">
       <div class="cand-avatar">${genderEmoji(c.gender)}</div>
       <div style="flex:1">
         <div class="cand-name">${escHtml(c.name)}</div>
         <div class="cand-id">${escHtml(c.id)} · ${escHtml(c.timestamp?.split(' ')[0]||'')}</div>
-        <div class="cand-badges">${verifiedBadge}${blBadge}${flagBadge}${autoTagBadges}${inactiveBadge}</div>
+        <div class="cand-badges">${verifiedBadge}${blBadge}${flagBadge}${removedBadge}${autoTagBadges}${inactiveBadge}</div>
       </div>
       <div style="color:var(--text3);font-size:11px;padding-top:2px">View</div>
     </div>
@@ -6290,6 +6336,10 @@ function createCandCard(c) {
       ${!isBlacklisted
         ? `<button class="btn btn-red" onclick="openBlacklistModal('${escAttr(c.id)}','${escAttr(c.name)}')">Blacklist</button>`
         : `<button class="btn btn-ghost" onclick="removeBlacklist('${escAttr(c.id)}')">Remove Blacklist</button>`
+      }
+      ${isRemoved
+        ? `<button class="btn btn-ghost" onclick="reactivateFromPool('${escAttr(c.id)}')">Reactivate</button>`
+        : `<button class="btn btn-ghost" style="color:var(--text3)" onclick="openRemoveFromPoolModal('${escAttr(c.id)}')">Remove from Pool</button>`
       }
       <button class="btn btn-green" onclick="openAddToJOModal('${escAttr(c.id)}','${escAttr(c.name)}')">+ Add to Job Order</button>
     </div>
@@ -6322,6 +6372,83 @@ function removeBlacklist(id) {
   delete blacklist[id];
   saveBlacklist();
   renderCandidates();
+}
+
+// ═══════════════════════════════════════════════
+// REMOVE FROM POOL
+// ═══════════════════════════════════════════════
+function openRemoveFromPoolModal(candId) {
+  document.getElementById('rfp-cand-id').value = candId;
+  document.querySelectorAll('input[name="rfp-reason"]').forEach(function(r) { r.checked = false; });
+  document.getElementById('rfp-notes').value = '';
+  document.getElementById('rfp-available-from').value = '';
+  document.getElementById('rfp-available-field').style.display = 'none';
+  // Show/hide availableFrom field when Temporarily Unavailable is selected
+  document.querySelectorAll('input[name="rfp-reason"]').forEach(function(r) {
+    r.onchange = function() {
+      document.getElementById('rfp-available-field').style.display =
+        this.value === 'Temporarily Unavailable' ? '' : 'none';
+    };
+  });
+  openModal('modal-remove-pool');
+}
+
+function saveRemoveFromPool() {
+  const candId = document.getElementById('rfp-cand-id').value;
+  if (!candId) return;
+  const reasonEl = document.querySelector('input[name="rfp-reason"]:checked');
+  if (!reasonEl) { showToast('Please select a reason.', 'red'); return; }
+  const reason = reasonEl.value;
+  const notes  = document.getElementById('rfp-notes').value.trim();
+  const avFrom = document.getElementById('rfp-available-from').value;
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  candidateRatings[candId].removedFromPool = true;
+  candidateRatings[candId].removalReason   = reason;
+  candidateRatings[candId].removalNote     = notes;
+  candidateRatings[candId].removalDate     = new Date().toISOString().split('T')[0];
+  if (reason === 'Temporarily Unavailable' && avFrom) {
+    candidateRatings[candId].availableFrom = avFrom;
+  } else {
+    delete candidateRatings[candId].availableFrom;
+  }
+  saveCandidateRatings();
+  closeModal('modal-remove-pool');
+  closeCandModal();
+  renderCandidates();
+  updateStats();
+  showToast('Candidate removed from pool: ' + reason, 'green');
+}
+
+function reactivateFromPool(candId) {
+  if (!candidateRatings[candId]) return;
+  delete candidateRatings[candId].removedFromPool;
+  delete candidateRatings[candId].removalReason;
+  delete candidateRatings[candId].removalNote;
+  delete candidateRatings[candId].removalDate;
+  delete candidateRatings[candId].availableFrom;
+  saveCandidateRatings();
+  closeCandModal();
+  renderCandidates();
+  updateStats();
+  showToast('Candidate reactivated and returned to pool.', 'green');
+}
+
+function checkPoolRemovals() {
+  var today = new Date().toISOString().split('T')[0];
+  var changed = false;
+  Object.keys(candidateRatings).forEach(function(candId) {
+    var r = candidateRatings[candId];
+    if (!r || !r.removedFromPool || !r.availableFrom) return;
+    if (r.availableFrom <= today) {
+      delete r.removedFromPool;
+      delete r.removalReason;
+      delete r.removalNote;
+      delete r.removalDate;
+      delete r.availableFrom;
+      changed = true;
+    }
+  });
+  if (changed) saveCandidateRatings();
 }
 
 // ═══════════════════════════════════════════════
@@ -6830,6 +6957,10 @@ function _openCandModalInner(candId) {
   importPendingIntakeNotes(candId, c.name);
 
   const isBlacklisted = !!blacklist[c.id];
+  const isRemoved = !!(candidateRatings[c.id] && candidateRatings[c.id].removedFromPool);
+  const removedReason = isRemoved ? (candidateRatings[c.id].removalReason || '') : '';
+  const removedDate   = isRemoved ? (candidateRatings[c.id].removalDate || '') : '';
+  const availFrom     = isRemoved ? (candidateRatings[c.id].availableFrom || '') : '';
   const effectiveVerified = getEffectiveVerified(c);
   const autoVerifiedByDoc = isAutoVerified(c.id) && c.status !== 'Verified';
   const verifiedBadge = effectiveVerified
@@ -6899,6 +7030,15 @@ function _openCandModalInner(candId) {
       <button class="cand-modal-close" onclick="closeCandModal()">×</button>
     </div>
     <div class="cand-modal-body">
+
+      ${isRemoved ? `
+      <div style="background:rgba(100,116,139,.10);border:1px solid rgba(100,116,139,.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:var(--text2)">Removed from Pool · ${escHtml(removedReason)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${removedDate ? 'Removed on ' + escHtml(removedDate) : ''}${availFrom ? ' · Available from ' + escHtml(availFrom) : ''}</div>
+        </div>
+        <button class="btn btn-green" style="font-size:12px;padding:6px 14px" onclick="reactivateFromPool('${escAttr(c.id)}')">Reactivate</button>
+      </div>` : ''}
 
       <div class="cand-modal-section">
         <div class="cand-modal-section-title">Rating</div>
@@ -7153,10 +7293,13 @@ function _openCandModalInner(candId) {
         </button>
       </div>
 
-      <div style="display:flex;gap:8px;padding-top:4px">
+      <div style="display:flex;gap:8px;padding-top:4px;flex-wrap:wrap">
         ${!isBlacklisted
           ? `<button class="btn btn-red" style="flex:1" onclick="closeCandModal();openBlacklistModal('${escAttr(c.id)}','${escAttr(c.name)}')">Blacklist</button>`
           : `<button class="btn btn-ghost" style="flex:1" onclick="closeCandModal();removeBlacklist('${escAttr(c.id)}')">Remove Blacklist</button>`}
+        ${isRemoved
+          ? `<button class="btn btn-ghost" style="flex:1;color:var(--green);border-color:rgba(22,163,74,.4)" onclick="reactivateFromPool('${escAttr(c.id)}')">Reactivate</button>`
+          : `<button class="btn btn-ghost" style="flex:1;color:var(--text3)" onclick="openRemoveFromPoolModal('${escAttr(c.id)}')">Remove from Pool</button>`}
         <button class="btn btn-green" style="flex:1" onclick="closeCandModal();openAddToJOModal('${escAttr(c.id)}','${escAttr(c.name)}')">+ Add to Job Order</button>
       </div>
     </div>
@@ -7586,6 +7729,7 @@ function _getBroadcastFiltered() {
   return candidates.filter(function(c) {
     if (alreadyIn.has(c.id)) return false;
     if (isCandidateHired(c.id)) return false; // globally hired — never broadcast
+    if (candidateRatings[c.id] && candidateRatings[c.id].removedFromPool) return false; // hard-excluded
 
     // Blacklist
     const isBlacklisted = !!blacklist[c.id];
@@ -7677,6 +7821,7 @@ function renderBroadcastList() {
       <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
       <div style="color:var(--text2)">${escHtml(getEffectiveSetup(c) || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.expectedPay || '—')}</div>
+      <div onclick="event.stopPropagation()"><button style="padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:10px;cursor:pointer;font-family:var(--sans)" onclick="openRemoveFromPoolModal('${escAttr(c.id)}');closeBroadcastModal()" title="Remove from pool">✕</button></div>
     </div>`;
   }).join('');
 
@@ -11066,6 +11211,7 @@ function renderAnalyticsTab() {
   var navItems = [
     { key: 'trends',       label: 'Trends' },
     { key: 'sources',      label: 'Sources' },
+    { key: 'removals',     label: 'Pool Removals' },
     { key: 'cancellation', label: 'Cancellations' },
     { key: 'reopen',       label: 'Reopen Patterns' },
     { key: 'pipeline',     label: 'Pipeline Drop-off' },
@@ -11082,7 +11228,8 @@ function renderAnalyticsTab() {
 
   var content = '';
   if (_analyticsSection === 'trends')       content = buildTrendsView();
-  else if (_analyticsSection === 'sources') content = buildSourcesAnalysis();
+  else if (_analyticsSection === 'sources')    content = buildSourcesAnalysis();
+  else if (_analyticsSection === 'removals')   content = buildRemovalsAnalysis();
   else if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
   else if (_analyticsSection === 'reopen')   content = buildReopenAnalysis();
   else if (_analyticsSection === 'pipeline') content = buildPipelineDropoff();
@@ -11093,6 +11240,56 @@ function renderAnalyticsTab() {
   else if (_analyticsSection === 'team')     content = buildManageTeam();
 
   inner.innerHTML = nav + content;
+}
+
+function buildRemovalsAnalysis() {
+  const REASONS = ['Found a Job','No Longer Looking','Relocated','Uncontactable','Temporarily Unavailable','Candidate Withdrew','Other'];
+  const REASON_COLORS = { 'Found a Job':'#16A34A','No Longer Looking':'#2563EB','Relocated':'#EA580C','Uncontactable':'#DC2626','Temporarily Unavailable':'#D97706','Candidate Withdrew':'#7C3AED','Other':'#64748B' };
+
+  var removed = Object.entries(candidateRatings).filter(function(e) { return e[1] && e[1].removedFromPool; });
+  var total = removed.length;
+
+  var reasonCounts = {};
+  REASONS.forEach(function(r) { reasonCounts[r] = 0; });
+  removed.forEach(function(e) { var r = e[1].removalReason || 'Other'; if (!reasonCounts[r]) reasonCounts[r] = 0; reasonCounts[r]++; });
+
+  var monthMap = {};
+  for (var m = 5; m >= 0; m--) {
+    var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - m);
+    var mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    monthMap[mk] = {}; REASONS.forEach(function(r) { monthMap[mk][r] = 0; });
+  }
+  removed.forEach(function(e) {
+    var r = e[1].removalReason || 'Other';
+    var mk = (e[1].removalDate || '').slice(0, 7);
+    if (monthMap[mk]) monthMap[mk][r] = (monthMap[mk][r] || 0) + 1;
+  });
+
+  var maxR = Math.max(1, Math.max.apply(null, Object.values(reasonCounts)));
+  var bars = REASONS.filter(function(r) { return reasonCounts[r] > 0; }).map(function(r) {
+    var pct = Math.round(reasonCounts[r] / maxR * 100);
+    var pcOfTotal = total ? Math.round(reasonCounts[r] / total * 100) : 0;
+    return '<div class="chart-bar-row"><div class="chart-bar-label" style="min-width:220px;color:' + (REASON_COLORS[r]||'var(--text3)') + ';font-weight:600">' + escHtml(r) + '</div>' +
+      '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:' + pct + '%;background:' + (REASON_COLORS[r]||'var(--text3)') + '"><span>' + reasonCounts[r] + '</span></div></div>' +
+      '<div class="chart-bar-count">' + pcOfTotal + '%</div></div>';
+  }).join('');
+
+  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var mRows = Object.entries(monthMap).sort(function(a,b){ return b[0].localeCompare(a[0]); }).map(function(e) {
+    var mk = e[0], mv = e[1];
+    var parts = mk.split('-'); var mLabel = monthNames[parseInt(parts[1])-1] + ' ' + parts[0];
+    var mTotal = Object.values(mv).reduce(function(a,b){return a+b;},0);
+    if (!mTotal) return '';
+    return '<tr><td style="font-weight:600">' + mLabel + '</td>' +
+      REASONS.map(function(r){ return '<td style="font-family:var(--mono);text-align:center;color:' + (mv[r]>0?(REASON_COLORS[r]||'var(--text2)'):'var(--text3)') + ';font-weight:' + (mv[r]>0?'700':'400') + '">' + (mv[r]||'—') + '</td>'; }).join('') +
+      '<td style="font-family:var(--mono);font-weight:700">' + mTotal + '</td></tr>';
+  }).filter(Boolean).join('');
+
+  return '<div class="analytics-section"><div class="analytics-section-title">Pool Removals <span style="font-size:11px;font-weight:600;color:var(--text3)">' + total + ' total</span></div>' +
+    (bars || '<div style="color:var(--text3);font-size:12px;padding:12px 0">No candidates removed from pool yet.</div>') +
+    (mRows ? '<div class="analytics-table-wrap" style="margin-top:16px"><table class="analytics-table"><thead><tr><th>Month</th>' +
+      REASONS.map(function(r){ return '<th style="text-align:center;font-size:9px">' + r.split(' ')[0] + '</th>'; }).join('') +
+      '<th>Total</th></tr></thead><tbody>' + mRows + '</tbody></table></div>' : '') + '</div>';
 }
 
 function buildSourcesAnalysis() {
