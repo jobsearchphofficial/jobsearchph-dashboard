@@ -3420,11 +3420,22 @@ function doLogin(){
       <div class="broadcast-jo-summary" id="broadcast-jo-summary"></div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
         <input type="text" id="broadcast-search" placeholder="Search by name or ID…" oninput="renderBroadcastList()" style="flex:1;min-width:160px;padding:7px 12px;border-radius:8px;border:1px solid var(--border2);font-size:12px;background:var(--card2);color:var(--text)">
+        <button class="btn btn-ghost btn-sm" onclick="resetAllBcFilters()" title="Clear all filters" style="white-space:nowrap;color:var(--orange);border-color:rgba(234,88,12,.4)">Reset All</button>
+        <span id="bc-filters-saved" style="font-size:10px;color:var(--green);opacity:0;transition:opacity .4s;white-space:nowrap">Saved ✓</span>
       </div>
-      <div id="broadcast-cf-bar" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px"></div>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div id="broadcast-cf-bar" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:6px"></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="broadcastSelectAll()">Select All Matching</button>
         <span id="broadcast-selected-count" style="font-size:12px;color:var(--text3)">0 selected</span>
+        <span id="bc-match-count" style="font-size:11px;color:var(--text3);margin-left:auto"></span>
+        <button id="bc-verify-btn" class="btn btn-ghost btn-sm" onclick="verifyBroadcastList()" style="color:var(--accent);border-color:rgba(37,99,235,.4)">Verify List</button>
+        <div id="bc-verify-result" style="font-size:11px;color:var(--text2);display:none"></div>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:6px;align-items:center">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Sort:</span>
+        <button id="bcsort-era"    class="era-tier-btn sel" onclick="setBcSort('era')"   style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px">ERA Score</button>
+        <button id="bcsort-newest" class="era-tier-btn"     onclick="setBcSort('newest')">Newest First</button>
+        <button id="bcsort-name"   class="era-tier-btn"     onclick="setBcSort('name')">Name A–Z</button>
       </div>
     </div>
     <div style="padding:0 0 4px">
@@ -3436,6 +3447,8 @@ function doLogin(){
         <div>Location</div>
         <div>Setup</div>
         <div>Exp. Pay</div>
+        <div>Registered</div>
+        <div></div>
       </div>
       <div id="broadcast-cand-list"></div>
     </div>
@@ -7519,10 +7532,102 @@ function copyJobDetails(joId) {
 }
 // ─── BROADCAST WORKFLOW ───
 
-let _broadcastJoId = null;
-let _broadcastSelected = new Set();
-let _broadcastFilters = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], blacklist:'hide', activeStatus:'active' };
+let _broadcastJoId      = null;
+let _lastBroadcastJoId  = null; // tracks previous JO for selection persistence
+let _broadcastSelected  = new Set();
+let _bcSortBy           = 'era'; // 'era' | 'newest' | 'name'
+let _broadcastFilters   = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
 let _broadcastActivePanel = null;
+
+const BC_FILTER_DEFAULTS = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
+
+function _bcFilterKey() {
+  var uid = (currentUserEmail || 'anon').replace(/[.#$[\]/]/g, '_');
+  return 'config/broadcastFilters/' + uid;
+}
+
+function saveBcFilters() {
+  var payload = Object.assign({}, _broadcastFilters, { sortBy: _bcSortBy });
+  fbSyncDebounced(_bcFilterKey(), payload, 1200);
+  var el = document.getElementById('bc-filters-saved');
+  if (el) { el.style.opacity = '1'; setTimeout(function(){ el.style.opacity = '0'; }, 2000); }
+}
+
+async function loadBcFilters() {
+  if (typeof window._fbSdkGet !== 'function') return;
+  try {
+    var data = await window._fbSdkGet();
+    var parts = _bcFilterKey().split('/');
+    var node = data;
+    for (var i = 0; i < parts.length; i++) { if (!node) return; node = node[parts[i]]; }
+    if (!node) return;
+    _broadcastFilters = {
+      jobType:      Array.isArray(node.jobType)  ? node.jobType  : [],
+      location:     Array.isArray(node.location) ? node.location : [],
+      gender:       Array.isArray(node.gender)   ? node.gender   : [],
+      ageMin:       typeof node.ageMin === 'number' ? node.ageMin : 18,
+      ageMax:       typeof node.ageMax === 'number' ? node.ageMax : 65,
+      payRange:     Array.isArray(node.payRange)  ? node.payRange  : [],
+      eraScore:     Array.isArray(node.eraScore)  ? node.eraScore  : [],
+      setup:        Array.isArray(node.setup)     ? node.setup     : [],
+      activeStatus: node.activeStatus || 'active',
+    };
+    if (node.sortBy) _bcSortBy = node.sortBy;
+  } catch(e) { console.warn('[loadBcFilters]', e.message); }
+}
+
+function resetAllBcFilters() {
+  _broadcastFilters = Object.assign({}, BC_FILTER_DEFAULTS);
+  _bcSortBy = 'era';
+  fbSync(_bcFilterKey(), null); // clear from Firebase
+  buildBroadcastFilterBar();
+  renderBroadcastList();
+  _updateBcSortBtns();
+  showToast('Filters reset.', 'gold');
+}
+
+function setBcSort(val) {
+  _bcSortBy = val;
+  _updateBcSortBtns();
+  renderBroadcastList();
+  saveBcFilters();
+}
+
+function _updateBcSortBtns() {
+  ['era','newest','name'].forEach(function(v) {
+    var btn = document.getElementById('bcsort-' + v);
+    if (!btn) return;
+    var active = _bcSortBy === v;
+    btn.className = 'era-tier-btn' + (active ? ' sel' : '');
+    btn.style.cssText = active ? 'background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px' : '';
+  });
+}
+
+function verifyBroadcastList() {
+  var filtered = _getBroadcastFiltered();
+  var allP = [...placements, ...manualPlacements];
+  var inPipeline = new Set(allP.filter(function(p){ return p.jobOrderId === _broadcastJoId; }).map(function(p){ return p.candidateId; }));
+  var nBlacklisted = 0, nInPipeline = 0, nRemoved = 0, nHired = 0;
+  candidates.forEach(function(c) {
+    if (blacklist[c.id]) nBlacklisted++;
+    else if (isCandidateHired(c.id)) nHired++;
+    else if (candidateRatings[c.id] && candidateRatings[c.id].removedFromPool) nRemoved++;
+    else if (inPipeline.has(c.id)) nInPipeline++;
+  });
+  var ready = filtered.length;
+  var el = document.getElementById('bc-verify-result');
+  if (el) {
+    el.style.display = '';
+    el.innerHTML = '<span style="color:var(--green);font-weight:700">' + ready + ' ready</span>' +
+      '<span style="color:var(--text3);margin-left:8px">· Excluded: ' +
+      nInPipeline + ' in pipeline, ' + nBlacklisted + ' blacklisted, ' + nRemoved + ' removed, ' + nHired + ' hired</span>';
+  }
+  // Keep selection only from verified list
+  _broadcastSelected = new Set([..._broadcastSelected].filter(function(id){ return filtered.some(function(c){ return c.id === id; }); }));
+  updateBroadcastCount();
+  renderBroadcastList();
+  showToast(ready + ' candidates verified and ready to broadcast.', 'green');
+}
 
 function buildBroadcastFilterBar() {
   const bar = document.getElementById('broadcast-cf-bar');
@@ -7543,15 +7648,10 @@ function buildBroadcastFilterBar() {
     ['active','inactive','all'].map(function(v) {
       const sel = as === v;
       return '<button class="era-tier-btn'+(sel?' sel':'')+'"'+(sel?' style="background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px"':'')+
-        ' onclick="_broadcastFilters.activeStatus=\''+v+'\';renderBroadcastList()">'+_aL[v]+'</button>';
+        ' onclick="_broadcastFilters.activeStatus=\''+v+'\';saveBcFilters();renderBroadcastList();buildBroadcastFilterBar()">'+_aL[v]+'</button>';
     }).join('')+'</div>';
-  const blVal = f.blacklist;
-  const blActive = blVal !== 'hide';
-  const blOpts = [['hide','Hide Blacklisted'],['show','Show All'],['only','Blacklisted Only']];
-  const blSel = '<div class="cf-bl-wrap"><select class="cf-bl-select'+(blActive?' bl-active':'')+'" onchange="setBcBlacklist(this.value)">'+
-    blOpts.map(function(o){ return '<option value="'+o[0]+'"'+(blVal===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+
-    '</select></div>';
-  bar.innerHTML = defs.map(function(d){ return _buildBcBtnWrap(d.key, d.neutral, d.prefix); }).join('')+activeToggle+blSel;
+  // Blacklist is always hard-excluded — no toggle shown
+  bar.innerHTML = defs.map(function(d){ return _buildBcBtnWrap(d.key, d.neutral, d.prefix); }).join('') + activeToggle;
   if (_broadcastActivePanel === 'age') setTimeout(_initBcAgeInputs, 0);
 }
 
@@ -7630,18 +7730,14 @@ function bcFilterToggle(key, val) {
   const arr = _broadcastFilters[key];
   const idx = arr.indexOf(val);
   if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  saveBcFilters();
   renderBroadcastList();
   buildBroadcastFilterBar();
 }
 
 function bcFilterClear(key) {
   _broadcastFilters[key] = [];
-  renderBroadcastList();
-  buildBroadcastFilterBar();
-}
-
-function setBcBlacklist(val) {
-  _broadcastFilters.blacklist = val;
+  saveBcFilters();
   renderBroadcastList();
   buildBroadcastFilterBar();
 }
@@ -7662,12 +7758,14 @@ function bcAgeCommit() {
   const hi = parseInt(document.getElementById('bc-age-max')?.value) || 65;
   _broadcastFilters.ageMin = Math.min(lo, hi);
   _broadcastFilters.ageMax = Math.max(lo, hi);
+  saveBcFilters();
   renderBroadcastList();
   buildBroadcastFilterBar();
 }
 
 function bcAgeReset() {
   _broadcastFilters.ageMin = 18; _broadcastFilters.ageMax = 65;
+  saveBcFilters();
   renderBroadcastList();
   buildBroadcastFilterBar();
 }
@@ -7677,10 +7775,16 @@ function _initBcAgeInputs() {
   if (el) el.focus();
 }
 
-function openBroadcastModal(joId) {
-  _broadcastJoId = joId;
-  _broadcastSelected = new Set();
+async function openBroadcastModal(joId) {
+  const joChanged = joId !== _lastBroadcastJoId;
+  const prevSelected = new Set(_broadcastSelected); // remember for notice
+
+  // Preserve selections only if same JO, otherwise reset
+  if (joChanged) _broadcastSelected = new Set();
+  _broadcastJoId     = joId;
+  _lastBroadcastJoId = joId;
   _broadcastActivePanel = null;
+
   const jo = jobOrders.find(j => j.id === joId);
   if (!jo) return;
 
@@ -7693,24 +7797,37 @@ function openBroadcastModal(joId) {
     jo.address  ? `<span>${escHtml(jo.address)}</span>` : '',
   ].filter(Boolean).join('');
 
-  // Pre-fill job type from the JO position
-  const pos = (jo.position || '').toLowerCase();
-  const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
-  const preJobTypes = [...new Set(candidates
-    .filter(c => {
-      const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
-      return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
-    })
-    .map(c => c.jobTypeFormatted || c.jobType || '')
-    .filter(Boolean)
-  )];
+  // Load saved filters from Firebase; fall back to job-type pre-fill if none saved
+  await loadBcFilters();
 
-  // Reset all filters, pre-fill job type
-  _broadcastFilters = { jobType: preJobTypes, location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], blacklist:'hide', activeStatus:'active' };
+  // If no saved filters exist (all arrays empty, defaults), auto-fill job type from JO
+  const hasCustomFilters = _broadcastFilters.jobType.length || _broadcastFilters.gender.length || _broadcastFilters.location.length;
+  if (!hasCustomFilters) {
+    const pos = (jo.position || '').toLowerCase();
+    const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
+    const preJobTypes = [...new Set(candidates
+      .filter(c => {
+        const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
+        return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
+      })
+      .map(c => c.jobTypeFormatted || c.jobType || '')
+      .filter(Boolean)
+    )];
+    if (preJobTypes.length) _broadcastFilters.jobType = preJobTypes;
+  }
 
   document.getElementById('broadcast-search').value = '';
+  // Clear verify result when re-opening
+  var vrEl = document.getElementById('bc-verify-result'); if (vrEl) vrEl.style.display = 'none';
   buildBroadcastFilterBar();
+  _updateBcSortBtns();
   renderBroadcastList();
+
+  // Show "previously selected" notice if restored
+  if (!joChanged && prevSelected.size > 0 && _broadcastSelected.size > 0) {
+    showToast(_broadcastSelected.size + ' previously selected candidates restored.', 'gold');
+  }
+
   document.getElementById('modal-broadcast').classList.add('open');
 }
 
@@ -7724,28 +7841,28 @@ function _getBroadcastFiltered() {
   const search = (document.getElementById('broadcast-search')?.value || '').toLowerCase().trim();
   const f = _broadcastFilters;
   const allP = [...placements, ...manualPlacements].filter(p => p.jobOrderId === _broadcastJoId);
-  const alreadyIn = new Set(allP.map(p => p.candidateId));
+  const alreadyIn = new Set(allP.map(p => p.candidateId)); // already in THIS JO pipeline at any stage
 
-  return candidates.filter(function(c) {
-    if (alreadyIn.has(c.id)) return false;
-    if (isCandidateHired(c.id)) return false; // globally hired — never broadcast
-    if (candidateRatings[c.id] && candidateRatings[c.id].removedFromPool) return false; // hard-excluded
+  const result = candidates.filter(function(c) {
+    // ── Permanent hard exclusions — no toggle overrides these ──
+    if (blacklist[c.id])                                                       return false; // blacklisted
+    if (isCandidateHired(c.id))                                                return false; // globally hired
+    if (candidateRatings[c.id] && candidateRatings[c.id].removedFromPool)     return false; // removed from pool
+    if (alreadyIn.has(c.id))                                                   return false; // already in this JO
 
-    // Blacklist
-    const isBlacklisted = !!blacklist[c.id];
-    if (f.blacklist === 'hide' && isBlacklisted) return false;
-    if (f.blacklist === 'only' && !isBlacklisted) return false;
+    // ── Active / inactive toggle ──
+    if (f.activeStatus === 'active'   && isCandInactive(c.id)) return false;
+    if (f.activeStatus === 'inactive' && !isCandInactive(c.id)) return false;
 
-    // Search
+    // ── Search ──
     if (search && !c.name.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false;
 
-    // Job type (multi-select — any match passes)
+    // ── Job type ──
     if (f.jobType.length) {
       const ct = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
       if (!f.jobType.some(function(t) { return ct.indexOf(t) >= 0; })) return false;
     }
-
-    // Gender
+    // ── Gender ──
     if (f.gender.length) {
       const g = c.gender || '';
       const gMatch = f.gender.some(function(gv) {
@@ -7754,8 +7871,7 @@ function _getBroadcastFiltered() {
       });
       if (!gMatch) return false;
     }
-
-    // Location (multi-select)
+    // ── Location ──
     if (f.location.length) {
       const loc = c.cityFormatted || c.location || '';
       const knownLocs = ['Bacolod City','Talisay','Silay','Bago City'];
@@ -7765,33 +7881,38 @@ function _getBroadcastFiltered() {
       });
       if (!locMatch) return false;
     }
-
-    // Setup (multi-select)
+    // ── Setup ──
     if (f.setup.length) {
       const su = getEffectiveSetup(c);
       if (!f.setup.some(function(v) { return su === v; })) return false;
     }
-
-    // Age range
+    // ── Age ──
     if (!(f.ageMin === 18 && f.ageMax === 65)) {
       const age = parseInt(c.age) || 0;
       if (age > 0 && (age < f.ageMin || age > f.ageMax)) return false;
     }
-
-    // Pay range
+    // ── Pay range ──
     if (f.payRange.length && !matchPayRange(c, f.payRange)) return false;
-
-    // ERA score tiers
+    // ── ERA tiers ──
     if (f.eraScore.length && !matchEraTier(c.id, f.eraScore)) return false;
 
-    // Active / inactive
-    if (f.activeStatus === 'active' && isCandInactive(c.id)) return false;
-    if (f.activeStatus === 'inactive' && !isCandInactive(c.id)) return false;
-
     return true;
-  }).sort(function(a, b) {
-    return calcERA(b.id).score - calcERA(a.id).score;
   });
+
+  // Apply sort
+  result.sort(function(a, b) {
+    if (_bcSortBy === 'newest') {
+      const ta = (a.timestamp || '').split(' ')[0];
+      const tb = (b.timestamp || '').split(' ')[0];
+      return tb.localeCompare(ta);
+    }
+    if (_bcSortBy === 'name') {
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    }
+    return calcERA(b.id).score - calcERA(a.id).score; // default: ERA
+  });
+
+  return result;
 }
 
 function renderBroadcastList() {
@@ -7799,21 +7920,35 @@ function renderBroadcastList() {
   const list = document.getElementById('broadcast-cand-list');
   if (!list) return;
 
+  // Update match count label
+  const countEl = document.getElementById('bc-match-count');
+  if (countEl) countEl.textContent = 'Showing ' + filtered.length + ' candidates';
+
   if (!filtered.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">No candidates found.</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">No candidates match your filters.</div>';
     _broadcastSelected = new Set([..._broadcastSelected].filter(id => filtered.some(c => c.id === id)));
     updateBroadcastCount();
     return;
   }
 
+  // Remove any selections no longer in filtered list
+  _broadcastSelected = new Set([..._broadcastSelected].filter(id => filtered.some(c => c.id === id)));
+
+  const today = Date.now();
+  const sevenDaysMs = 7 * 86400000;
+
   list.innerHTML = filtered.map(c => {
     const era = calcERA(c.id);
     const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
     const sel = _broadcastSelected.has(c.id);
+    const regDate = (c.timestamp || '').split(' ')[0];
+    const regMs = regDate ? new Date(regDate).getTime() : 0;
+    const isNew = regMs > 0 && (today - regMs) <= sevenDaysMs;
+    const regLabel = regDate ? fmtDateShort(regDate) : '—';
     return `<div class="broadcast-cand-row${sel ? ' selected' : ''}" id="brow-${escAttr(c.id)}" onclick="toggleBroadcastCand('${escAttr(c.id)}')">
       <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleBroadcastCand('${escAttr(c.id)}')">
       <div>
-        <div class="bc-cand-name" onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.name)}</div>
+        <div class="bc-cand-name" onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.name)}${isNew ? ' <span style="font-size:9px;font-weight:700;background:rgba(22,163,74,.15);color:var(--green);border:1px solid rgba(22,163,74,.3);border-radius:4px;padding:0 4px">New</span>' : ''}</div>
         <div class="bc-cand-id"   onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.id)}</div>
       </div>
       <div style="font-weight:700;color:${eraColor}">${era.score.toFixed(1)}</div>
@@ -7821,6 +7956,7 @@ function renderBroadcastList() {
       <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
       <div style="color:var(--text2)">${escHtml(getEffectiveSetup(c) || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.expectedPay || '—')}</div>
+      <div style="color:var(--text3);font-size:11px">${escHtml(regLabel)}</div>
       <div onclick="event.stopPropagation()"><button style="padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:10px;cursor:pointer;font-family:var(--sans)" onclick="openRemoveFromPoolModal('${escAttr(c.id)}');closeBroadcastModal()" title="Remove from pool">✕</button></div>
     </div>`;
   }).join('');
@@ -7844,9 +7980,10 @@ function toggleBroadcastCand(candId) {
 }
 
 function broadcastSelectAll() {
-  const filtered = _getBroadcastFiltered();
+  const filtered = _getBroadcastFiltered(); // only visible, filtered, eligible candidates
   filtered.forEach(c => _broadcastSelected.add(c.id));
   renderBroadcastList();
+  showToast(filtered.length + ' candidates selected.', 'green');
 }
 
 function updateBroadcastCount() {
