@@ -11995,7 +11995,7 @@ function buildCallQueueHTML() {
         (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
       '</div>' +
       '<div>' +
-        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||\'') + '\')">Start Call</button>' +
+        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||'') + '\')">Start Call</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -12038,7 +12038,7 @@ function buildCallbacksHTML() {
       '</div>' +
       '<div></div><div></div>' +
       '<div>' +
-        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||\'') + '\')">Call Now</button>' +
+        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||'') + '\')">Call Now</button>' +
       '</div>' +
     '</div>';
   }).join('');
