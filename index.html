@@ -991,6 +991,40 @@
   .bc-log-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   .bc-log-table tr:last-child td { border-bottom: none; }
 
+  /* ─── INTERVIEW OVERVIEW ─── */
+  .iov-summary-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .iov-stat {
+    flex: 1; min-width: 120px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px;
+  }
+  .iov-stat-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
+  .iov-stat-val { font-size: 22px; font-weight: 800; font-family: var(--mono); color: var(--accent); }
+  .iov-employer-group { margin-bottom: 20px; }
+  .iov-employer-header {
+    font-size: 14px; font-weight: 800; letter-spacing: -.3px;
+    padding: 10px 14px; background: var(--card2); border: 1px solid var(--border);
+    border-radius: 12px 12px 0 0; display: flex; align-items: center; gap: 8px;
+  }
+  .iov-session-block {
+    border: 1px solid var(--border); border-top: none;
+    background: var(--card); padding: 14px 16px;
+  }
+  .iov-session-block:last-child { border-radius: 0 0 12px 12px; }
+  .iov-session-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .iov-session-name { font-size: 13px; font-weight: 700; }
+  .iov-session-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .iov-cand-row { font-size: 12px; color: var(--text2); padding: 3px 0; display: flex; align-items: center; gap: 8px; }
+  .iov-cal-day { margin-bottom: 16px; }
+  .iov-cal-date {
+    font-size: 12px; font-weight: 800; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .5px;
+    padding: 8px 0; border-bottom: 2px solid var(--border); margin-bottom: 10px;
+  }
+  .iov-cal-date.today { color: var(--accent); border-color: var(--accent); }
+  .iov-cal-date.past  { color: var(--text3); opacity: .6; }
+  .iov-session-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   /* ─── CALLS TAB ─── */
   .call-queue-row {
     display: grid;
@@ -4569,6 +4603,7 @@ function updateStats() {
 // JOB ORDERS — Tab-based layout
 // ═══════════════════════════════════════════════
 let activeJOTab = 0;
+window._joMainView = window._joMainView || 'orders'; // 'orders' | 'interviews'
 
 function renderJobOrders(allPlacements) {
   const container = document.getElementById('jo-container');
@@ -4576,6 +4611,14 @@ function renderJobOrders(allPlacements) {
 
   if (!jobOrders.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">—</div>No active job orders found.</div>`;
+    return;
+  }
+
+  // Interview Overview view
+  if (window._joMainView === 'interviews') {
+    container.innerHTML = '';
+    container.appendChild(buildInterviewViewToggle());
+    container.appendChild(buildInterviewOverview());
     return;
   }
 
@@ -4609,6 +4652,9 @@ function renderJobOrders(allPlacements) {
     var showAllChecked = window._joShowAll ? ' checked' : '';
     statusBtnsHtml += '<label style="font-size:12px;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:5px;margin-left:8px"><input type="checkbox"' + showAllChecked + ' onchange="window._joShowAll=this.checked;renderJobOrders([...placements,...manualPlacements])"> Show All</label>';
   }
+  // Interviews toggle — rightmost in filter bar
+  statusBtnsHtml += '<span style="width:1px;background:var(--border2);align-self:stretch;margin:0 4px;display:inline-block"></span>' +
+    '<button class="jo-status-filter-btn" style="background:rgba(124,58,237,.10);border-color:rgba(124,58,237,.4);color:var(--purple);font-weight:700" onclick="window._joMainView=\'interviews\';renderJobOrders([...placements,...manualPlacements])">📅 Interviews</button>';
   filterWrap.innerHTML = statusBtnsHtml;
 
   // Coordinator filter (admin: show picker; coordinator: show own only unless override)
@@ -13245,6 +13291,8 @@ function cancelIsess(joId, sessId) {
   showToast('Session cancelled.', 'orange');
   renderJobOrders([].concat(placements, manualPlacements));
 }
+// Re-render helper used from overview action buttons
+function _iovRerender() { renderJobOrders([...placements,...manualPlacements]); }
 
 function copyIsessSummary(joId, sessId) {
   var sessions = getInterviewSessions(joId);
@@ -13288,6 +13336,252 @@ function copyIsessSummary(joId, sessId) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(function() { showToast('Summary copied!', 'green'); }).catch(fallback);
   } else { fallback(); }
+}
+
+// ═══════════════════════════════════════════════
+// INTERVIEW OVERVIEW
+// ═══════════════════════════════════════════════
+window._iviewMode = 'list'; // 'list' | 'calendar'
+
+function buildInterviewViewToggle() {
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:14px;flex-wrap:wrap';
+  div.innerHTML =
+    '<button class="jo-status-filter-btn sfactive" onclick="window._joMainView=\'orders\';renderJobOrders([...placements,...manualPlacements])" style="color:var(--text2)">← Job Orders</button>' +
+    '<span style="flex:1"></span>' +
+    '<button id="iov-btn-list" class="jo-status-filter-btn' + (window._iviewMode==='list' ? ' sfactive' : '') + '" onclick="window._iviewMode=\'list\';renderJobOrders([...placements,...manualPlacements])">☰ List</button>' +
+    '<button id="iov-btn-cal"  class="jo-status-filter-btn' + (window._iviewMode==='calendar' ? ' sfactive' : '') + '" onclick="window._iviewMode=\'calendar\';renderJobOrders([...placements,...manualPlacements])">📅 Calendar</button>' +
+    '<button class="btn btn-green" style="font-size:12px;padding:6px 14px" onclick="openScheduleInterviewModal()">+ Schedule Interview</button>';
+  return div;
+}
+
+function _getAllSessions() {
+  var all = [];
+  jobOrders.forEach(function(jo) {
+    var sessions = getInterviewSessions(jo.id);
+    sessions.forEach(function(sess) { all.push({ jo: jo, sess: sess }); });
+  });
+  return all;
+}
+
+function buildInterviewOverview() {
+  var all = _getAllSessions();
+  var allP = [...placements, ...manualPlacements];
+  var today = new Date(); today.setHours(0,0,0,0);
+  var weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+
+  var upcoming = all.filter(function(e) {
+    if (e.sess.status === 'cancelled') return false;
+    if (!e.sess.date) return true; // draft — count as upcoming
+    var d = new Date(e.sess.date); d.setHours(0,0,0,0);
+    return d >= today;
+  });
+  var thisWeek = upcoming.filter(function(e) {
+    if (!e.sess.date) return false;
+    var d = new Date(e.sess.date); d.setHours(0,0,0,0);
+    return d >= today && d <= weekEnd;
+  });
+  var candCount = 0;
+  upcoming.forEach(function(e) { if (e.sess.status !== 'completed') candCount += (e.sess.candidateIds || []).length; });
+
+  var summaryBar = '<div class="iov-summary-bar">' +
+    '<div class="iov-stat"><div class="iov-stat-label">Upcoming Interviews</div><div class="iov-stat-val">' + upcoming.length + '</div></div>' +
+    '<div class="iov-stat"><div class="iov-stat-label">Sessions This Week</div><div class="iov-stat-val">' + thisWeek.length + '</div></div>' +
+    '<div class="iov-stat"><div class="iov-stat-label">Candidates Awaiting</div><div class="iov-stat-val">' + candCount + '</div></div>' +
+    '</div>';
+
+  var div = document.createElement('div');
+  div.innerHTML = summaryBar + (window._iviewMode === 'calendar' ? buildInterviewCalendar(all, allP) : buildInterviewList(all, allP));
+  return div;
+}
+
+function buildInterviewList(all, allP) {
+  // Group by JO
+  var joMap = {};
+  all.forEach(function(e) {
+    if (e.sess.status === 'cancelled') return;
+    if (!joMap[e.jo.id]) joMap[e.jo.id] = { jo: e.jo, sessions: [] };
+    joMap[e.jo.id].sessions.push(e.sess);
+  });
+  var joGroups = Object.values(joMap).sort(function(a, b) {
+    var nextA = a.sessions.filter(function(s){return s.date;}).sort(function(x,y){return x.date.localeCompare(y.date);})[0];
+    var nextB = b.sessions.filter(function(s){return s.date;}).sort(function(x,y){return x.date.localeCompare(y.date);})[0];
+    if (!nextA && !nextB) return 0;
+    if (!nextA) return 1;
+    if (!nextB) return -1;
+    return nextA.date.localeCompare(nextB.date);
+  });
+  if (!joGroups.length) return '<div style="padding:32px;text-align:center;color:var(--text3);font-family:var(--mono)">No interview sessions yet. Click "+ Schedule Interview" to create one.</div>';
+  return joGroups.map(function(g) {
+    var jo = g.jo;
+    var sessSorted = g.sessions.slice().sort(function(a, b) {
+      if (!a.date) return 1; if (!b.date) return -1;
+      return (a.date + (a.time||'')).localeCompare(b.date + (b.time||''));
+    });
+    var header = '<div class="iov-employer-header">' +
+      '<span style="font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-dim);padding:2px 7px;border-radius:5px">' + escHtml(jo.id) + '</span>' +
+      '<span>' + escHtml(jo.company) + '</span>' +
+      '<span style="font-size:12px;color:var(--text3)">— ' + escHtml(jo.position) + '</span>' +
+    '</div>';
+    var sessBlocks = sessSorted.map(function(sess) { return buildIovSessionBlock(jo, sess, allP); }).join('');
+    return '<div class="iov-employer-group">' + header + sessBlocks + '</div>';
+  }).join('');
+}
+
+function buildInterviewCalendar(all, allP) {
+  // Group sessions by date
+  var dateMap = {};
+  all.forEach(function(e) {
+    if (e.sess.status === 'cancelled') return;
+    var dk = e.sess.date || '_noddate';
+    if (!dateMap[dk]) dateMap[dk] = [];
+    dateMap[dk].push(e);
+  });
+  var today = new Date(); today.setHours(0,0,0,0);
+  var todayStr = today.toISOString().split('T')[0];
+  var sortedDates = Object.keys(dateMap).sort();
+
+  if (!sortedDates.length) return '<div style="padding:32px;text-align:center;color:var(--text3);font-family:var(--mono)">No sessions scheduled.</div>';
+
+  return sortedDates.map(function(dk) {
+    var entries = dateMap[dk].slice().sort(function(a, b) { return (a.sess.time||'').localeCompare(b.sess.time||''); });
+    var dayLabel, dayClass = 'iov-cal-date';
+    if (dk === '_noddate') { dayLabel = 'Not Yet Scheduled (Draft)'; }
+    else {
+      var d = new Date(dk + 'T00:00:00');
+      dayLabel = d.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      if (dk === todayStr) { dayLabel = 'TODAY — ' + dayLabel; dayClass += ' today'; }
+      else if (dk < todayStr) { dayClass += ' past'; }
+    }
+    var blocks = entries.map(function(e) { return buildIovSessionBlock(e.jo, e.sess, allP); }).join('');
+    return '<div class="iov-cal-day"><div class="' + dayClass + '">' + escHtml(dayLabel) + '</div>' + blocks + '</div>';
+  }).join('');
+}
+
+function buildIovSessionBlock(jo, sess, allP) {
+  var badgeCls = { draft:'isess-badge-draft', scheduled:'isess-badge-scheduled', completed:'isess-badge-completed', cancelled:'isess-badge-cancelled' }[sess.status] || 'isess-badge-draft';
+  var badgeLbl = sess.status.charAt(0).toUpperCase() + sess.status.slice(1);
+  var dateStr = '';
+  if (sess.date && sess.time) {
+    try {
+      var d = new Date(sess.date + 'T' + sess.time);
+      dateStr = d.toLocaleDateString('en-PH', { month:'short', day:'numeric' }) + ' · ' + sess.time;
+    } catch(e) { dateStr = sess.date + ' ' + sess.time; }
+  }
+  var meta = [dateStr, sess.setup, sess.location].filter(Boolean).map(escHtml).join(' · ');
+  var candHtml = (sess.candidateIds || []).length ? (sess.candidateIds || []).map(function(pid) {
+    var p = allP.find(function(x) { return (x.placementId || x.candidateId) === pid; });
+    var name = p ? escHtml(p.candidateName || pid) : escHtml(pid);
+    var c = p ? candidates.find(function(cd) { return cd.id === p.candidateId; }) : null;
+    var jt = c ? (c.jobTypeFormatted || c.jobType || '') : '';
+    var era = calcERA(pid);
+    var eraStr = (era && typeof era.score === 'number') ? era.score.toFixed(1) : '—';
+    var eraCol = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
+    return '<div class="iov-cand-row"><span style="font-size:10px;color:var(--text3)">•</span>' + name + (jt ? '<span style="color:var(--text3)">— ' + escHtml(jt) + '</span>' : '') + '<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:' + eraCol + ';margin-left:auto">ERA ' + eraStr + '</span></div>';
+  }).join('') : '<div style="font-size:11px;color:var(--text3);font-style:italic;padding:3px 0">No candidates added yet</div>';
+
+  var jA = escAttr(jo.id), sA = escAttr(sess.id);
+  var editBtn = (sess.status === 'draft' || sess.status === 'scheduled')
+    ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openIsessDateModal(\'' + jA + '\',\'' + sA + '\')">Edit</button>' : '';
+  var completeBtn = sess.status === 'scheduled'
+    ? '<button class="btn btn-green" style="font-size:11px;padding:4px 10px" onclick="openIsessCompleteModal(\'' + jA + '\',\'' + sA + '\')">Mark Complete</button>' : '';
+  var cancelBtn = (sess.status !== 'cancelled' && sess.status !== 'completed')
+    ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="cancelIsess(\'' + jA + '\',\'' + sA + '\');renderJobOrders([...placements,...manualPlacements])">Cancel</button>' : '';
+  var copyBtn = '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="copyIsessSummary(\'' + jA + '\',\'' + sA + '\')">Copy Summary</button>';
+
+  return '<div class="iov-session-block">' +
+    '<div class="iov-session-header">' +
+      '<span class="iov-session-name">' + escHtml(sess.name) + '</span>' +
+      '<span class="isess-badge ' + badgeCls + '">' + badgeLbl + '</span>' +
+      (meta ? '<span class="iov-session-meta" style="margin:0">' + meta + '</span>' : '') +
+    '</div>' +
+    '<div>' + candHtml + '</div>' +
+    '<div class="iov-session-actions">' + editBtn + completeBtn + cancelBtn + copyBtn + '</div>' +
+    '</div>';
+}
+
+function openScheduleInterviewModal() {
+  // Populate JO select with active JOs
+  var sel = document.getElementById('si-jo-select');
+  sel.innerHTML = '<option value="">— Select Job Order —</option>' +
+    jobOrders.filter(function(jo){ return jo.status === 'Active'; }).map(function(jo) {
+      return '<option value="' + escAttr(jo.id) + '">' + escHtml(jo.id) + ' — ' + escHtml(jo.position) + ' @ ' + escHtml(jo.company) + '</option>';
+    }).join('');
+  // Clear candidate list
+  document.getElementById('si-cand-list').innerHTML = '<div style="color:var(--text3);font-size:12px">Select a job order first.</div>';
+  document.getElementById('si-name').value = '';
+  document.getElementById('si-date').value = '';
+  document.getElementById('si-time').value = '09:00';
+  document.getElementById('si-setup').value = 'In Person';
+  document.getElementById('si-location').value = '';
+  document.getElementById('si-notes').value = '';
+  openModal('modal-sched-interview');
+}
+
+function schedInterviewJoChange(joId) {
+  var listEl = document.getElementById('si-cand-list');
+  var nameEl = document.getElementById('si-name');
+  if (!joId) { listEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Select a job order first.</div>'; return; }
+  var allP = [...placements, ...manualPlacements].filter(function(p) { return p.jobOrderId === joId; });
+  var eligible = allP.filter(function(p) {
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
+    var stage = getEffectiveStage(ex, p);
+    return stage === 'For Employer Review' || stage === 'Confirmed Interested' || stage === 'Called' || stage === 'Confirmed' || stage === 'Interview Scheduled';
+  });
+  // Auto-generate session name
+  var existingSessions = getInterviewSessions(joId).filter(function(s){ return s.status !== 'cancelled'; });
+  nameEl.value = 'Session ' + (existingSessions.length + 1);
+  if (!eligible.length) {
+    listEl.innerHTML = '<div style="color:var(--text3);font-size:12px">No eligible candidates (need Confirmed Interested or For Employer Review stage).</div>';
+    return;
+  }
+  listEl.innerHTML = eligible.map(function(p) {
+    var pid = p.placementId || p.candidateId;
+    var era = calcERA(pid);
+    var eraStr = (era && typeof era.score === 'number') ? ' ERA ' + era.score.toFixed(1) : '';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:12px">' +
+      '<input type="checkbox" data-pid="' + escAttr(pid) + '" style="width:15px;height:15px;accent-color:var(--accent)">' +
+      '<span>' + escHtml(p.candidateName || pid) + '</span>' +
+      '<span style="color:var(--text3);font-size:10px;margin-left:auto">' + escHtml(eraStr) + '</span>' +
+    '</label>';
+  }).join('');
+}
+
+function saveScheduleInterview() {
+  var joId = document.getElementById('si-jo-select').value;
+  var name = document.getElementById('si-name').value.trim();
+  var date = document.getElementById('si-date').value;
+  var time = document.getElementById('si-time').value;
+  if (!joId) { showToast('Please select a job order.', 'red'); return; }
+  if (!name) { showToast('Session name is required.', 'red'); return; }
+  if (!date || !time) { showToast('Date and time are required.', 'red'); return; }
+
+  var selectedPids = [];
+  document.querySelectorAll('#si-cand-list input[type=checkbox]:checked').forEach(function(cb) {
+    selectedPids.push(cb.dataset.pid);
+  });
+
+  var sessions = getInterviewSessions(joId);
+  var newSess = {
+    id: 'sess_' + Date.now(),
+    name: name, date: date, time: time,
+    setup: document.getElementById('si-setup').value,
+    location: document.getElementById('si-location').value.trim(),
+    notes: document.getElementById('si-notes').value.trim(),
+    candidateIds: selectedPids,
+    status: 'scheduled',
+    outcome: null, selectedCandidateId: null,
+    createdAt: new Date().toISOString()
+  };
+  sessions.push(newSess);
+
+  // Move selected candidates to Interview Scheduled stage
+  selectedPids.forEach(function(pid) { saveProwExtra(pid, 'dispositionStage', 'Interview Scheduled'); });
+
+  saveInterviewSessions(joId, sessions);
+  closeModal('modal-sched-interview');
+  showToast('Session created — ' + selectedPids.length + ' candidate(s) set to Interview Scheduled.', 'green');
+  renderJobOrders([...placements, ...manualPlacements]);
 }
 
 loadAll().then(function() {
@@ -13345,6 +13639,43 @@ loadAll().then(function() {
 </div>
 
 <!-- ─── INTERVIEW SESSION: Schedule Date Modal ─── -->
+<!-- ─── SCHEDULE INTERVIEW (from Overview) ─── -->
+<div class="modal-overlay" id="modal-sched-interview" onclick="if(event.target===this)closeModal('modal-sched-interview')" style="align-items:flex-start;padding:32px 16px;overflow-y:auto">
+  <div class="modal" style="max-width:520px;width:100%;max-height:none">
+    <h3>Schedule Interview Session</h3>
+    <div class="modal-field">
+      <div class="modal-label">Job Order</div>
+      <select id="si-jo-select" onchange="schedInterviewJoChange(this.value)">
+        <option value="">— Select Job Order —</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Session Name</div>
+      <input type="text" id="si-name" placeholder="e.g. Session 1">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Candidates (from pipeline)</div>
+      <div id="si-cand-list" style="border:1px solid var(--border2);border-radius:9px;padding:8px 12px;max-height:200px;overflow-y:auto;background:var(--card2)">
+        <div style="color:var(--text3);font-size:12px">Select a job order first.</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field"><div class="modal-label">Date</div><input type="date" id="si-date"></div>
+      <div class="modal-field"><div class="modal-label">Time</div><input type="time" id="si-time" value="09:00"></div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Setup</div>
+      <select id="si-setup"><option value="In Person">In Person</option><option value="Online">Online</option></select>
+    </div>
+    <div class="modal-field"><div class="modal-label">Location / Meeting Link</div><input type="text" id="si-location" placeholder="Address or video link"></div>
+    <div class="modal-field"><div class="modal-label">Notes (optional)</div><textarea id="si-notes" placeholder="Any instructions for the employer or candidates…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sched-interview')">Cancel</button>
+      <button class="btn btn-green" onclick="saveScheduleInterview()">Create Session</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-isess-date" onclick="if(event.target===this)closeModal('modal-isess-date')">
   <div class="modal">
     <h3>Schedule Interview Session</h3>
