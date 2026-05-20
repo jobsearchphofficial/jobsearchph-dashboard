@@ -991,6 +991,70 @@
   .bc-log-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   .bc-log-table tr:last-child td { border-bottom: none; }
 
+  /* ─── CALLS TAB ─── */
+  .call-queue-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 120px 110px auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .call-queue-row:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); }
+  .call-queue-row.overdue { border-color: rgba(220,38,38,.3); background: rgba(220,38,38,.02); }
+  .call-outcome-btn {
+    padding: 8px 14px; border-radius: 9px; border: 1.5px solid var(--border2);
+    background: transparent; color: var(--text2); font-family: var(--sans);
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .18s;
+  }
+  .call-outcome-btn:hover { border-color: var(--border3); background: var(--card2); }
+  .call-outcome-btn.active-answered  { border-color: var(--green); background: rgba(22,163,74,.10); color: var(--green); }
+  .call-outcome-btn.active-noanswer  { border-color: var(--gold2); background: rgba(217,119,6,.10); color: var(--gold2); }
+  .call-outcome-btn.active-rejected  { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+  .call-decision-btn {
+    flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 10px;
+    border: 1.5px solid var(--border2); background: transparent;
+    color: var(--text2); font-family: var(--sans); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .18s; text-align: center;
+  }
+  .call-decision-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .call-decision-btn.confirmed  { border-color: var(--green); color: var(--green); background: rgba(22,163,74,.08); }
+  .call-decision-btn.for-review { border-color: var(--purple); color: var(--purple); background: rgba(124,58,237,.08); }
+  .call-decision-btn.callback   { border-color: var(--gold2); color: var(--gold2); background: rgba(217,119,6,.08); }
+  .call-decision-btn.rejected   { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .call-era-live {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 12px;
+    background: var(--card2); border: 1px solid var(--border);
+    margin: 12px 0;
+  }
+  .call-era-score {
+    font-size: 28px; font-weight: 800; font-family: var(--mono);
+    line-height: 1; flex-shrink: 0;
+  }
+  .call-assess-section {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .call-assess-title {
+    font-size: 10px; font-weight: 800; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px;
+  }
+  .call-check-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; cursor: pointer; font-size: 12px; font-weight: 500;
+  }
+  .call-check-row input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--accent); margin: 0; cursor: pointer; }
+  .call-tab-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; border-radius: 99px;
+    background: var(--red); color: #fff; font-size: 10px; font-weight: 800;
+    padding: 0 5px; margin-left: 5px; font-family: var(--mono);
+  }
   /* ─── ROLE BADGE ─── */
   .role-badge {
     font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
@@ -2963,6 +3027,7 @@ function doLogin(){
     <button class="tab" id="tab-btn-hired" onclick="switchTab('hired')">Hired</button>
     <button class="tab hidden" onclick="switchTab('matcher')">AI Matcher</button>
     <button class="tab" onclick="switchTab('screening')">Screening</button>
+    <button class="tab" id="tab-btn-calls" onclick="switchTab('calls')">Calls<span class="call-tab-badge" id="calls-tab-badge" style="display:none">0</span></button>
     <button class="tab hidden" id="tab-btn-analytics" onclick="switchTab('analytics')">Analytics</button>
   </div>
 </header>
@@ -3069,6 +3134,19 @@ function doLogin(){
   <!-- ═══ TAB: SCREENING ═══ -->
   <div class="tab-content" id="tab-screening">
     <div id="screening-inner"></div>
+  </div>
+
+  <!-- ═══ TAB: CALLS ═══ -->
+  <div class="tab-content" id="tab-calls">
+    <div class="section-header">
+      <div class="section-title">Calls</div>
+      <div class="badge" id="calls-count">0</div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button id="calls-view-btn-queue"     class="btn btn-gold"  onclick="setCallsView('queue')"     style="font-size:12px;padding:5px 14px">Call Queue</button>
+        <button id="calls-view-btn-callbacks" class="btn btn-ghost" onclick="setCallsView('callbacks')" style="font-size:12px;padding:5px 14px">Scheduled Callbacks</button>
+      </div>
+    </div>
+    <div id="calls-inner"></div>
   </div>
 
   <!-- ═══ TAB: ANALYTICS (admin only) ═══ -->
@@ -3350,6 +3428,13 @@ function doLogin(){
       <button class="btn btn-gold" onclick="closeModal('modal-cancel-jo')">No, Go Back</button>
       <button class="btn btn-red" id="cancel-confirm-btn" disabled onclick="confirmCancelJO()">Yes, Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- ─── CALL ASSESSMENT MODAL ─── -->
+<div class="modal-overlay" id="modal-call-assess" onclick="if(event.target===this)closeModal('modal-call-assess')" style="align-items:flex-start;padding:32px 16px;overflow-y:auto">
+  <div class="modal" style="max-width:560px;width:100%;max-height:none">
+    <div id="call-assess-inner"><!-- filled by JS --></div>
   </div>
 </div>
 
@@ -3819,6 +3904,7 @@ function loadLocal() {
   try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
   try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
   try { pipelineStages = JSON.parse(localStorage.getItem('pipeline_stages') || '{}'); } catch(e){ pipelineStages={}; }
+  try { callQueue = JSON.parse(localStorage.getItem('call_queue') || '{}'); } catch(e){ callQueue={}; }
 }
 
 // ═══════════════════════════════════════════════
@@ -4390,6 +4476,7 @@ async function loadAll() {
   populateMatcherDropdown();
   populateFilterDropdowns();
   updateTimestamp();
+  updateCallsBadge();
 }
 
 function loadingHTML(msg) {
@@ -5558,6 +5645,10 @@ function saveProwField(pid, field, value, el) {
   // Auto-add to interview session when set to Interview Scheduled
   if (field === 'status' && (value === 'Interview Scheduled' || value === 'For Interview') && mp) {
     addCandidateToInterviewSession(mp.jobOrderId, pid);
+  }
+  // Auto-enter Call Queue when candidate responds YES / Interested
+  if (field === 'response' && value === 'Interested' && mp) {
+    addToCallQueue(mp.candidateId, mp.jobOrderId, pid);
   }
   // Refresh the dot and pill in header without re-rendering
   const row = document.getElementById(`prow-${pid}`);
@@ -7314,6 +7405,8 @@ function _openCandModalInner(candId) {
           </div>`;
         }).join('')}
       </div>` : ''}
+
+      ${buildCallHistorySection(c.id)}
 
       ${buildReflectionLog(c.id)}
 
@@ -9592,20 +9685,21 @@ function buildReflectionLog(candId) {
 // TAB SWITCHING
 // ═══════════════════════════════════════════════
 function switchTab(tab) {
-  // Role gates: coordinators can only access jobs, candidates, screening
+  // Role gates
   if (tab === 'analytics' && !isAdmin()) { tab = 'jobs'; }
   if (tab === 'hired'     && !isAdmin()) { tab = 'jobs'; }
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   var tabEl = document.getElementById('tab-' + tab);
   if (tabEl) tabEl.classList.add('active');
-  const allTabs = ['jobs','candidates','hired','matcher','screening','analytics'];
+  const allTabs = ['jobs','candidates','hired','matcher','screening','calls','analytics'];
   const idx = allTabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
-  if (tab === 'hired') renderHiredTab();
+  if (tab === 'hired')     renderHiredTab();
   if (tab === 'templates') renderTemplatesTab();
   if (tab === 'screening') renderScreeningTab();
   if (tab === 'analytics') renderAnalyticsTab();
+  if (tab === 'calls')     renderCallsTab();
 }
 
 // ═══════════════════════════════════════════════
@@ -10045,6 +10139,11 @@ function _applyFbData(data) {
   if (data.era_contact_logs) localStorage.setItem('era_contact_logs', JSON.stringify(data.era_contact_logs));
   if (data.pipeline_stages)  localStorage.setItem('pipeline_stages',  JSON.stringify(data.pipeline_stages));
   if (data.broadcast_log)    localStorage.setItem('broadcast_log',    JSON.stringify(data.broadcast_log));
+  if (data.callQueue) {
+    localStorage.setItem('call_queue', JSON.stringify(data.callQueue));
+    callQueue = data.callQueue;
+    updateCallsBadge();
+  }
   if (data.pending_replacement)
     Object.entries(data.pending_replacement).forEach(function(e) {
       if (e[1]) localStorage.setItem('pending_replacement_jo_' + e[0], JSON.stringify(e[1]));
@@ -10328,6 +10427,52 @@ async function syncForcePull() {
 let eraStages = {};
 let eraContactLogs = {};
 let pipelineStages = {};
+
+// ─── CALLS STATE ───
+let callQueue = {};       // { candidateId: { joId, placementId, enteredQueueAt, status, scheduledFor, callbackReason } }
+let candidateCalls = {};  // { candidateId: { callId: {...} } }  — in-memory cache, Firebase is authoritative
+let _callsView = 'queue'; // 'queue' | 'callbacks'
+let _callsFilterJo = '';
+
+function saveCallQueue() {
+  _lsSet('call_queue', callQueue);
+  fbSync('callQueue', callQueue);
+}
+
+function saveCandidateCall(candId, callId, callData) {
+  if (!candidateCalls[candId]) candidateCalls[candId] = {};
+  candidateCalls[candId][callId] = callData;
+  localStorage.setItem('candidate_calls_' + candId, JSON.stringify(candidateCalls[candId]));
+  fbSync('candidateCalls/' + candId + '/' + callId, callData);
+}
+
+function getCandidateCalls(candId) {
+  if (candidateCalls[candId]) return candidateCalls[candId];
+  try { return JSON.parse(localStorage.getItem('candidate_calls_' + candId) || '{}'); } catch(e) { return {}; }
+}
+
+function addToCallQueue(candId, joId, placementId) {
+  if (callQueue[candId]) return; // already in queue
+  callQueue[candId] = { joId: joId, placementId: placementId, enteredQueueAt: new Date().toISOString(), status: 'pending' };
+  saveCallQueue();
+  updateCallsBadge();
+}
+
+function removeFromCallQueue(candId) {
+  delete callQueue[candId];
+  saveCallQueue();
+  updateCallsBadge();
+}
+
+function updateCallsBadge() {
+  var pending = Object.values(callQueue).filter(function(e){ return e.status === 'pending'; }).length;
+  var callbacks = Object.values(callQueue).filter(function(e){ return e.status === 'scheduled'; }).length;
+  var total = pending + callbacks;
+  var badge = document.getElementById('calls-tab-badge');
+  if (badge) { badge.style.display = total > 0 ? '' : 'none'; badge.textContent = total; }
+  var countEl = document.getElementById('calls-count');
+  if (countEl) countEl.textContent = total;
+}
 
 function saveEraStages() { _lsSet('era_stages', eraStages); fbSyncDebounced('era_stages', eraStages); }
 function saveEraContactLogs() { _lsSet('era_contact_logs', eraContactLogs); fbSyncDebounced('era_contact_logs', eraContactLogs); }
@@ -11691,6 +11836,435 @@ function buildTrendsView() {
     rangeSel + legend +
     '<div style="margin-top:16px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px">' + svg + '</div>' +
     table + '</div>';
+}
+
+// ═══════════════════════════════════════════════
+// CALLS TAB
+// ═══════════════════════════════════════════════
+
+function setCallsView(view) {
+  _callsView = view;
+  var qBtn = document.getElementById('calls-view-btn-queue');
+  var cBtn = document.getElementById('calls-view-btn-callbacks');
+  if (qBtn) { qBtn.className = view === 'queue' ? 'btn btn-gold' : 'btn btn-ghost'; qBtn.style.fontSize = '12px'; qBtn.style.padding = '5px 14px'; }
+  if (cBtn) { cBtn.className = view === 'callbacks' ? 'btn btn-gold' : 'btn btn-ghost'; cBtn.style.fontSize = '12px'; cBtn.style.padding = '5px 14px'; }
+  renderCallsTab();
+}
+
+function renderCallsTab() {
+  const inner = document.getElementById('calls-inner');
+  if (!inner) return;
+  updateCallsBadge();
+  if (_callsView === 'queue') inner.innerHTML = buildCallQueueHTML();
+  else inner.innerHTML = buildCallbacksHTML();
+}
+
+function buildCallQueueHTML() {
+  // Gather queue entries with candidate + JO data
+  const entries = Object.entries(callQueue)
+    .filter(function(e) { return e[1].status === 'pending'; })
+    .map(function(e) {
+      const candId = e[0], q = e[1];
+      const c = candidates.find(function(x) { return x.id === candId; });
+      const jo = jobOrders.find(function(j) { return j.id === q.joId; });
+      const hoursWaiting = Math.round((Date.now() - new Date(q.enteredQueueAt).getTime()) / 3600000);
+      return { candId, q, c, jo, hoursWaiting };
+    })
+    .filter(function(e) { return e.c; }) // only those still in candidates list
+    .sort(function(a, b) { return new Date(a.q.enteredQueueAt) - new Date(b.q.enteredQueueAt); }); // oldest first
+
+  const joIds = [...new Set(entries.map(function(e) { return e.q.joId; }))];
+  const joFilter = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">' +
+    '<span style="font-size:12px;font-weight:700;color:var(--text3)">Filter by JO:</span>' +
+    '<button class="era-tier-btn' + (_callsFilterJo === '' ? ' sel' : '') + '" style="' + (_callsFilterJo === '' ? 'background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px' : '') + '" onclick="_callsFilterJo=\'\';renderCallsTab()">All</button>' +
+    joIds.map(function(id) {
+      const jo = jobOrders.find(function(j) { return j.id === id; });
+      const sel = _callsFilterJo === id;
+      return '<button class="era-tier-btn' + (sel ? ' sel' : '') + '" style="' + (sel ? 'background:rgba(23,85,237,.10);border-color:rgba(23,85,237,.45);color:var(--accent);border-width:1.5px' : '') + '" onclick="_callsFilterJo=\'' + escAttr(id) + '\';renderCallsTab()">' + escHtml(id) + (jo ? ' — ' + escHtml(jo.company) : '') + '</button>';
+    }).join('') + '</div>';
+
+  const filtered = _callsFilterJo ? entries.filter(function(e) { return e.q.joId === _callsFilterJo; }) : entries;
+
+  if (!filtered.length) {
+    return joFilter + '<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px">No candidates in the call queue.<br><small style="font-size:11px;margin-top:8px;display:block">Candidates enter the queue when their Response is set to "Interested".</small></div>';
+  }
+
+  const rows = filtered.map(function(e) {
+    const { candId, q, c, jo, hoursWaiting } = e;
+    const overdue = hoursWaiting >= 48;
+    const eraScore = calcCandRating(candId);
+    const eraColor = eraScore >= 7 ? 'var(--green)' : eraScore >= 5 ? 'var(--gold)' : 'var(--red)';
+    const waitLabel = hoursWaiting < 1 ? 'Just now' : hoursWaiting < 24 ? hoursWaiting + 'h ago' : Math.floor(hoursWaiting/24) + 'd ago';
+    return '<div class="call-queue-row' + (overdue ? ' overdue' : '') + '">' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:700">' + escHtml(c.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">' + escHtml(candId) + ' · ' + escHtml(c.jobTypeFormatted || c.jobType || '—') + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + (jo ? escHtml(jo.id) + ' — ' + escHtml(jo.position) + ' @ ' + escHtml(jo.company) : escHtml(q.joId)) + '</div>' +
+        (c.phone ? '<div style="font-size:11px;color:var(--accent);margin-top:2px;font-family:var(--mono)">' + escHtml(c.phone) + '</div>' : '') +
+      '</div>' +
+      '<div style="text-align:center">' +
+        '<span style="font-size:14px;font-weight:800;color:' + eraColor + '">' + eraScore + '</span>' +
+        '<div style="font-size:9px;color:var(--text3)">ERA</div>' +
+      '</div>' +
+      '<div style="text-align:center">' +
+        '<span style="font-size:12px;font-weight:700;color:' + (overdue ? 'var(--red)' : 'var(--text2)') + '">' + escHtml(waitLabel) + '</span>' +
+        (overdue ? '<div style="font-size:9px;font-weight:700;color:var(--red);margin-top:2px">OVERDUE</div>' : '') +
+      '</div>' +
+      '<div>' +
+        (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
+      '</div>' +
+      '<div>' +
+        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||\'') + '\')">Start Call</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return joFilter +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">' + filtered.length + ' candidate' + (filtered.length !== 1 ? 's' : '') + ' waiting for a call</div>' +
+    rows;
+}
+
+function buildCallbacksHTML() {
+  const entries = Object.entries(callQueue)
+    .filter(function(e) { return e[1].status === 'scheduled' && e[1].scheduledFor; })
+    .map(function(e) {
+      const candId = e[0], q = e[1];
+      const c = candidates.find(function(x) { return x.id === candId; });
+      const jo = jobOrders.find(function(j) { return j.id === q.joId; });
+      const scheduledMs = new Date(q.scheduledFor).getTime();
+      const overdue = scheduledMs < Date.now();
+      return { candId, q, c, jo, scheduledMs, overdue };
+    })
+    .filter(function(e) { return e.c; })
+    .sort(function(a, b) { return a.scheduledMs - b.scheduledMs; });
+
+  if (!entries.length) {
+    return '<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px">No scheduled callbacks.</div>';
+  }
+
+  const rows = entries.map(function(e) {
+    const { candId, q, c, jo, overdue } = e;
+    const schedLabel = new Date(q.scheduledFor).toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return '<div class="call-queue-row' + (overdue ? ' overdue' : '') + '">' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:700">' + escHtml(c.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">' + escHtml(candId) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + (jo ? escHtml(jo.id) + ' — ' + escHtml(jo.company) : escHtml(q.joId)) + '</div>' +
+        (q.callbackReason ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">Reason: ' + escHtml(q.callbackReason) + '</div>' : '') +
+      '</div>' +
+      '<div style="font-size:12px;font-weight:700;color:' + (overdue ? 'var(--red)' : 'var(--accent)') + '">' +
+        escHtml(schedLabel) + (overdue ? '<div style="font-size:10px;font-weight:800;color:var(--red)">OVERDUE</div>' : '') +
+      '</div>' +
+      '<div></div><div></div>' +
+      '<div>' +
+        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||\'') + '\')">Call Now</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">' + entries.length + ' scheduled callback' + (entries.length !== 1 ? 's' : '') + '</div>' + rows;
+}
+
+// ─── CALL ASSESSMENT MODAL ───
+
+var _callAssess = { candId: null, joId: null, placementId: null, outcome: null, decision: null };
+
+function openCallAssessment(candId, joId, placementId) {
+  _callAssess = { candId, joId, placementId: placementId || '', outcome: null, decision: null };
+  _renderCallAssessment();
+  openModal('modal-call-assess');
+}
+
+function _renderCallAssessment() {
+  const inner = document.getElementById('call-assess-inner');
+  if (!inner) return;
+  const { candId, joId, outcome } = _callAssess;
+  const c  = candidates.find(function(x) { return x.id === candId; });
+  const jo = jobOrders.find(function(j) { return j.id === joId; });
+  if (!c) { inner.innerHTML = '<p style="color:var(--red)">Candidate not found.</p>'; return; }
+
+  const era = calcERA(candId);
+  const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
+  const stored = candidateRatings[candId] || {};
+  const scores = stored.scores || {};
+  const docs   = stored.docs   || {};
+
+  const outcomeOpts = [
+    { val:'Answered',     label:'✅ Answered' },
+    { val:'No Answer',    label:'📵 No Answer' },
+    { val:'Busy',         label:'🔄 Busy' },
+    { val:'Wrong Number', label:'❌ Wrong Number' },
+    { val:'Unreachable',  label:'📴 Unreachable' },
+  ];
+  const outcomeBtns = outcomeOpts.map(function(o) {
+    const active = outcome === o.val;
+    const cls = active ? (o.val === 'Answered' ? 'active-answered' : 'active-noanswer') : '';
+    return '<button class="call-outcome-btn ' + cls + '" onclick="setCallOutcome(\'' + o.val + '\')">' + o.label + '</button>';
+  }).join('');
+
+  let assessHTML = '';
+  if (outcome === 'Answered') {
+    // Build live ERA score
+    const eraLive = calcERA(candId);
+    const liveCls = eraLive.score >= 7 ? 'var(--green)' : eraLive.score >= 5 ? 'var(--gold)' : 'var(--red)';
+
+    function chk(key, label, sign, pts) {
+      const checked = scores[key] ? ' checked' : '';
+      const signColor = sign === '+' ? 'var(--green)' : 'var(--red)';
+      return '<label class="call-check-row"><input type="checkbox"' + checked + ' onchange="toggleCallScore(\'' + escAttr(candId) + '\',\'' + key + '\',this.checked)">' +
+        '<span style="flex:1">' + label + '</span><span style="font-size:10px;font-weight:700;color:' + signColor + ';white-space:nowrap">' + sign + ' ' + pts + '</span></label>';
+    }
+
+    const attVal = parseInt(scores.callAttitude) || 0;
+    const attBtns = [1,2,3,4,5].map(function(n) {
+      const labels = {1:'Poor',2:'Below Avg',3:'Average',4:'Good',5:'Excellent'};
+      const pts    = {1:'-1.5',2:'-0.5',3:'0',4:'+1.0',5:'+1.0'};
+      const sel = attVal === n;
+      return '<button style="flex:1;padding:6px 4px;border-radius:7px;border:1.5px solid ' + (sel ? 'var(--accent)' : 'var(--border2)') + ';background:' + (sel ? 'var(--accent-dim2)' : 'transparent') + ';color:' + (sel ? 'var(--accent)' : 'var(--text2)') + ';font-size:11px;font-weight:' + (sel ? '700' : '500') + ';cursor:pointer;font-family:var(--sans)" onclick="setCallAttitude(\'' + escAttr(candId) + '\',' + n + ')">' +
+        '<div>' + n + '</div><div style="font-size:9px">' + labels[n] + '</div><div style="font-size:9px;color:var(--text3)">' + pts[n] + '</div>' +
+        '</button>';
+    }).join('');
+
+    assessHTML = '<div class="call-era-live">' +
+      '<div class="call-era-score" style="color:' + liveCls + '">' + eraLive.score + '</div>' +
+      '<div><div style="font-size:11px;font-weight:700;color:var(--text2)">Live ERA Score</div>' +
+      '<div style="font-size:10px;color:var(--text3)">Updates as you fill each section</div>' +
+      '<div style="font-size:11px;margin-top:2px">E: ' + (eraLive.E>=0?'+':'') + eraLive.E.toFixed(1) + ' · R: ' + (eraLive.R>=0?'+':'') + eraLive.R.toFixed(1) + ' · A: ' + (eraLive.A>=0?'+':'') + eraLive.A.toFixed(1) + '</div>' +
+      '</div></div>' +
+      '<div class="call-assess-section">' +
+        '<div class="call-assess-title">Responsiveness (R)</div>' +
+        chk('answeredCall',   'Answered call promptly',          '+', 'R 1.0') +
+        chk('repliedFast',    'Replied quickly when messaged',   '+', 'R 1.0') +
+        chk('confirmedIntv',  'Confirmed availability for job',  '+', 'R 1.0') +
+        chk('multiFollowup',  'Needed multiple follow-ups',      '−', 'R 1.0') +
+      '</div>' +
+      '<div class="call-assess-section">' +
+        '<div class="call-assess-title">Eligibility — Confirmed During Call (E)</div>' +
+        chk('workIntentConfirmed',   'Work intent confirmed',     '+', 'E 1.0') +
+        chk('availabilityConfirmed', 'Availability confirmed',    '+', 'E 1.0') +
+      '</div>' +
+      '<div class="call-assess-section">' +
+        '<div class="call-assess-title">Attitude (A) — Call Rating</div>' +
+        '<div style="display:flex;gap:5px;margin-bottom:10px">' + attBtns + '</div>' +
+        chk('polite',             'Communicates clearly',        '+', 'A 1.0') +
+        chk('passedScreening',    'Consistent / reliable answers','+','A 1.0') +
+        chk('willingToWork',      'Willing and enthusiastic',    '+', 'A 0.5') +
+        chk('followsInstructions','Follows instructions',        '+', 'A 0.5') +
+        chk('hesitantAnswers',    'Hesitant or evasive answers', '−', 'A 1.0') +
+        chk('confusingAnswers',   'Confusing or inconsistent',   '−', 'A 1.0') +
+      '</div>';
+  }
+
+  const showDecision = outcome === 'Answered';
+  const showNonAnswerOpts = outcome && outcome !== 'Answered';
+
+  const decisionHTML = showDecision ? '<div class="call-assess-section">' +
+    '<div class="call-assess-title">Call Notes</div>' +
+    '<textarea id="call-notes-input" placeholder="What was discussed, any concerns…" style="width:100%;min-height:80px;background:var(--card);border:1px solid var(--border2);border-radius:9px;padding:10px;font-family:var(--sans);font-size:13px;color:var(--text);resize:vertical;outline:none" onchange=""></textarea>' +
+    '</div>' +
+    '<div class="call-assess-section">' +
+    '<div class="call-assess-title">Decision (required)</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+    '<button class="call-decision-btn confirmed" onclick="submitCallDecision(\'Confirmed Interested\')">Confirmed Interested →</button>' +
+    '<button class="call-decision-btn for-review" onclick="submitCallDecision(\'For Employer Review\')">For Employer Review →</button>' +
+    '<button class="call-decision-btn callback" onclick="showCallbackScheduler()">Schedule Callback</button>' +
+    '<button class="call-decision-btn rejected" onclick="submitCallDecision(\'Rejected by Jobseeker\')">Rejected by Jobseeker</button>' +
+    '</div>' +
+    '<div id="callback-scheduler" style="display:none;margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px">' +
+    '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Schedule Callback</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<input type="date" id="cb-date" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px">' +
+    '<input type="time" id="cb-time" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px">' +
+    '<input type="text" id="cb-reason" placeholder="Reason (optional)" style="flex:1;min-width:160px;padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-family:var(--sans);font-size:12px">' +
+    '<button class="btn btn-gold" onclick="submitCallDecision(\'Scheduled Callback\')">Confirm Callback</button>' +
+    '</div></div>' +
+    '</div>' : '';
+
+  const nonAnswerHTML = showNonAnswerOpts ? '<div class="call-assess-section">' +
+    '<div class="call-assess-title">Log Attempt</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<button class="call-decision-btn callback" onclick="submitCallDecision(\'Retry Later\')">Retry Later</button>' +
+    '<button class="call-decision-btn callback" onclick="showCallbackScheduler()">Schedule Callback</button>' +
+    '</div>' +
+    '<div id="callback-scheduler" style="display:none;margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px">' +
+    '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Schedule Callback</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<input type="date" id="cb-date" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px">' +
+    '<input type="time" id="cb-time" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px">' +
+    '<input type="text" id="cb-reason" placeholder="Reason (optional)" style="flex:1;min-width:160px;padding:6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-family:var(--sans);font-size:12px">' +
+    '<button class="btn btn-gold" onclick="submitCallDecision(\'Scheduled Callback\')">Confirm Callback</button>' +
+    '</div></div>' +
+    '</div>' : '';
+
+  inner.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">' +
+    '<div>' +
+      '<h3 style="margin:0 0 4px">' + escHtml(c.name) + '</h3>' +
+      '<div style="font-size:12px;color:var(--text3);font-family:var(--mono)">' + escHtml(candId) + ' · ' + escHtml(c.jobTypeFormatted || c.jobType || '—') + '</div>' +
+      (jo ? '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + escHtml(jo.id) + ' — ' + escHtml(jo.position) + ' @ ' + escHtml(jo.company) + '</div>' : '') +
+      (c.phone ? '<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><a href="tel:' + encodeURIComponent(c.phone) + '" style="font-size:14px;font-weight:800;color:var(--accent);font-family:var(--mono)">' + escHtml(c.phone) + '</a>' +
+        '<button class="btn btn-ghost" style="font-size:11px;padding:3px 9px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Copied!\',\'green\')})">Copy</button></div>' : '') +
+    '</div>' +
+    '<button onclick="closeModal(\'modal-call-assess\')" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);padding:0 4px;line-height:1">×</button>' +
+    '</div>' +
+    '<div class="call-assess-section"><div class="call-assess-title">Call Outcome</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">' + outcomeBtns + '</div></div>' +
+    assessHTML + decisionHTML + nonAnswerHTML;
+}
+
+function setCallOutcome(val) {
+  _callAssess.outcome = val;
+  // Auto-set answeredCall score if answered
+  if (val === 'Answered') {
+    const candId = _callAssess.candId;
+    if (!candidateRatings[candId]) candidateRatings[candId] = {};
+    if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
+    candidateRatings[candId].scores.answeredCall = true;
+    saveCandidateRatings();
+  }
+  _renderCallAssessment();
+}
+
+function toggleCallScore(candId, key, val) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
+  candidateRatings[candId].scores[key] = val;
+  saveCandidateRatings();
+  // Re-render just the live score section without closing modal
+  const eraLive = calcERA(candId);
+  const liveCls = eraLive.score >= 7 ? 'var(--green)' : eraLive.score >= 5 ? 'var(--gold)' : 'var(--red)';
+  const liveEl = document.querySelector('.call-era-score');
+  if (liveEl) { liveEl.style.color = liveCls; liveEl.textContent = eraLive.score; }
+  const eraDetail = document.querySelector('.call-era-live div:nth-child(2) div:nth-child(3)');
+  if (eraDetail) eraDetail.textContent = 'E: ' + (eraLive.E>=0?'+':'') + eraLive.E.toFixed(1) + ' · R: ' + (eraLive.R>=0?'+':'') + eraLive.R.toFixed(1) + ' · A: ' + (eraLive.A>=0?'+':'') + eraLive.A.toFixed(1);
+}
+
+function setCallAttitude(candId, val) {
+  if (!candidateRatings[candId]) candidateRatings[candId] = {};
+  if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
+  candidateRatings[candId].scores.callAttitude = val;
+  saveCandidateRatings();
+  _renderCallAssessment(); // re-render to update button styles
+}
+
+function showCallbackScheduler() {
+  var el = document.getElementById('callback-scheduler');
+  if (el) {
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+    // Pre-fill date to tomorrow
+    var dateEl = document.getElementById('cb-date');
+    if (dateEl && !dateEl.value) {
+      var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+      dateEl.value = tmr.toISOString().split('T')[0];
+    }
+  }
+}
+
+function submitCallDecision(decision) {
+  const { candId, joId, placementId, outcome } = _callAssess;
+  const c  = candidates.find(function(x) { return x.id === candId; });
+  const jo = jobOrders.find(function(j) { return j.id === joId; });
+
+  // Collect callback info if scheduling
+  let scheduledFor = null, callbackReason = '';
+  if (decision === 'Scheduled Callback') {
+    const dateEl = document.getElementById('cb-date');
+    const timeEl = document.getElementById('cb-time');
+    const reasonEl = document.getElementById('cb-reason');
+    if (!dateEl || !dateEl.value) { showToast('Please pick a callback date.', 'red'); return; }
+    scheduledFor = dateEl.value + (timeEl && timeEl.value ? 'T' + timeEl.value : 'T09:00');
+    callbackReason = reasonEl ? reasonEl.value.trim() : '';
+  }
+
+  const notes = (document.getElementById('call-notes-input') || {}).value || '';
+  const callId = 'call_' + Date.now();
+  const now = new Date();
+  const era = calcERA(candId);
+  const stored = candidateRatings[candId] || {};
+  const scores = stored.scores || {};
+
+  // Write call log to Firebase
+  const callData = {
+    date: now.toISOString().split('T')[0],
+    time: now.toTimeString().slice(0,5),
+    outcome: outcome || 'Unknown',
+    eligibilityScore: era.E,
+    responsivenessScore: era.R,
+    attitudeScore: era.A,
+    eraScore: era.score,
+    scores: Object.assign({}, scores),
+    notes: notes,
+    decision: decision,
+    scheduledCallback: scheduledFor ? { date: scheduledFor, reason: callbackReason } : null,
+    calledBy: currentUserEmail,
+    createdAt: now.toISOString(),
+    joId: joId,
+    placementId: placementId,
+  };
+  saveCandidateCall(candId, callId, callData);
+
+  // Update call queue based on decision
+  if (decision === 'Confirmed Interested' || decision === 'For Employer Review') {
+    // Move to confirmed stage in the placement row
+    const pidToUpdate = placementId || (joId + '_' + candId + '_bc');
+    const mp = manualPlacements.find(function(p) { return p.placementId === placementId; });
+    if (mp) {
+      saveProwExtra(pidToUpdate, 'dispositionStage', decision);
+      saveProwExtra(pidToUpdate, 'response', 'Interested');
+    }
+    removeFromCallQueue(candId);
+    showToast(c ? c.name : candId + ' → ' + decision, 'green');
+  } else if (decision === 'Rejected by Jobseeker') {
+    const pidToUpdate = placementId || (joId + '_' + candId + '_bc');
+    saveProwExtra(pidToUpdate, 'dispositionStage', 'Rejected by Candidate');
+    removeFromCallQueue(candId);
+    showToast('Logged as Rejected by Jobseeker.', 'orange');
+  } else if (decision === 'Scheduled Callback') {
+    callQueue[candId] = Object.assign({}, callQueue[candId] || {}, {
+      status: 'scheduled',
+      scheduledFor: scheduledFor,
+      callbackReason: callbackReason,
+      joId: joId,
+      placementId: placementId,
+    });
+    saveCallQueue();
+    updateCallsBadge();
+    showToast('Callback scheduled for ' + scheduledFor.replace('T',' '), 'green');
+  } else {
+    // Retry Later — stay in queue, just log the attempt
+    showToast('Attempt logged. Candidate stays in queue.', 'gold');
+  }
+
+  closeModal('modal-call-assess');
+  if (_callsView === 'queue' || _callsView === 'callbacks') renderCallsTab();
+}
+
+// ─── CALL HISTORY section inside candidate profile ───
+
+function buildCallHistorySection(candId) {
+  const calls = getCandidateCalls(candId);
+  const entries = Object.entries(calls).sort(function(a, b) { return b[1].createdAt.localeCompare(a[1].createdAt); });
+  if (!entries.length) return '';
+
+  const rows = entries.map(function(e) {
+    const call = e[1];
+    const outcomeColor = call.outcome === 'Answered' ? 'var(--green)' : 'var(--gold2)';
+    const decisionColor = call.decision === 'Confirmed Interested' || call.decision === 'For Employer Review' ? 'var(--green)'
+      : call.decision === 'Rejected by Jobseeker' ? 'var(--red)' : 'var(--text2)';
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:12px">' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:4px;flex-wrap:wrap">' +
+        '<span style="font-weight:700;color:var(--text2)">' + escHtml(call.date) + (call.time ? ' ' + call.time : '') + '</span>' +
+        '<span style="font-weight:700;color:' + outcomeColor + '">' + escHtml(call.outcome) + '</span>' +
+        '<span style="font-weight:700;color:' + decisionColor + '">' + escHtml(call.decision || '') + '</span>' +
+        '<span style="color:var(--text3);font-size:11px;margin-left:auto">ERA ' + (call.eraScore || '—') + '</span>' +
+      '</div>' +
+      (call.notes ? '<div style="color:var(--text2);line-height:1.5;border-top:1px solid var(--border);padding-top:6px;margin-top:4px">' + escHtml(call.notes) + '</div>' : '') +
+      (call.calledBy ? '<div style="font-size:10px;color:var(--text3);margin-top:4px">Called by: ' + escHtml(call.calledBy) + '</div>' : '') +
+    '</div>';
+  }).join('');
+
+  return '<div class="cand-modal-section">' +
+    '<div class="cand-modal-section-title">Call History (' + entries.length + ')</div>' +
+    rows + '</div>';
 }
 
 function buildReopenAnalysis() {
