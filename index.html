@@ -3463,14 +3463,12 @@ function doLogin(){
     <div style="padding:0 0 4px">
       <div class="broadcast-cand-row" style="background:var(--card2);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;cursor:default">
         <div></div>
-        <div>Name / ID</div>
+        <div>Name / ID / Registered</div>
         <div>ERA</div>
         <div>Job Type</div>
         <div>Location</div>
         <div>Setup</div>
         <div>Exp. Pay</div>
-        <div>Registered</div>
-        <div></div>
       </div>
       <div id="broadcast-cand-list"></div>
     </div>
@@ -7674,7 +7672,7 @@ function buildBroadcastFilterBar() {
     }).join('')+'</div>';
   // Blacklist is always hard-excluded — no toggle shown
   bar.innerHTML = defs.map(function(d){ return _buildBcBtnWrap(d.key, d.neutral, d.prefix); }).join('') + activeToggle;
-  if (_broadcastActivePanel === 'age') setTimeout(_initBcAgeInputs, 0);
+  if (_broadcastActivePanel === 'age') setTimeout(_initBcAgeSlider, 0);
 }
 
 function _buildBcBtnWrap(key, neutralLabel, prefix) {
@@ -7721,13 +7719,18 @@ function _buildBcPanel(key) {
     return '<div class="cf-panel open" style="min-width:280px"><div class="cf-panel-hd"><span class="cf-panel-title">ERA Score</span><span class="cf-clear" onclick="bcFilterClear(\'eraScore\')">Clear</span></div><div class="era-tier-row">'+pills+'</div></div>';
   }
   if (key === 'age') {
-    const f = _broadcastFilters;
-    return '<div class="cf-panel open" style="min-width:220px"><div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="bcAgeReset()">Reset</span></div>'+
-      '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px">'+
-      '<input type="number" id="bc-age-min" min="15" max="70" value="'+f.ageMin+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeInput()" onblur="bcAgeCommit()" onkeydown="if(event.key===\'Enter\')bcAgeCommit()">'+
-      '<span style="color:var(--text3);font-size:12px">to</span>'+
-      '<input type="number" id="bc-age-max" min="15" max="80" value="'+f.ageMax+'" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px" oninput="bcAgeInput()" onblur="bcAgeCommit()" onkeydown="if(event.key===\'Enter\')bcAgeCommit()">'+
-      '<span style="color:var(--text3);font-size:12px">yrs</span></div></div>';
+    return '<div class="cf-panel open" style="min-width:260px">' +
+      '<div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="bcAgeReset()">Reset</span></div>' +
+      '<div style="padding:6px 14px 14px">' +
+        '<div id="bc-age-label" style="font-size:12px;font-weight:700;color:var(--text2);text-align:center;margin-bottom:14px">' + _broadcastFilters.ageMin + ' – ' + _broadcastFilters.ageMax + ' yrs</div>' +
+        '<div id="bc-age-track-wrap" style="position:relative;height:6px;margin:0 12px 6px;cursor:pointer">' +
+          '<div style="position:absolute;inset:0;background:var(--card3);border-radius:99px"></div>' +
+          '<div id="bc-age-fill" style="position:absolute;top:0;height:100%;background:var(--accent);border-radius:99px"></div>' +
+          '<div id="bc-age-lo" style="position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--card);border:2.5px solid var(--accent);box-shadow:0 1px 6px rgba(37,99,235,.35);transform:translate(-50%,-50%);cursor:grab;touch-action:none;z-index:2"></div>' +
+          '<div id="bc-age-hi" style="position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--card);border:2.5px solid var(--accent);box-shadow:0 1px 6px rgba(37,99,235,.35);transform:translate(-50%,-50%);cursor:grab;touch-action:none;z-index:2"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }
   return '';
 }
@@ -7792,9 +7795,55 @@ function bcAgeReset() {
   buildBroadcastFilterBar();
 }
 
-function _initBcAgeInputs() {
-  const el = document.getElementById('bc-age-min');
-  if (el) el.focus();
+function _initBcAgeInputs() { _initBcAgeSlider(); } // legacy alias
+
+function _initBcAgeSlider() {
+  const trackWrap = document.getElementById('bc-age-track-wrap');
+  const loH  = document.getElementById('bc-age-lo');
+  const hiH  = document.getElementById('bc-age-hi');
+  const fill = document.getElementById('bc-age-fill');
+  const lbl  = document.getElementById('bc-age-label');
+  if (!trackWrap || !loH || !hiH) return;
+
+  const MIN_AGE = 18, MAX_AGE = 70;
+  function valToPct(v) { return (v - MIN_AGE) / (MAX_AGE - MIN_AGE); }
+  function pctToVal(p) { return Math.round(MIN_AGE + p * (MAX_AGE - MIN_AGE)); }
+
+  function updateVis() {
+    const lo = _broadcastFilters.ageMin, hi = _broadcastFilters.ageMax;
+    const loP = valToPct(lo) * 100, hiP = valToPct(hi) * 100;
+    loH.style.left = loP + '%';
+    hiH.style.left = hiP + '%';
+    if (fill) { fill.style.left = loP + '%'; fill.style.width = (hiP - loP) + '%'; }
+    if (lbl)  lbl.textContent = lo + ' – ' + hi + ' yrs';
+  }
+  updateVis();
+
+  function startDrag(e, which) {
+    e.preventDefault();
+    const rect = trackWrap.getBoundingClientRect();
+    function onMove(ev) {
+      const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const val = pctToVal(pct);
+      if (which === 'lo') _broadcastFilters.ageMin = Math.min(val, _broadcastFilters.ageMax - 1);
+      else               _broadcastFilters.ageMax = Math.max(val, _broadcastFilters.ageMin + 1);
+      _broadcastFilters.ageMin = Math.max(MIN_AGE, _broadcastFilters.ageMin);
+      _broadcastFilters.ageMax = Math.min(MAX_AGE, _broadcastFilters.ageMax);
+      updateVis();
+      renderBroadcastList();
+    }
+    function onUp() {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup',   onUp);
+      buildBroadcastFilterBar();
+      saveBcFilters();
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup',   onUp);
+  }
+
+  loH.addEventListener('pointerdown', function(e) { startDrag(e, 'lo'); });
+  hiH.addEventListener('pointerdown', function(e) { startDrag(e, 'hi'); });
 }
 
 async function openBroadcastModal(joId) {
@@ -7971,15 +8020,13 @@ function renderBroadcastList() {
       <input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleBroadcastCand('${escAttr(c.id)}')">
       <div>
         <div class="bc-cand-name" onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.name)}${isNew ? ' <span style="font-size:9px;font-weight:700;background:rgba(22,163,74,.15);color:var(--green);border:1px solid rgba(22,163,74,.3);border-radius:4px;padding:0 4px">New</span>' : ''}</div>
-        <div class="bc-cand-id"   onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.id)}</div>
+        <div class="bc-cand-id" onclick="event.stopPropagation();openCandModal('${escAttr(c.id)}')">${escHtml(c.id)}${regLabel ? ' · <span style="color:var(--text3)">' + escHtml(regLabel) + '</span>' : ''}</div>
       </div>
       <div style="font-weight:700;color:${eraColor}">${era.score.toFixed(1)}</div>
       <div style="color:var(--text2)">${escHtml(c.jobTypeFormatted || c.jobType || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.cityFormatted || c.location || '—')}</div>
       <div style="color:var(--text2)">${escHtml(getEffectiveSetup(c) || '—')}</div>
       <div style="color:var(--text2)">${escHtml(c.expectedPay || '—')}</div>
-      <div style="color:var(--text3);font-size:11px">${escHtml(regLabel)}</div>
-      <div onclick="event.stopPropagation()"><button style="padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:10px;cursor:pointer;font-family:var(--sans)" onclick="openRemoveFromPoolModal('${escAttr(c.id)}');closeBroadcastModal()" title="Remove from pool">✕</button></div>
     </div>`;
   }).join('');
 
