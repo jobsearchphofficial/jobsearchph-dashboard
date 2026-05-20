@@ -4812,7 +4812,6 @@ function buildJOPanel(jo, joPlacements) {
       </div>
       <div class="jo-panel-actions" style="flex-direction:column;gap:6px;align-items:flex-end">
         <div style="display:flex;gap:6px">
-          <button class="btn btn-gold" onclick="openMatcherForJO('${escAttr(jo.id)}')">Match</button>
           <button class="btn btn-secondary btn-sm" onclick="openBroadcastModal('${escAttr(jo.id)}')">Broadcast</button>
           ${canAdd
             ? `<button class="btn btn-green" onclick="openAddPlacementModal('${escAttr(jo.id)}','${escAttr(jo.company)}','${escAttr(jo.position)}')">+ Add</button>`
@@ -5192,7 +5191,24 @@ function createPlacementRow(p, idx, joId) {
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
-  if (isReplacement) row.style.borderLeft = '3px solid var(--orange)';
+  // Color-coded left border by pipeline stage
+  const stageBorderColors = {
+    'Broadcasted':          '3px solid rgba(100,116,139,.45)',
+    'Confirmed Interested': '3px solid rgba(37,99,235,.6)',
+    'Called':               '3px solid rgba(37,99,235,.4)',
+    'Confirmed':            '3px solid rgba(37,99,235,.4)',
+    'For Employer Review':  '3px solid rgba(124,58,237,.6)',
+    'Interview Scheduled':  '3px solid rgba(234,88,12,.6)',
+    'Hired ✓':             '3px solid rgba(22,163,74,.7)',
+    'Rejected by Employer': '3px solid rgba(100,116,139,.3)',
+    'Rejected by Candidate':'3px solid rgba(100,116,139,.3)',
+    'Dropped / Unavailable':'3px solid rgba(100,116,139,.3)',
+  };
+  if (isReplacement) {
+    row.style.borderLeft = '3px solid var(--orange)';
+  } else if (stageBorderColors[savedStage]) {
+    row.style.borderLeft = stageBorderColors[savedStage];
+  }
   row.id = `prow-${pid}`;
 
   const contactVia = extra.contactVia || '';
@@ -6638,7 +6654,26 @@ function savePlacement() {
     updateStats();
   };
 
+  // Diagnostic: log why a candidate might not appear in the JO list
   if (candId) {
+    const _dbgC = candidates.find(function(x) { return x.id === candId; });
+    const _dbgAllP = [...placements, ...manualPlacements];
+    const _dbgAlreadyIn = _dbgAllP.some(function(p) { return p.jobOrderId === joId && p.candidateId === candId; });
+    console.group('%c[Add Placement Debug] ' + candName + ' (' + candId + ')', 'color:#1755ED;font-weight:700');
+    console.log('Blacklisted:', !!blacklist[candId]);
+    console.log('Removed from pool:', !!(candidateRatings[candId] && candidateRatings[candId].removedFromPool));
+    console.log('Globally hired:', isCandidateHired(candId));
+    console.log('Already in this JO (' + joId + '):', _dbgAlreadyIn);
+    console.log('In candidates array:', !!_dbgC);
+    if (_dbgAlreadyIn) {
+      const existing = _dbgAllP.filter(function(p) { return p.jobOrderId === joId && p.candidateId === candId; });
+      console.log('Existing placements in this JO:', existing);
+      const existingEx = existing.map(function(p) {
+        try { return JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) { return {}; }
+      });
+      console.log('Their prow_extra data:', existingEx);
+    }
+    console.groupEnd();
     checkDuplicateBeforeAdd(candId, candName, joId, doSave);
   } else {
     doSave();
@@ -7649,10 +7684,10 @@ let _broadcastJoId      = null;
 let _lastBroadcastJoId  = null; // tracks previous JO for selection persistence
 let _broadcastSelected  = new Set();
 let _bcSortBy           = 'era'; // 'era' | 'newest' | 'name'
-let _broadcastFilters   = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
+let _broadcastFilters   = { jobType:[], location:[], gender:[], ageMin:18, ageMax:55, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
 let _broadcastActivePanel = null;
 
-const BC_FILTER_DEFAULTS = { jobType:[], location:[], gender:[], ageMin:18, ageMax:65, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
+const BC_FILTER_DEFAULTS = { jobType:[], location:[], gender:[], ageMin:18, ageMax:55, payRange:[], eraScore:[], setup:[], activeStatus:'active' };
 
 function _bcFilterKey() {
   var uid = (currentUserEmail || 'anon').replace(/[.#$[\]/]/g, '_');
@@ -7679,7 +7714,7 @@ async function loadBcFilters() {
       location:     Array.isArray(node.location) ? node.location : [],
       gender:       Array.isArray(node.gender)   ? node.gender   : [],
       ageMin:       typeof node.ageMin === 'number' ? node.ageMin : 18,
-      ageMax:       typeof node.ageMax === 'number' ? node.ageMax : 65,
+      ageMax:       typeof node.ageMax === 'number' ? node.ageMax : 55,
       payRange:     Array.isArray(node.payRange)  ? node.payRange  : [],
       eraScore:     Array.isArray(node.eraScore)  ? node.eraScore  : [],
       setup:        Array.isArray(node.setup)     ? node.setup     : [],
@@ -7772,7 +7807,7 @@ function _buildBcBtnWrap(key, neutralLabel, prefix) {
   const f = _broadcastFilters;
   let isActive = false, label = neutralLabel;
   if (key === 'age') {
-    isActive = !(f.ageMin === 18 && f.ageMax === 65);
+    isActive = !(f.ageMin === 18 && f.ageMax === 55);
     label = isActive ? 'Age · '+f.ageMin+'–'+f.ageMax : neutralLabel;
   } else if (key === 'eraScore') {
     isActive = f.eraScore.length > 0;
@@ -7882,7 +7917,7 @@ function bcAgeCommit() {
 }
 
 function bcAgeReset() {
-  _broadcastFilters.ageMin = 18; _broadcastFilters.ageMax = 65;
+  _broadcastFilters.ageMin = 18; _broadcastFilters.ageMax = 55;
   saveBcFilters();
   renderBroadcastList();
   buildBroadcastFilterBar();
@@ -7898,7 +7933,7 @@ function _initBcAgeSlider() {
   const lbl  = document.getElementById('bc-age-label');
   if (!trackWrap || !loH || !hiH) return;
 
-  const MIN_AGE = 18, MAX_AGE = 70;
+  const MIN_AGE = 18, MAX_AGE = 55;
   function valToPct(v) { return (v - MIN_AGE) / (MAX_AGE - MIN_AGE); }
   function pctToVal(p) { return Math.round(MIN_AGE + p * (MAX_AGE - MIN_AGE)); }
 
