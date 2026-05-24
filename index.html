@@ -585,6 +585,22 @@
   .prow.prow-inactive { opacity: 0.55; }
   .prow.prow-inactive:hover { opacity: 0.8; }
 
+  /* Swipe-to-remove wrapper. Right-swipe slides the row over to reveal
+     a red "Remove" affordance on the left; clicking it confirms removal. */
+  .prow-swipe-wrap { position: relative; overflow: hidden; margin-bottom: 6px; border-radius: 10px; }
+  .prow-swipe-wrap > .prow { margin-bottom: 0; position: relative; transition: transform .18s ease; touch-action: pan-y; }
+  .prow-swipe-wrap.swipe-dragging > .prow { transition: none; }
+  .prow-swipe-wrap.swipe-open > .prow { transform: translateX(110px); }
+  .prow-remove-affordance {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 110px;
+    background: var(--red); color: #fff;
+    border: none; border-radius: 10px 0 0 10px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1; user-select: none;
+  }
+  .prow-remove-affordance:hover { filter: brightness(1.08); }
+
   .prow-header {
     display: flex; align-items: center; gap: 10px;
     padding: 9px 12px; cursor: pointer; user-select: none;
@@ -5229,6 +5245,148 @@ function getStatusPillClass(status, response) {
 const DISPOSITION_STAGES = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
 
+// Swipe-to-remove plumbing for the placement rows in "CANDIDATES IN THIS JOB ORDER".
+// Right-swipe (pointer moves right) past 60 px reveals a red Remove affordance.
+// Pre-hire accidents commit on swipe + tap. Hired and Replacement records show
+// an extra explicit confirm that names the stakes (fee record / guarantee linkage).
+// Removal HARD-deletes the placement entry from manualPlacements — it does NOT
+// set a Dropped stage and does NOT appear in any funnel bucket. The candidate
+// record in the Google Sheet is untouched.
+function _attachRowSwipe(row, wrap) {
+  let startX = 0, startY = 0;
+  let dragging = false;
+  let active = false;
+  let suppressClick = false;
+  let pointerId = null;
+  const OPEN_PX = 110;
+
+  row.addEventListener('pointerdown', function(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startX = e.clientX; startY = e.clientY;
+    dragging = false; active = true; pointerId = e.pointerId;
+  });
+
+  row.addEventListener('pointermove', function(e) {
+    if (!active || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!dragging) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        dragging = true;
+        wrap.classList.add('swipe-dragging');
+        try { row.setPointerCapture(pointerId); } catch(err) {}
+      } else if (Math.abs(dy) > 10) {
+        active = false; return; // vertical scroll, bail
+      } else {
+        return;
+      }
+    }
+    e.preventDefault();
+    suppressClick = true;
+    const base = wrap.classList.contains('swipe-open') ? OPEN_PX : 0;
+    const next = Math.max(0, Math.min(OPEN_PX, base + dx));
+    row.style.transform = 'translateX(' + next + 'px)';
+  });
+
+  function endDrag(e) {
+    if (e.pointerId !== pointerId) return;
+    if (dragging) {
+      const dx = e.clientX - startX;
+      const base = wrap.classList.contains('swipe-open') ? OPEN_PX : 0;
+      const finalX = Math.max(0, Math.min(OPEN_PX, base + dx));
+      row.style.transform = '';
+      wrap.classList.remove('swipe-dragging');
+      if (finalX > OPEN_PX / 2) wrap.classList.add('swipe-open');
+      else wrap.classList.remove('swipe-open');
+      try { row.releasePointerCapture(pointerId); } catch(err) {}
+    }
+    active = false; dragging = false; pointerId = null;
+  }
+  row.addEventListener('pointerup', endDrag);
+  row.addEventListener('pointercancel', endDrag);
+
+  // Beat existing onclick handlers (toggleProw, etc.) when the gesture was a drag.
+  row.addEventListener('click', function(e) {
+    if (suppressClick) {
+      e.stopPropagation();
+      e.preventDefault();
+      suppressClick = false;
+      return;
+    }
+    if (wrap.classList.contains('swipe-open')) {
+      // Tapping the row while the affordance is showing closes it instead of toggling open.
+      wrap.classList.remove('swipe-open');
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+}
+
+function _confirmRemovePlacement(pid) {
+  const idx = manualPlacements.findIndex(function(p) { return p.placementId === pid; });
+  if (idx < 0) {
+    showToast('Cannot remove this placement — record not in manual placements (legacy or Sheet-sourced).', 'red');
+    return;
+  }
+  const p = manualPlacements[idx];
+  const candName = p.candidateName || '(unknown candidate)';
+  const joId = p.jobOrderId;
+  const jo = jobOrders.find(function(j) { return j.id === joId; });
+
+  let ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+  const stage = getEffectiveStage(ex, p);
+  const isHired = stage === 'Hired ✓';
+  const isReplacement = p.isReplacement === true;
+
+  const lines = [];
+  if (isHired) {
+    let hd = {}; try { hd = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    const feeRaw = hd.feeAmount || (jo && jo.feeAmount) || '';
+    const feeStr = feeRaw ? ('₱' + String(feeRaw).replace(/^[₱$]+/, '')) : '(no fee recorded)';
+    lines.push('This is a HIRED placement: ' + candName + ' — fee ' + feeStr + '.');
+    lines.push('');
+    lines.push('Removing it will:');
+    lines.push('  • Erase the placement from this job order');
+    lines.push('  • Remove it from your Placements total');
+    lines.push('  • Erase the fee record');
+    lines.push('');
+    lines.push('This is NOT the same as marking the candidate Dropped — there will be no history of it.');
+  }
+  if (isReplacement) {
+    const origPid = p.replacementFor || '';
+    const orig = origPid ? manualPlacements.find(function(x) { return x.placementId === origPid; }) : null;
+    const origLabel = orig ? (orig.candidateName + ' (' + origPid + ')') : (origPid || 'unknown original');
+    if (lines.length) lines.push('');
+    else {
+      lines.push('Remove ' + candName + ' from this job order? Only the placement record is deleted; the candidate stays in the system.');
+      lines.push('');
+    }
+    lines.push('REPLACEMENT WARNING — this record is the replacement for: ' + origLabel + '.');
+    lines.push('Removing it will:');
+    lines.push('  • Break the replacementFor linkage to the original');
+    lines.push('  • Leave the original placement guarantee in a closed-but-orphaned state that may need to be manually re-issued or fixed');
+  }
+
+  if (!lines.length) {
+    // Plain pre-hire accident: swipe + tap is already the confirm. Just remove.
+    _removePlacement(idx);
+    return;
+  }
+  lines.push('');
+  lines.push('Proceed?');
+  if (confirm(lines.join('\n'))) {
+    _removePlacement(idx);
+  }
+}
+
+function _removePlacement(idx) {
+  const p = manualPlacements[idx];
+  manualPlacements.splice(idx, 1);
+  saveManualPlacements();
+  showToast('Removed ' + (p.candidateName || 'placement') + ' from this job order. The candidate is still in the system.', 'green');
+  renderJobOrders([...placements, ...manualPlacements]);
+}
+
 function createPlacementRow(p, idx, joId) {
   const pid = p.placementId || `${joId}_${p.candidateId}_${idx}`;
   const isReplacement = p.isReplacement === true;
@@ -5420,7 +5578,23 @@ function createPlacementRow(p, idx, joId) {
     </div>
   `;
 
-  return row;
+  // Wrap so the row can be right-swiped to reveal a Remove affordance.
+  const wrap = document.createElement('div');
+  wrap.className = 'prow-swipe-wrap';
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'prow-remove-affordance';
+  removeBtn.textContent = 'Remove';
+  removeBtn.title = 'Remove this placement from this job order (does not delete the candidate)';
+  removeBtn.onclick = function(e) {
+    e.stopPropagation();
+    wrap.classList.remove('swipe-open');
+    _confirmRemovePlacement(pid);
+  };
+  wrap.appendChild(removeBtn);
+  wrap.appendChild(row);
+  _attachRowSwipe(row, wrap);
+  return wrap;
 }
 
 function toggleProw(pid) {
