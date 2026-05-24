@@ -586,9 +586,14 @@
   .prow.prow-inactive:hover { opacity: 0.8; }
 
   /* Swipe-to-remove wrapper. Right-swipe slides the row over to reveal
-     a red "Remove" affordance on the left; clicking it confirms removal. */
+     a red "Remove" affordance on the left; clicking it confirms removal.
+     The prow MUST stack above the affordance (z-index 2 vs 1) so it
+     opaquely covers the button until the swipe-open class translates it
+     away. pointer-events on the button are gated on swipe-open as
+     defense-in-depth: even if z-index regresses, a hidden button cannot
+     receive clicks. */
   .prow-swipe-wrap { position: relative; overflow: hidden; margin-bottom: 6px; border-radius: 10px; }
-  .prow-swipe-wrap > .prow { margin-bottom: 0; position: relative; transition: transform .18s ease; touch-action: pan-y; }
+  .prow-swipe-wrap > .prow { margin-bottom: 0; position: relative; z-index: 2; transition: transform .18s ease; touch-action: pan-y; }
   .prow-swipe-wrap.swipe-dragging > .prow { transition: none; }
   .prow-swipe-wrap.swipe-open > .prow { transform: translateX(110px); }
   .prow-remove-affordance {
@@ -598,7 +603,10 @@
     font-weight: 700; font-size: 13px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     z-index: 1; user-select: none;
+    pointer-events: none;
   }
+  .prow-swipe-wrap.swipe-open .prow-remove-affordance,
+  .prow-swipe-wrap.swipe-dragging .prow-remove-affordance { pointer-events: auto; }
   .prow-remove-affordance:hover { filter: brightness(1.08); }
 
   .prow-header {
