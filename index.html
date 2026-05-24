@@ -582,8 +582,14 @@
     box-shadow: 0 1px 4px rgba(23,85,237,0.05);
   }
   .prow:hover { border-color: var(--accent3); box-shadow: 0 2px 8px rgba(23,85,237,0.1); }
-  .prow.prow-inactive { opacity: 0.55; }
-  .prow.prow-inactive:hover { opacity: 0.8; }
+  /* Dim only the inner content — NOT the prow itself — so the prow's opaque
+     background still covers the swipe-remove button beneath it. Applying
+     opacity to .prow itself made the whole element translucent, letting the
+     red Remove panel bleed through on every inactive row. */
+  .prow.prow-inactive > .prow-header,
+  .prow.prow-inactive > .prow-body { opacity: 0.55; }
+  .prow.prow-inactive:hover > .prow-header,
+  .prow.prow-inactive:hover > .prow-body { opacity: 0.8; }
 
   /* Swipe-to-remove wrapper. Right-swipe slides the row over to reveal
      a red "Remove" affordance on the left; clicking it confirms removal.
