@@ -1944,6 +1944,7 @@
   .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background .3s; }
   .sync-dot.synced  { background: var(--green); }
   .sync-dot.syncing { background: var(--orange); animation: sync-pulse 1s infinite; }
+  .sync-dot.stale   { background: var(--orange); }
   .sync-dot.error   { background: var(--red); }
   @keyframes sync-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 
@@ -2596,6 +2597,7 @@
   .sync-dot { transition: background var(--dur-base); }
   .sync-dot.synced  { background: var(--status-green); }
   .sync-dot.syncing { background: var(--status-amber); animation: pulse-dot 1s ease infinite; }
+  .sync-dot.stale   { background: var(--status-amber); }
   .sync-dot.error   { background: var(--status-red); }
 
   /* ── Briefing panel (Task 7 redesign) ── */
@@ -2877,7 +2879,8 @@
       },
       function(err) {
         console.error('[FB listener]', err.message);
-        if (window.setSyncStatus) window.setSyncStatus('error');
+        if (window._markListenerError) window._markListenerError(err.message);
+        else if (window.setSyncStatus) window.setSyncStatus('error');
       }
     );
   };
@@ -10137,11 +10140,42 @@ function setSyncStatus(status) {
   const lbl = document.getElementById('sync-label');
   if (!dot) return;
   dot.className = 'sync-dot ' + status;
-  if (status === 'synced')  lbl.textContent = 'Synced';
+  if (status === 'synced')       lbl.textContent = 'Synced';
   else if (status === 'syncing') lbl.textContent = 'Syncing';
+  else if (status === 'stale')   lbl.textContent = 'Stale?';
   else if (status === 'error')   lbl.textContent = 'Sync Error';
-  else lbl.textContent = 'Sync';
+  else                            lbl.textContent = 'Sync';
 }
+
+// Honest sync-pill state. "Synced" requires the realtime listener to have
+// applied a remote snapshot recently — not just send-success. Without this,
+// the pill could claim Synced after a write while the listener was silently
+// disconnected and other devices' changes were never received.
+const _SYNC_STALE_MS = 5 * 60 * 1000; // pill goes "Stale?" after this long with no remote event
+let _listenerEverFired = false;
+let _lastReceiveAt = 0;
+let _inFlightWrites = 0;
+let _lastSyncError = null;
+
+function _refreshSyncStatus() {
+  if (_lastSyncError) { setSyncStatus('error'); return; }
+  if (_inFlightWrites > 0 || Object.keys(_fbDebounceTimers).length > 0) {
+    setSyncStatus('syncing'); return;
+  }
+  if (!_listenerEverFired) { setSyncStatus('default'); return; }
+  if (Date.now() - _lastReceiveAt > _SYNC_STALE_MS) { setSyncStatus('stale'); return; }
+  setSyncStatus('synced');
+}
+
+// Passive tick — re-evaluates from local clock only, no Firebase call. Keeps the
+// pill from falsely claiming Synced when the listener has gone quiet.
+setInterval(function() { _refreshSyncStatus(); }, 30 * 1000);
+
+// Exposed for the module-scope onValue error callback.
+window._markListenerError = function(msg) {
+  _lastSyncError = msg || 'Listener error';
+  _refreshSyncStatus();
+};
 
 window._fbLastWrite = 0;
 
@@ -10210,7 +10244,8 @@ async function fbSync(path, data) {
     console.warn('[fbSync] SDK not ready, write queued locally for path:', path);
     return;
   }
-  setSyncStatus('syncing');
+  _inFlightWrites++;
+  _refreshSyncStatus();
   // Tag the write so the realtime listener can recognize its own echo on this device.
   // Plain objects get the tag embedded; arrays get a sibling meta path (no schema change).
   let payload = data;
@@ -10220,12 +10255,14 @@ async function fbSync(path, data) {
     window._fbSdkSet(path + '_meta', { _writtenBy: _deviceId, _writtenAt: Date.now() });
   }
   const ok = await window._fbSdkSet(path, payload);
+  _inFlightWrites = Math.max(0, _inFlightWrites - 1);
   if (!ok) {
-    setSyncStatus('error');
+    _lastSyncError = 'Write failed: ' + path;
+    _refreshSyncStatus();
     showToast('Cloud sync failed for ' + path.split('/')[0] + ' — data saved locally only. Check your connection.', 'red');
     return;
   }
-  setSyncStatus('synced');
+  _refreshSyncStatus();
 }
 
 const _fbDebounceTimers = {};
@@ -10240,6 +10277,7 @@ function fbSyncDebounced(path, data, delay) {
     delete _fbDebounceTimers[path];
     fbSync(path, pending);
   }, delay);
+  _refreshSyncStatus();
 }
 
 // Flush every pending debounced write immediately. Called when the tab is about
@@ -10269,9 +10307,12 @@ window._fbOnRemoteData = function(data) {
   if (!data) return;
   _applyFbData(data);
   loadLocal();
+  _listenerEverFired = true;
+  _lastReceiveAt = Date.now();
+  _lastSyncError = null;
   if (_isProwBodyFocused()) {
     _deferRenderUntilBlur();
-    setSyncStatus('synced');
+    _refreshSyncStatus();
     return;
   }
   var allP = [...placements, ...manualPlacements];
@@ -10279,7 +10320,7 @@ window._fbOnRemoteData = function(data) {
   renderJobOrders(allP);
   renderHiredTab();
   renderCandidates();
-  setSyncStatus('synced');
+  _refreshSyncStatus();
 };
 
 // Write all Firebase fields to localStorage — plain overwrite (Firebase is authoritative).
@@ -10446,10 +10487,16 @@ async function fbPullSilent() {
 
 async function loadFromFirebase() {
   if (typeof window._fbSdkGet !== 'function') return;
-  setSyncStatus('syncing');
+  _inFlightWrites++;
+  _refreshSyncStatus();
   try {
     const data = await window._fbSdkGet();
-    if (!data) { setSyncStatus('synced'); return; }
+    if (!data) {
+      _inFlightWrites = Math.max(0, _inFlightWrites - 1);
+      _listenerEverFired = true; _lastReceiveAt = Date.now(); _lastSyncError = null;
+      _refreshSyncStatus();
+      return;
+    }
 
     if (data.blacklist)           _fbMergeObj('blacklist',           data.blacklist);
     if (data.flagged_cands)       _fbMergeObj('flagged_cands',       data.flagged_cands);
@@ -10499,9 +10546,13 @@ async function loadFromFirebase() {
     renderJobOrders(allP);
     renderHiredTab();
     renderCandidates();
-    setSyncStatus('synced');
+    _inFlightWrites = Math.max(0, _inFlightWrites - 1);
+    _listenerEverFired = true; _lastReceiveAt = Date.now(); _lastSyncError = null;
+    _refreshSyncStatus();
   } catch(e) {
-    setSyncStatus('error');
+    _inFlightWrites = Math.max(0, _inFlightWrites - 1);
+    _lastSyncError = 'Load failed: ' + e.message;
+    _refreshSyncStatus();
     console.error('Firebase load error:', e.message);
   }
 }
@@ -10552,10 +10603,16 @@ async function pushAllToFirebase() {
     broadcast_log:       (function(){ try { return JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { return []; } })(),
     config:              { roles: getRoleConfig() }
   };
-  setSyncStatus('syncing');
+  _inFlightWrites++;
+  _refreshSyncStatus();
   const ok = await window._fbSdkSetRoot(payload);
-  if (!ok) throw new Error('Firebase write failed');
-  setSyncStatus('synced');
+  _inFlightWrites = Math.max(0, _inFlightWrites - 1);
+  if (!ok) {
+    _lastSyncError = 'Force push failed';
+    _refreshSyncStatus();
+    throw new Error('Firebase write failed');
+  }
+  _refreshSyncStatus();
 }
 
 function openSyncModal() {
