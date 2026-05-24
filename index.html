@@ -3750,8 +3750,10 @@ function applyRoleUI() {
   if (syncBtn) syncBtn.style.display = admin ? 'flex' : 'none';
   var apiBtn = document.getElementById('api-key-btn');
   if (apiBtn) apiBtn.style.display = admin ? '' : 'none';
+
+  // Quick Add: admins and coordinators (intake task)
   var qaBtn = document.getElementById('quick-add-btn');
-  if (qaBtn) qaBtn.style.display = admin ? '' : 'none';
+  if (qaBtn) qaBtn.style.display = (admin || coord) ? '' : 'none';
 }
 
 window._onUserRoleReady = function(email, uidRole) {
@@ -7432,14 +7434,6 @@ function _openCandModalInner(candId) {
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
           ${field('Last Contacted', lastContactedOverall ? (fmtDate(lastContactedOverall) + (lastContactedVia ? ' · ' + lastContactedVia : '')) : '—')}
-          <div class="cand-modal-field">
-            <div class="cand-modal-field-label">Source</div>
-            <div class="cand-modal-field-val">
-              <select onchange="setCandSource('${escAttr(c.id)}',this.value)" style="font-size:12px;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--text)">
-                ${['Unknown','Facebook Ad','Facebook Organic','Referral','Walk-in','Botcake Chatbot','Google Form','Other'].map(function(s){ var sel=(storedRating.source||'Unknown')===s?' selected':''; return '<option'+sel+'>'+s+'</option>'; }).join('')}
-              </select>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -9638,13 +9632,6 @@ function importPendingIntakeNotes(candId, name) {
   } catch(e) {}
 }
 
-function setCandSource(candId, source) {
-  if (!candidateRatings[candId]) candidateRatings[candId] = {};
-  candidateRatings[candId].source = source;
-  saveCandidateRatings();
-  showToast('Source updated: ' + source, 'green');
-}
-
 function deleteCandNote(candId, idx) {
   const notes = getCandNotes(candId);
   notes.splice(idx, 1);
@@ -11642,7 +11629,6 @@ function renderAnalyticsTab() {
 
   var navItems = [
     { key: 'trends',       label: 'Trends' },
-    { key: 'sources',      label: 'Sources' },
     { key: 'removals',     label: 'Pool Removals' },
     { key: 'cancellation', label: 'Cancellations' },
     { key: 'reopen',       label: 'Reopen Patterns' },
@@ -11660,7 +11646,6 @@ function renderAnalyticsTab() {
 
   var content = '';
   if (_analyticsSection === 'trends')       content = buildTrendsView();
-  else if (_analyticsSection === 'sources')    content = buildSourcesAnalysis();
   else if (_analyticsSection === 'removals')   content = buildRemovalsAnalysis();
   else if (_analyticsSection === 'cancellation') content = buildCancellationAnalysis();
   else if (_analyticsSection === 'reopen')   content = buildReopenAnalysis();
@@ -11722,80 +11707,6 @@ function buildRemovalsAnalysis() {
     (mRows ? '<div class="analytics-table-wrap" style="margin-top:16px"><table class="analytics-table"><thead><tr><th>Month</th>' +
       REASONS.map(function(r){ return '<th style="text-align:center;font-size:9px">' + r.split(' ')[0] + '</th>'; }).join('') +
       '<th>Total</th></tr></thead><tbody>' + mRows + '</tbody></table></div>' : '') + '</div>';
-}
-
-function buildSourcesAnalysis() {
-  var ALL_SOURCES = ['Facebook Ad','Facebook Organic','Referral','Walk-in','Botcake Chatbot','Google Form','Other','Unknown'];
-  var COLORS = { 'Facebook Ad':'#2563EB','Facebook Organic':'#7C3AED','Referral':'#16A34A','Walk-in':'#EA580C','Botcake Chatbot':'#D97706','Google Form':'#0284C7','Other':'#64748B','Unknown':'#94A3B8' };
-
-  var sourceCounts = {}, sourceERA = {}, sourcePlaced = {};
-  ALL_SOURCES.forEach(function(s) { sourceCounts[s]=0; sourceERA[s]=[]; sourcePlaced[s]=0; });
-
-  var hiredSet = new Set([...placements,...manualPlacements].filter(function(p) {
-    var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}');}catch(e){}
-    return (ex.status||p.status||'').toLowerCase()==='hired';
-  }).map(function(p){ return p.candidateId; }));
-
-  candidates.forEach(function(c) {
-    var src = (candidateRatings[c.id] && candidateRatings[c.id].source) || 'Unknown';
-    if (!sourceCounts[src] && src !== 'Unknown') { sourceCounts[src] = 0; sourceERA[src] = []; sourcePlaced[src] = 0; }
-    var key = ALL_SOURCES.includes(src) ? src : 'Other';
-    sourceCounts[key]++;
-    sourceERA[key].push(calcCandRating(c.id));
-    if (hiredSet.has(c.id)) sourcePlaced[key]++;
-  });
-
-  var totalCands = candidates.length;
-
-  // ── Donut chart (SVG) ──
-  var cxD = 90, cyD = 90, rOuter = 70, rInner = 40;
-  var sorted = Object.entries(sourceCounts).filter(function(e){ return e[1]>0; }).sort(function(a,b){ return b[1]-a[1]; });
-  var startAngle = -Math.PI / 2;
-  var slices = sorted.map(function(e) {
-    var src = e[0], cnt = e[1];
-    var sweep = (cnt / Math.max(1, totalCands)) * 2 * Math.PI;
-    var endAngle = startAngle + sweep;
-    var x1 = cxD + rOuter * Math.cos(startAngle), y1 = cyD + rOuter * Math.sin(startAngle);
-    var x2 = cxD + rOuter * Math.cos(endAngle),   y2 = cyD + rOuter * Math.sin(endAngle);
-    var xi1 = cxD + rInner * Math.cos(endAngle),  yi1 = cyD + rInner * Math.sin(endAngle);
-    var xi2 = cxD + rInner * Math.cos(startAngle), yi2 = cyD + rInner * Math.sin(startAngle);
-    var largeArc = sweep > Math.PI ? 1 : 0;
-    var d = 'M ' + x1 + ' ' + y1 + ' A ' + rOuter + ' ' + rOuter + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 +
-            ' L ' + xi1 + ' ' + yi1 + ' A ' + rInner + ' ' + rInner + ' 0 ' + largeArc + ' 0 ' + xi2 + ' ' + yi2 + ' Z';
-    startAngle = endAngle;
-    return '<path d="' + d + '" fill="' + (COLORS[src]||'#94A3B8') + '" opacity="0.88"/>';
-  }).join('');
-  var donut = '<svg width="180" height="180" viewBox="0 0 180 180">' + slices + '<text x="90" y="88" text-anchor="middle" font-size="18" font-weight="800" fill="var(--text)">' + totalCands + '</text><text x="90" y="102" text-anchor="middle" font-size="10" fill="var(--text3)">candidates</text></svg>';
-
-  // ── Legend ──
-  var legend = sorted.map(function(e) {
-    var src = e[0], cnt = e[1];
-    return '<div style="display:flex;align-items:center;gap:6px;font-size:12px">' +
-      '<span style="width:10px;height:10px;border-radius:50%;background:' + (COLORS[src]||'#94A3B8') + ';flex-shrink:0"></span>' +
-      escHtml(src) + ': <strong>' + cnt + '</strong></div>';
-  }).join('');
-
-  // ── Table ──
-  var rows = sorted.map(function(e) {
-    var src=e[0], cnt=e[1];
-    var avgEra = sourceERA[src].length ? (sourceERA[src].reduce(function(a,b){return a+b;},0)/sourceERA[src].length).toFixed(1) : '—';
-    var placed = sourcePlaced[src];
-    var rate = cnt>0 ? Math.round(placed/cnt*100)+'%' : '—';
-    var pct = totalCands>0 ? Math.round(cnt/totalCands*100) : 0;
-    return '<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (COLORS[src]||'#94A3B8') + ';margin-right:6px"></span>' + escHtml(src) + '</td>' +
-      '<td style="font-family:var(--mono)">' + cnt + ' (' + pct + '%)</td>' +
-      '<td style="font-family:var(--mono)">' + avgEra + '</td>' +
-      '<td style="font-family:var(--mono)">' + placed + '</td>' +
-      '<td style="font-family:var(--mono);color:' + (placed>0?'var(--green)':'var(--text3)') + ';font-weight:700">' + rate + '</td></tr>';
-  }).join('');
-
-  return '<div class="analytics-section"><div class="analytics-section-title">Candidate Sources</div>' +
-    '<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:20px">' +
-    '<div>' + donut + '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:8px">' + legend + '</div>' +
-    '</div>' +
-    '<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Source</th><th>Candidates</th><th>Avg ERA</th><th>Hired</th><th>Placement Rate</th></tr></thead><tbody>' +
-    (rows||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">No source data. Set source on candidate profiles.</td></tr>') + '</tbody></table></div></div>';
 }
 
 function buildTrendsView() {
