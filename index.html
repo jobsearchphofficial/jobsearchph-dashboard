@@ -8534,9 +8534,10 @@ function _renderWalker() {
         escHtml(shortMsg) +
       '</pre>' +
       '<div style="display:flex;flex-direction:column;gap:8px">' +
-        '<button class="btn btn-primary" onclick="_walkerCopyIntro()" ' +
-          (fbName ? '' : 'title="No FB name on record — Messenger search will open empty"') +
-          '>Copy & Open Messenger</button>' +
+        '<button class="btn btn-primary" onclick="_walkerCopyName()"' +
+          (fbName ? '' : ' disabled title="No FB name on record"') +
+          '>Copy name</button>' +
+        '<button class="btn btn-blue" onclick="_walkerCopyMessage()">Copy message</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="_walkerCopyFull()">Copy full details (for after candidate replies YES)</button>' +
         '<div style="display:flex;gap:8px;margin-top:6px">' +
           '<button class="btn btn-ghost" style="flex:1" onclick="_walkerSkip()">Skip</button>' +
@@ -8546,7 +8547,37 @@ function _renderWalker() {
     '</div>';
 }
 
-function _walkerCopyIntro() {
+// Copy candidate FB name — this is the mark-on-copy trigger. Copying the name
+// is the moment the owner commits to reaching out, so it writes the Broadcasted
+// placement entry. The owner pastes the name into Facebook search themselves;
+// no automatic window.open (broadcast candidates often have generic / duplicate
+// names so the auto-search produced mostly wrong matches).
+function _walkerCopyName() {
+  if (!_walker) return;
+  const w = _walker;
+  const candId = w.candIds[w.idx];
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return;
+  const name = c.facebook || c.name || '';
+  if (!name) return;
+  const after = function() {
+    if (!w.alreadyInIds.has(candId)) {
+      _walkerMarkBroadcasted(candId);
+    }
+    showToast('Name copied — paste into Facebook search.', 'green');
+    _renderWalker();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(name).then(after).catch(function() { fallbackCopy(name); after(); });
+  } else {
+    fallbackCopy(name);
+    after();
+  }
+}
+
+// Pure clipboard for the short intro — no marking, no side effects. Marking
+// already happened on Copy name; Copy message can be re-clicked freely.
+function _walkerCopyMessage() {
   if (!_walker) return;
   const w = _walker;
   const candId = w.candIds[w.idx];
@@ -8554,28 +8585,12 @@ function _walkerCopyIntro() {
   const jo = jobOrders.find(function(j) { return j.id === w.joId; });
   if (!c || !jo) return;
   const shortMsg = buildShortBroadcastMessage(jo, c);
-  const fbName = c.facebook || c.name || '';
-  const fbSearch = fbName
-    ? 'https://www.facebook.com/search/people/?q=' + encodeURIComponent(fbName)
-    : 'https://www.facebook.com/messages/';
-  const doOpenAndMark = function() {
-    // Open Messenger / FB people search in a new tab — must run during the same
-    // user gesture as the click so the popup blocker does not eat it.
-    window.open(fbSearch, '_blank');
-    if (!w.alreadyInIds.has(candId)) {
-      _walkerMarkBroadcasted(candId);
-    }
-    showToast('Intro copied. Paste into the Messenger chat with ' + (fbName || c.name) + '.', 'green');
-    _renderWalker(); // refresh to show the "Marked Broadcasted" badge
-  };
+  const after = function() { showToast('Intro message copied — paste into the Messenger chat.', 'green'); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(shortMsg).then(doOpenAndMark).catch(function() {
-      fallbackCopy(shortMsg);
-      doOpenAndMark();
-    });
+    navigator.clipboard.writeText(shortMsg).then(after).catch(function() { fallbackCopy(shortMsg); after(); });
   } else {
     fallbackCopy(shortMsg);
-    doOpenAndMark();
+    after();
   }
 }
 
