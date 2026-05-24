@@ -3604,6 +3604,13 @@ function doLogin(){
   </div>
 </div>
 
+<!-- ─── BROADCAST WALKER MODAL (send-assist, manual send) ─── -->
+<div class="modal-overlay" id="modal-bc-walker" onclick="if(event.target===this)_walkerClose()">
+  <div class="modal" style="max-width:560px">
+    <div id="bc-walker-body"></div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 // THEME (light / dark)
@@ -7703,9 +7710,7 @@ function confirmCancelJO() {
   showToast('Job Order ' + joId + ' cancelled – ' + reason, 'red');
 }
 
-function copyJobDetails(joId) {
-  const jo = jobOrders.find(j => j.id === joId);
-  if (!jo) return;
+function buildFullJobDetailsText(jo) {
   const toBullets = (text) => {
     if (!text || !text.trim()) return '';
     const items = text.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
@@ -7714,7 +7719,7 @@ function copyJobDetails(joId) {
   const parts = ['JOB OPENING — Job Search PH', ''];
   if (jo.position) parts.push('Position: ' + jo.position);
   if (jo.address)  parts.push('Location: ' + jo.address);
-  if (jo.salary)   parts.push('Salary: ₱' + jo.salary.replace(/^[₱$]+/, '') + '/month');
+  if (jo.salary)   parts.push('Salary: ₱' + String(jo.salary).replace(/^[₱$]+/, '') + '/month');
   if (jo.workSchedule) parts.push('Setup: ' + jo.workSchedule);
   const qualLines = [];
   if (jo.genderPref)  qualLines.push('• Gender Pref: ' + jo.genderPref);
@@ -7731,7 +7736,28 @@ function copyJobDetails(joId) {
   if (jo.otherNotes) { parts.push(''); parts.push('ABOUT THE EMPLOYER'); parts.push(jo.otherNotes); }
   parts.push('');
   parts.push('Interested? Message us to apply!');
-  const text = parts.join('\n');
+  return parts.join('\n');
+}
+
+// Short Taglish intro used by the broadcast walker — leads with the three
+// deciders (role, location, salary) plus setup. Keeps the first contact short;
+// the long buildFullJobDetailsText output is sent only after the candidate replies YES.
+function buildShortBroadcastMessage(jo, c) {
+  const fullName = ((c && (c.name || c.facebook)) || '').trim();
+  const firstName = fullName.split(/\s+/)[0] || 'po';
+  const bits = [];
+  if (jo.position)     bits.push(jo.position);
+  if (jo.address)      bits.push(jo.address);
+  if (jo.salary)       bits.push('₱' + String(jo.salary).replace(/^[₱$]+/, '') + '/month');
+  if (jo.workSchedule) bits.push(jo.workSchedule);
+  const offer = bits.length ? bits.join(', ') : 'job opening';
+  return 'Hi ' + firstName + '! May opening kami: ' + offer + '.\n\nInterested ka? Reply YES and isend ko ang complete details.';
+}
+
+function copyJobDetails(joId) {
+  const jo = jobOrders.find(j => j.id === joId);
+  if (!jo) return;
+  const text = buildFullJobDetailsText(jo);
   const btnId = 'copy-jo-btn-' + joId.replace(/[^a-z0-9]/gi, '');
   const finish = () => {
     const btn = document.getElementById(btnId);
@@ -8262,54 +8288,225 @@ function updateBroadcastCount() {
   if (footer) footer.textContent = n + ' candidate' + (n !== 1 ? 's' : '') + ' selected';
 }
 
+// SEND-ASSIST WALKER — see comment at _walkerStart for the manual-send contract.
+let _walker = null;
+
 function broadcastSelected() {
   if (!_broadcastJoId || !_broadcastSelected.size) return;
-  const today = new Date().toISOString().split('T')[0];
-  const jo = jobOrders.find(function(j) { return j.id === _broadcastJoId; });
-  let added = 0;
-  const broadcastedNames = [];
-  const broadcastedIds = [];
-  _broadcastSelected.forEach(candId => {
-    const c = candidates.find(x => x.id === candId);
-    if (!c) return;
-    const alreadyIn = [...placements, ...manualPlacements].some(p => p.jobOrderId === _broadcastJoId && p.candidateId === candId);
-    if (alreadyIn) return;
-    const pid = _broadcastJoId + '_' + candId + '_bc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    manualPlacements.push({
-      placementId: pid,
-      jobOrderId: _broadcastJoId,
-      candidateId: c.id,
-      candidateName: c.name,
-      status: 'Broadcasted',
-      dispositionStage: 'Broadcasted',
-      date: today,
-      source: 'broadcast',
+  _walkerStart(_broadcastJoId, [..._broadcastSelected]);
+}
+
+// _walkerStart: open a one-at-a-time stepper over the selected candidate list.
+// HARD RULE: this never auto-sends a Messenger message. The "Copy & Open Messenger"
+// button copies the short personalized intro to the clipboard and opens Facebook
+// People-search pre-filled with the candidate's FB name; the human owner clicks
+// the right profile, opens Message, pastes, and sends manually.
+// Broadcasted is marked on Copy click (not on Next) — accepts the rare over-log of
+// abandoned-after-copy in exchange for never losing a half-walked batch.
+function _walkerStart(joId, candIds) {
+  _walker = {
+    joId: joId,
+    candIds: candIds.slice(),
+    idx: 0,
+    markedIds: new Set(),    // those we wrote a manualPlacements entry for
+    skippedIds: new Set(),   // those the owner explicitly Skipped without copying
+    alreadyInIds: new Set(), // those already in the JO before we started
+  };
+  // Pre-compute already-in-JO so the walker can show the badge consistently
+  const existing = new Set([...placements, ...manualPlacements]
+    .filter(function(p) { return p.jobOrderId === joId; })
+    .map(function(p) { return p.candidateId; }));
+  candIds.forEach(function(id) { if (existing.has(id)) _walker.alreadyInIds.add(id); });
+  closeBroadcastModal();
+  openModal('modal-bc-walker');
+  _renderWalker();
+}
+
+function _renderWalker() {
+  if (!_walker) return;
+  const wrap = document.getElementById('bc-walker-body');
+  if (!wrap) return;
+  const w = _walker;
+  if (w.idx >= w.candIds.length) { _walkerFinish(); return; }
+  const candId = w.candIds[w.idx];
+  const c = candidates.find(function(x) { return x.id === candId; });
+  const jo = jobOrders.find(function(j) { return j.id === w.joId; });
+  if (!c || !jo) { w.idx++; _renderWalker(); return; }
+  const isDup = w.alreadyInIds.has(candId);
+  const wasMarked = w.markedIds.has(candId);
+  const fbName = c.facebook || c.name || '';
+  const shortMsg = buildShortBroadcastMessage(jo, c);
+  const dupBadge = isDup
+    ? '<div style="background:rgba(234,88,12,.12);border:1px solid rgba(234,88,12,.4);color:var(--orange);font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;margin-bottom:10px">Already in this JO — copy will not re-mark Broadcasted.</div>'
+    : '';
+  const markedBadge = wasMarked
+    ? '<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.4);color:var(--green);font-size:11px;font-weight:700;padding:6px 10px;border-radius:8px;margin-bottom:10px">Marked Broadcasted on this device.</div>'
+    : '';
+  wrap.innerHTML =
+    '<div style="padding:20px 24px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">' +
+          'Broadcast Walker · ' + (w.idx + 1) + ' of ' + w.candIds.length +
+        '</div>' +
+        '<button class="btn btn-ghost btn-sm" onclick="_walkerClose()">Close</button>' +
+      '</div>' +
+      dupBadge + markedBadge +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:2px">' + escHtml(c.name) + '</div>' +
+      '<div style="font-size:12px;color:var(--text2);margin-bottom:14px">' +
+        escHtml(c.id) + (fbName ? ' · FB: <strong>' + escHtml(fbName) + '</strong>' : ' · no FB name on record') +
+      '</div>' +
+      '<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Short intro (clipboard)</div>' +
+      '<pre id="bc-walker-msg" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:var(--text);margin:0 0 16px">' +
+        escHtml(shortMsg) +
+      '</pre>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<button class="btn btn-primary" onclick="_walkerCopyIntro()" ' +
+          (fbName ? '' : 'title="No FB name on record — Messenger search will open empty"') +
+          '>Copy & Open Messenger</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="_walkerCopyFull()">Copy full details (for after candidate replies YES)</button>' +
+        '<div style="display:flex;gap:8px;margin-top:6px">' +
+          '<button class="btn btn-ghost" style="flex:1" onclick="_walkerSkip()">Skip</button>' +
+          '<button class="btn btn-green" style="flex:2" onclick="_walkerNext()">Next →</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function _walkerCopyIntro() {
+  if (!_walker) return;
+  const w = _walker;
+  const candId = w.candIds[w.idx];
+  const c = candidates.find(function(x) { return x.id === candId; });
+  const jo = jobOrders.find(function(j) { return j.id === w.joId; });
+  if (!c || !jo) return;
+  const shortMsg = buildShortBroadcastMessage(jo, c);
+  const fbName = c.facebook || c.name || '';
+  const fbSearch = fbName
+    ? 'https://www.facebook.com/search/people/?q=' + encodeURIComponent(fbName)
+    : 'https://www.facebook.com/messages/';
+  const doOpenAndMark = function() {
+    // Open Messenger / FB people search in a new tab — must run during the same
+    // user gesture as the click so the popup blocker does not eat it.
+    window.open(fbSearch, '_blank');
+    if (!w.alreadyInIds.has(candId)) {
+      _walkerMarkBroadcasted(candId);
+    }
+    showToast('Intro copied. Paste into the Messenger chat with ' + (fbName || c.name) + '.', 'green');
+    _renderWalker(); // refresh to show the "Marked Broadcasted" badge
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shortMsg).then(doOpenAndMark).catch(function() {
+      fallbackCopy(shortMsg);
+      doOpenAndMark();
     });
-    broadcastedNames.push(c.name);
-    broadcastedIds.push(c.id);
-    added++;
+  } else {
+    fallbackCopy(shortMsg);
+    doOpenAndMark();
+  }
+}
+
+function _walkerCopyFull() {
+  if (!_walker) return;
+  const jo = jobOrders.find(function(j) { return j.id === _walker.joId; });
+  if (!jo) return;
+  const text = buildFullJobDetailsText(jo);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('Full job details copied.', 'green');
+    }).catch(function() {
+      fallbackCopy(text);
+      showToast('Full job details copied.', 'green');
+    });
+  } else {
+    fallbackCopy(text);
+    showToast('Full job details copied.', 'green');
+  }
+}
+
+function _walkerMarkBroadcasted(candId) {
+  if (!_walker) return;
+  const w = _walker;
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return;
+  const today = new Date().toISOString().split('T')[0];
+  const pid = w.joId + '_' + candId + '_bc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  manualPlacements.push({
+    placementId: pid,
+    jobOrderId: w.joId,
+    candidateId: c.id,
+    candidateName: c.name,
+    status: 'Broadcasted',
+    dispositionStage: 'Broadcasted',
+    date: today,
+    source: 'broadcast',
   });
-  if (added) {
-    saveManualPlacements();
-    showToast('Broadcasted to ' + added + ' candidate' + (added !== 1 ? 's' : ''), 'green');
-    // Save broadcast log entry
-    var logEntry = {
+  saveManualPlacements();
+  w.markedIds.add(candId);
+}
+
+function _walkerNext() {
+  if (!_walker) return;
+  _walker.idx++;
+  _renderWalker();
+}
+
+function _walkerSkip() {
+  if (!_walker) return;
+  const candId = _walker.candIds[_walker.idx];
+  if (candId && !_walker.markedIds.has(candId)) {
+    _walker.skippedIds.add(candId);
+  }
+  _walker.idx++;
+  _renderWalker();
+}
+
+function _walkerFinish() {
+  if (!_walker) return;
+  const w = _walker;
+  const jo = jobOrders.find(function(j) { return j.id === w.joId; });
+  // One broadcast_log entry per walker session, listing only actually-marked candidates.
+  if (w.markedIds.size > 0) {
+    const markedIds = [...w.markedIds];
+    const markedNames = markedIds.map(function(id) {
+      const c = candidates.find(function(x) { return x.id === id; });
+      return c ? c.name : id;
+    });
+    const logEntry = {
       ts: new Date().toISOString(),
-      joId: _broadcastJoId,
-      employer: jo ? jo.company : _broadcastJoId,
-      candIds: broadcastedIds,
-      candNames: broadcastedNames,
-      count: added
+      joId: w.joId,
+      employer: jo ? jo.company : w.joId,
+      candIds: markedIds,
+      candNames: markedNames,
+      count: markedIds.length
     };
-    var log = [];
+    let log = [];
     try { log = JSON.parse(localStorage.getItem('broadcast_log') || '[]'); } catch(e) { log = []; }
     log.unshift(logEntry);
     if (log.length > 50) log = log.slice(0, 50);
     localStorage.setItem('broadcast_log', JSON.stringify(log));
     fbSync('broadcast_log', log);
   }
-  closeBroadcastModal();
-  renderJobOrders([...placements, ...manualPlacements]);
+  const wrap = document.getElementById('bc-walker-body');
+  if (wrap) {
+    wrap.innerHTML =
+      '<div style="padding:30px 24px;text-align:center">' +
+        '<div style="font-size:36px;margin-bottom:8px;color:var(--green)">✓</div>' +
+        '<div style="font-size:18px;font-weight:800;margin-bottom:6px">Walker complete</div>' +
+        '<div style="font-size:13px;color:var(--text2);margin-bottom:20px">' +
+          w.markedIds.size + ' marked Broadcasted · ' +
+          w.skippedIds.size + ' skipped · ' +
+          w.alreadyInIds.size + ' already in JO' +
+        '</div>' +
+        '<button class="btn btn-primary" onclick="_walkerClose()">Close</button>' +
+      '</div>';
+  }
+}
+
+function _walkerClose() {
+  closeModal('modal-bc-walker');
+  const hadWork = _walker && _walker.markedIds.size > 0;
+  _walker = null;
+  if (hadWork) renderJobOrders([...placements, ...manualPlacements]);
 }
 
 function showBroadcastHistory() {
