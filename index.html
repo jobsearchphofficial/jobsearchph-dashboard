@@ -4235,7 +4235,7 @@ function repairShiftedPlacements() {
   localStorage.setItem(flag, '1');
 }
 
-async function loadAll() {
+async function loadAll(opts) {
   loadLocal();
   repairShiftedPlacements();
   // Apply role from already-set email (may have been set by onAuthStateChanged before loadAll)
@@ -4508,13 +4508,33 @@ async function loadAll() {
   // Merge manual placements
   const allPlacements = [...placements, ...manualPlacements];
 
-  checkDelayedCloses();
-  checkPoolRemovals(); // auto-reactivate candidates whose availableFrom date has passed
+  // Time-based maintenance always runs, regardless of skipRenderIfUnchanged —
+  // a JO past its delayed-close date must close on schedule even on a quiet poll.
+  const _delayedMutated = checkDelayedCloses();
+  const _poolMutated    = checkPoolRemovals(); // auto-reactivate candidates whose availableFrom passed
+  checkUrgentAlerts(); // pure read + toast, no main-render dependency
+  const _maintenanceMutated = _delayedMutated || _poolMutated;
+
+  // Skip DOM rebuild when caller (poll) passed snapshots, IDs are unchanged,
+  // and no maintenance function mutated state. Keeps idle polls cheap without
+  // letting time-based transitions stay invisible.
+  if (opts && opts.skipRenderIfUnchanged && opts.oldCandIds && opts.oldJoIds) {
+    const _newCandIds = candidates.map(c => c.id);
+    const _newJoIds   = jobOrders.map(j => j.id);
+    const _sameCands = _newCandIds.length === opts.oldCandIds.size
+      && _newCandIds.every(id => opts.oldCandIds.has(id));
+    const _sameJos = _newJoIds.length === opts.oldJoIds.size
+      && _newJoIds.every(id => opts.oldJoIds.has(id));
+    if (_sameCands && _sameJos && !_maintenanceMutated) {
+      updateTimestamp(); // keep the "last updated" pill honest even when nothing rebuilt
+      return;
+    }
+  }
+
   updateStats();
   migrateJobOrderEvents(); // one-time migration; no-op after first run
   renderJobOrders(allPlacements);
   renderHiredTab();
-  checkUrgentAlerts();
   renderCandidates();
   populateMatcherDropdown();
   populateFilterDropdowns();
@@ -6644,6 +6664,7 @@ function checkPoolRemovals() {
     }
   });
   if (changed) saveCandidateRatings();
+  return changed;
 }
 
 // ═══════════════════════════════════════════════
@@ -8474,14 +8495,17 @@ function confirmFulfill(joId) {
 // Check for delayed closes on load
 function checkDelayedCloses() {
   const now = new Date();
+  let mutated = false;
   jobOrders.forEach(jo => {
     const key = `jo_delayed_close_${jo.id}`;
     const closeDate = localStorage.getItem(key);
     if (closeDate && new Date(closeDate) <= now && jo.status === 'Active') {
       changeJOStatus(jo.id, 'Fulfilled');
       localStorage.removeItem(key);
+      mutated = true;
     }
   });
+  return mutated;
 }
 
 // ═══════════════════════════════════════════════
@@ -9811,6 +9835,35 @@ async function refreshAll() {
   }
   await loadAll();
 }
+
+// ═══════════════════════════════════════════════
+// SHEETS POLL — surface new Google Form submissions live
+// ═══════════════════════════════════════════════
+const SHEETS_POLL_MS = 120 * 1000;
+let _pollInFlight = false;
+async function _pollSheets() {
+  if (_pollInFlight || document.hidden) return;
+  // Skip poll if any editable element has focus — re-render would blow away
+  // an in-progress edit anywhere in the dashboard, not just prow rows.
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
+  _pollInFlight = true;
+  try {
+    const oldCandIds = new Set(candidates.map(c => c.id));
+    const oldJoIds   = new Set(jobOrders.map(j => j.id));
+    await loadAll({ skipRenderIfUnchanged: true, oldCandIds, oldJoIds });
+    const addedCands = candidates.filter(c => !oldCandIds.has(c.id));
+    if (addedCands.length > 0) {
+      showToast(addedCands.length + ' new candidate' + (addedCands.length === 1 ? '' : 's') + ' added', 'green');
+    }
+    const addedJos = jobOrders.filter(j => !oldJoIds.has(j.id));
+    if (addedJos.length > 0) {
+      showToast(addedJos.length + ' new job order' + (addedJos.length === 1 ? '' : 's') + ' added', 'green');
+    }
+  } catch (e) { console.warn('[pollSheets]', e.message); }
+  finally { _pollInFlight = false; }
+}
+setInterval(_pollSheets, SHEETS_POLL_MS);
 
 // ═══════════════════════════════════════════════
 // MESSAGE TEMPLATES
