@@ -10229,11 +10229,36 @@ async function fbSync(path, data) {
 }
 
 const _fbDebounceTimers = {};
+const _fbPendingData = {};
 function fbSyncDebounced(path, data, delay) {
   delay = delay || 900;
   clearTimeout(_fbDebounceTimers[path]);
-  _fbDebounceTimers[path] = setTimeout(() => fbSync(path, data), delay);
+  _fbPendingData[path] = data;
+  _fbDebounceTimers[path] = setTimeout(() => {
+    const pending = _fbPendingData[path];
+    delete _fbPendingData[path];
+    delete _fbDebounceTimers[path];
+    fbSync(path, pending);
+  }, delay);
 }
+
+// Flush every pending debounced write immediately. Called when the tab is about
+// to be hidden or unloaded so writes inside the 900 ms window are not lost.
+// Best-effort: the underlying SDK call is async, but firing it before unload
+// gives the browser a chance to complete the request in-flight.
+function _fbFlushPending() {
+  Object.keys(_fbDebounceTimers).forEach(function(path) {
+    clearTimeout(_fbDebounceTimers[path]);
+    const data = _fbPendingData[path];
+    delete _fbPendingData[path];
+    delete _fbDebounceTimers[path];
+    if (data !== undefined) fbSync(path, data);
+  });
+}
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') _fbFlushPending();
+});
+window.addEventListener('pagehide', _fbFlushPending);
 
 // Called by the onValue listener whenever Firebase data changes.
 // _applyFbData skips paths that this device just wrote (per-path device-id check).
