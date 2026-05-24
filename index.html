@@ -4445,10 +4445,11 @@ async function loadAll() {
   }
 
   // JOB REQUESTS (Row 1 = title, Row 2 = headers, data from Row 3)
-  // Actual columns: A=ID, B=Timestamp, C=Company, D=Contact Person, E=Contact#, F=Email,
-  // G=Address, H=Job Title/Position, I=Position (detailed), J=Slots, K=Work Schedule,
-  // L=Civil Status req, M=Marital Status, N=Gender Pref, O=Skills Needed, P=Experience,
-  // Q=Rate/Salary, R=Benefits, S=Tools/Equipment, T=Other Notes, U=JO Status, V=Workers Filled, W=Fee Rate, X=Fee Amount
+  // Columns: A=ID, B=Timestamp, C=Employer/Contact Person (merged), D=Contact#,
+  // E=Location/Barangay, F=Email, G=Education, H=Website, I=Job Title/Position,
+  // J=Vacancies, K=Job Type, L=Duties, M=Marital Status, N=Age/Gender Pref,
+  // O=Skills Needed, P=Experience, Q=Rate/Salary, R=Benefits, S=Schedule/Tools,
+  // T=Other Notes, U=JO Status, V=Workers Filled, W=Fee Rate, X=Fee Amount, Y=Remarks
   if (results[1].status === 'fulfilled') {
     const rows = results[1].value;
     // Find first data row (where col A looks like JO ID e.g. JOO-01)
@@ -4460,15 +4461,17 @@ async function loadAll() {
       id: r[0].trim() || '',
       timestamp: r[1] || '',
       company: r[2] || '',
-      contactPerson: r[3] || '',
-      contactPhone: r[4] || '',
+      contactPhone: r[3] || '',
+      address: r[4] || '',
       contactEmail: r[5] || '',
-      address: r[6] || '',
-      jobTitle: r[7] || '',
+      education: r[6] || '',
+      website: r[7] || '',
+      jobTitle: r[8] || '',
       position: r[8] || '',
       slots: r[9] || '',
       workSchedule: r[10] || '',
-      civilStatus: r[11] || '',
+      duties: r[11] || '',
+      maritalStatus: r[12] || '',
       genderPref: r[13] || '',
       skillsNeeded: r[14] || '',
       experience: r[15] || '',
@@ -4479,6 +4482,7 @@ async function loadAll() {
       sheetStatus: (r[20] || '').trim(),
       feeRate: r[22] || '',
       feeAmount: r[23] || '',
+      remarks: r[24] || '',
     }));
     // Apply localStorage status overrides, show all non-cancelled unless toggled
     jobOrders = allJobOrders.map(jo => ({
@@ -7690,11 +7694,14 @@ function copyJobDetails(joId) {
   if (jo.workSchedule) parts.push('Setup: ' + jo.workSchedule);
   const qualLines = [];
   if (jo.genderPref)  qualLines.push('• Gender Pref: ' + jo.genderPref);
-  if (jo.civilStatus) qualLines.push('• Civil Status: ' + jo.civilStatus);
   if (jo.experience)  qualLines.push('• Experience: ' + jo.experience);
   if (qualLines.length) { parts.push(''); parts.push('QUALIFICATIONS'); parts.push(qualLines.join('\n')); }
-  const dutiesBullets = toBullets(jo.skillsNeeded);
+  const dutiesBullets = toBullets(jo.duties || jo.skillsNeeded);
   if (dutiesBullets) { parts.push(''); parts.push('DUTIES & RESPONSIBILITIES'); parts.push(dutiesBullets); }
+  if (jo.duties && jo.skillsNeeded) {
+    const skillsBullets = toBullets(jo.skillsNeeded);
+    if (skillsBullets) { parts.push(''); parts.push('SKILLS NEEDED'); parts.push(skillsBullets); }
+  }
   const benefitsBullets = toBullets(jo.benefits);
   if (benefitsBullets) { parts.push(''); parts.push('BENEFITS'); parts.push(benefitsBullets); }
   if (jo.otherNotes) { parts.push(''); parts.push('ABOUT THE EMPLOYER'); parts.push(jo.otherNotes); }
