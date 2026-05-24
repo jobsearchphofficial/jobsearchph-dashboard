@@ -4750,7 +4750,7 @@ function renderJobOrders(allPlacements) {
     const statusColors = {'Active':'var(--accent)','On Hold':'var(--orange)','Fulfilled':'var(--green)','Cancelled':'var(--red)'};
     const _getEx = p => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(e){}; return ex; };
     const broadcastedC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Broadcasted').length;
-    const confirmedC = joPlacements.filter(p => { const st = getEffectiveStage(_getEx(p), p); return st === 'Confirmed Interested' || st === 'For Employer Review' || st === 'Interview Scheduled'; }).length;
+    const confirmedC = joPlacements.filter(p => { const st = getEffectiveStage(_getEx(p), p); return st === 'Confirmed Interested' || st === 'Called / Verified' || st === 'For Employer Review' || st === 'Interview Scheduled' || st === 'Pending Requirements'; }).length;
     const hiredC = joPlacements.filter(p => getEffectiveStage(_getEx(p), p) === 'Hired ✓').length;
 
     // Age badge — uses getDaysOpen() for correct cycle-aware days
@@ -4981,7 +4981,7 @@ function buildJOPanel(jo, joPlacements) {
   if (joPlacements.length > 0) {
     const funnelSec = document.createElement('div');
     funnelSec.className = 'pipeline-section';
-    const funnelStages = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓'];
+    const funnelStages = ['Broadcasted','Confirmed Interested','Called / Verified','For Employer Review','Interview Scheduled','Pending Requirements','Hired ✓'];
     const stageCounts = {};
     funnelStages.forEach(function(s) { stageCounts[s] = 0; });
     stageCounts['Dropped / Unavailable'] = 0;
@@ -5160,8 +5160,10 @@ function getStageDotClass(stage) {
   const m = {
     'Broadcasted':'dot-messaged',
     'Confirmed Interested':'dot-interested',
+    'Called / Verified':'dot-interviewed',
     'For Employer Review':'dot-endorsed',
     'Interview Scheduled':'dot-interview',
+    'Pending Requirements':'dot-endorsed',
     'Hired ✓':'dot-hired',
     'Rejected by Employer':'dot-dropped',
     'Rejected by Candidate':'dot-notint',
@@ -5174,8 +5176,10 @@ function getStagePillClass(stage) {
   const m = {
     'Broadcasted':'pill-messaged',
     'Confirmed Interested':'pill-interested',
+    'Called / Verified':'pill-interviewed',
     'For Employer Review':'pill-endorsed',
     'Interview Scheduled':'pill-interview',
+    'Pending Requirements':'pill-endorsed',
     'Hired ✓':'pill-hired',
     'Rejected by Employer':'pill-dropped',
     'Rejected by Candidate':'pill-notint',
@@ -5190,7 +5194,7 @@ function getEffectiveStage(ex, p) {
   const r = ex.response || (p ? p.response : '') || '';
   // New broadcast-flow status values
   if (s === 'Confirmed')              return 'Confirmed Interested';
-  if (s === 'Called')                 return 'Confirmed Interested';
+  if (s === 'Called')                 return 'Called / Verified';
   if (s === 'For Employer Review')    return 'For Employer Review';
   if (s === 'Interview Scheduled')    return 'Interview Scheduled';
   if (s === 'Dropped / Unavailable')  return 'Dropped / Unavailable';
@@ -5242,7 +5246,53 @@ function getStatusPillClass(status, response) {
 // The pipeline funnel and analytics ALWAYS use getEffectiveStage() output.
 // Coordinators should set the Stage dropdown for detailed tracking; the Status
 // dropdown remains for quick updates and backward compatibility with existing data.
-const DISPOSITION_STAGES = ['Broadcasted','Confirmed Interested','For Employer Review','Interview Scheduled','Hired ✓','Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'];
+// 10-stage pipeline (7 active + 3 exit). Workflow order: top → bottom.
+// "Called / Verified" is a required gate before For Employer Review (warn, not block).
+// "Pending Requirements" sits between Interview Scheduled and Hired ✓; the
+// employer has chosen the candidate but documents are still being gathered.
+// A "Placement" only counts at Hired ✓ — Pending Requirements is still cancellable.
+const DISPOSITION_STAGES = [
+  'Broadcasted',
+  'Confirmed Interested',
+  'Called / Verified',
+  'For Employer Review',
+  'Interview Scheduled',
+  'Pending Requirements',
+  'Hired ✓',
+  'Rejected by Employer',
+  'Rejected by Candidate',
+  'Dropped / Unavailable'
+];
+
+// Ordinal rank for active stages — used by the call-gate and duplicate-lock
+// warnings. Exit stages are intentionally absent (they are terminal, not ranked).
+const STAGE_RANK = {
+  'Broadcasted': 1,
+  'Confirmed Interested': 2,
+  'Called / Verified': 3,
+  'For Employer Review': 4,
+  'Interview Scheduled': 5,
+  'Pending Requirements': 6,
+  'Hired ✓': 7
+};
+
+// Stage → derived legacy Status. Funnel, commission, and avg-days-to-place
+// historically read extra.status; keep writing it for backward-compat, but it
+// is now derived from Stage rather than user-edited. Pending Requirements
+// derives 'Confirmed' so it stays below the Hired counting/commission threshold.
+const STAGE_TO_STATUS = {
+  'Broadcasted':            'Broadcasted',
+  'Confirmed Interested':   'Confirmed',
+  'Called / Verified':      'Called',
+  'For Employer Review':    'For Employer Review',
+  'Interview Scheduled':    'Interview Scheduled',
+  'Pending Requirements':   'Confirmed',
+  'Hired ✓':               'Hired',
+  'Rejected by Employer':   'Dropped / Unavailable',
+  'Rejected by Candidate':  'Dropped / Unavailable',
+  'Dropped / Unavailable':  'Dropped / Unavailable'
+};
+
 const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
 
 // Swipe-to-remove plumbing for the placement rows in "CANDIDATES IN THIS JOB ORDER".
@@ -5399,16 +5449,25 @@ function createPlacementRow(p, idx, joId) {
 
   const savedNote     = extra.notes    || candidateNotes[noteKey] || p.notes    || '';
   const savedResponse = extra.response || p.response || 'No Response';
-  const savedStatus   = extra.status   || p.status   || 'Messaged';
   const followupDate  = extra.followupDate  || '';
   const followup2Date = extra.followup2Date || '';
   const lastContacted = extra.lastContacted || p.date || '';
   const interviewDate = extra.interviewDate || '';
 
-  // Stage-based status — falls back to legacy status/response for old records
+  // Stage is canonical. Status is derived from Stage for new records; legacy
+  // records keep their saved status as fallback for display only.
   const savedStage = getEffectiveStage(extra, p);
+  const savedStatus = (extra.dispositionStage && STAGE_TO_STATUS[savedStage]) || extra.status || p.status || '';
 
-  const isInactive = ['Dropped / Unavailable','Hired ✓','Rejected by Employer','Rejected by Candidate'].includes(savedStage);
+  const isExitStage = ['Dropped / Unavailable','Rejected by Employer','Rejected by Candidate'].includes(savedStage);
+  const isHiredStage = savedStage === 'Hired ✓';
+  const isInactive = isExitStage || isHiredStage;
+  // Pipeline-field visibility — Stage drives everything; Response/Last Contacted/
+  // Follow-up are pre-confirm tracking only and disappear once the candidate has
+  // moved past the calling/verification phase or out of the active pipeline.
+  const showResponse      = !isExitStage && !isHiredStage && savedStage !== 'Interview Scheduled' && savedStage !== 'Pending Requirements';
+  const showLastContacted = !isExitStage && !isHiredStage;
+  const showFollowups     = !isExitStage && !isHiredStage;
   const dotClass   = getStageDotClass(savedStage);
   const pillClass  = getStagePillClass(savedStage);
   const pillLabel  = savedStage || 'New';
@@ -5433,16 +5492,18 @@ function createPlacementRow(p, idx, joId) {
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
   // Color-coded left border by pipeline stage
   const stageBorderColors = {
-    'Broadcasted':          '3px solid rgba(100,116,139,.45)',
-    'Confirmed Interested': '3px solid rgba(37,99,235,.6)',
-    'Called':               '3px solid rgba(37,99,235,.4)',
-    'Confirmed':            '3px solid rgba(37,99,235,.4)',
-    'For Employer Review':  '3px solid rgba(124,58,237,.6)',
-    'Interview Scheduled':  '3px solid rgba(234,88,12,.6)',
-    'Hired ✓':             '3px solid rgba(22,163,74,.7)',
-    'Rejected by Employer': '3px solid rgba(100,116,139,.3)',
-    'Rejected by Candidate':'3px solid rgba(100,116,139,.3)',
-    'Dropped / Unavailable':'3px solid rgba(100,116,139,.3)',
+    'Broadcasted':           '3px solid rgba(100,116,139,.45)',
+    'Confirmed Interested':  '3px solid rgba(37,99,235,.6)',
+    'Called / Verified':     '3px solid rgba(37,99,235,.5)',
+    'Called':                '3px solid rgba(37,99,235,.4)',
+    'Confirmed':             '3px solid rgba(37,99,235,.4)',
+    'For Employer Review':   '3px solid rgba(124,58,237,.6)',
+    'Interview Scheduled':   '3px solid rgba(234,88,12,.6)',
+    'Pending Requirements':  '3px solid rgba(124,58,237,.5)',
+    'Hired ✓':              '3px solid rgba(22,163,74,.7)',
+    'Rejected by Employer':  '3px solid rgba(100,116,139,.3)',
+    'Rejected by Candidate': '3px solid rgba(100,116,139,.3)',
+    'Dropped / Unavailable': '3px solid rgba(100,116,139,.3)',
   };
   if (isReplacement) {
     row.style.borderLeft = '3px solid var(--orange)';
@@ -5454,7 +5515,8 @@ function createPlacementRow(p, idx, joId) {
   const contactVia = extra.contactVia || '';
   const savedRejReason = extra.rejectionReason     || '';
   const savedRejOther  = extra.rejectionReasonOther || '';
-  const showRejReason  = savedStage === 'Rejected by Employer' || savedStage === 'Rejected by Candidate';
+  // Reason field now reveals for every exit stage, not just the explicitly-Rejected ones.
+  const showRejReason  = isExitStage;
   const showRejOther   = savedRejReason === 'Other';
 
   // Stale detection: days since last contact with no response
@@ -5496,16 +5558,16 @@ function createPlacementRow(p, idx, joId) {
     </div>
     <div class="prow-body">
       <div class="prow-fields">
-        <div class="prow-field">
+        <div class="prow-field" id="resp-field-${escAttr(pid)}"${showResponse ? '' : ' style="display:none"'}>
           <div class="prow-field-label">Response</div>
           <select onchange="saveProwField('${escAttr(pid)}','response',this.value,this)">
             ${['No Response','Interested','Not Interested'].map(v=>`<option${v===savedResponse?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
-          <div class="prow-field-label">Status</div>
-          <select id="status-sel-${escAttr(pid)}" onchange="saveProwField('${escAttr(pid)}','status',this.value,this);refreshProwBody('${escAttr(pid)}')">
-            ${['Broadcasted','Confirmed','Called','Interview Scheduled','For Employer Review','Hired','Dropped / Unavailable'].map(v=>`<option${v===savedStatus?' selected':''}>${v}</option>`).join('')}
+          <div class="prow-field-label">Status (derived)</div>
+          <select id="status-sel-${escAttr(pid)}" disabled title="Derived from Stage — edit Stage instead">
+            ${['','Broadcasted','Confirmed','Called','Interview Scheduled','For Employer Review','Hired','Dropped / Unavailable'].map(v=>`<option${v===savedStatus?' selected':''}>${v||'—'}</option>`).join('')}
           </select>
         </div>
         <div class="prow-field">
@@ -5514,7 +5576,7 @@ function createPlacementRow(p, idx, joId) {
             ${['','Phone Call','SMS/Text','Facebook Messenger','Gmail'].map(v=>`<option${v===contactVia?' selected':''}>${v}</option>`).join('')}
           </select>
         </div>
-        <div class="prow-field">
+        <div class="prow-field" id="lc-field-${escAttr(pid)}"${showLastContacted ? '' : ' style="display:none"'}>
           <div class="prow-field-label">Last Contacted</div>
           <input type="date" value="${escAttr(lastContacted)}"
             onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value);autoSuggestFollowup('${escAttr(pid)}',this.value)">
@@ -5524,7 +5586,7 @@ function createPlacementRow(p, idx, joId) {
       <div class="prow-fields" style="margin-top:8px">
         <div class="prow-field">
           <div class="prow-field-label">Stage</div>
-          <select id="stage-sel-${escAttr(pid)}" onchange="saveProwExtra('${escAttr(pid)}','dispositionStage',this.value);refreshProwStage('${escAttr(pid)}')">
+          <select id="stage-sel-${escAttr(pid)}" onchange="onStageChanged('${escAttr(pid)}',this.value)">
             <option value="">-- Select --</option>
             ${DISPOSITION_STAGES.map(v=>`<option${v===savedStage?' selected':''}>${v}</option>`).join('')}
           </select>
@@ -5542,7 +5604,7 @@ function createPlacementRow(p, idx, joId) {
       </div>
 
       <div class="prow-fields" style="margin-top:8px">
-        <div class="prow-field" id="fu1-field-${escAttr(pid)}">
+        <div class="prow-field" id="fu1-field-${escAttr(pid)}"${showFollowups ? '' : ' style="display:none"'}>
           <div class="prow-field-label" style="color:${needsFollowup?'var(--orange)':''}">
             Follow-up #1${needsFollowup?' — Overdue':''}
           </div>
@@ -5551,7 +5613,7 @@ function createPlacementRow(p, idx, joId) {
             style="${needsFollowup?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
           ${suggestFollowup && !followupDate ? `<div class="prow-suggest" onclick="applyFollowupSuggest('${escAttr(pid)}','followupDate','${escAttr(suggestFollowup)}')">Suggest: ${escHtml(fmtDateShort(suggestFollowup))}</div>` : ''}
         </div>
-        <div class="prow-field" id="fu2-field-${escAttr(pid)}">
+        <div class="prow-field" id="fu2-field-${escAttr(pid)}"${showFollowups ? '' : ' style="display:none"'}>
           <div class="prow-field-label" style="color:${needsFollowup2?'var(--orange)':''}">
             Follow-up #2${needsFollowup2?' — Overdue':''}
           </div>
@@ -5659,17 +5721,106 @@ function refreshProwBody(pid) {
 }
 
 function refreshProwStage(pid) {
+  // Reason field now reveals for every exit stage (including Dropped / Unavailable).
   const stageSel = document.getElementById('stage-sel-' + pid);
   const rejField = document.getElementById('rej-reason-field-' + pid);
   if (!stageSel || !rejField) return;
   const stage = stageSel.value;
-  const isRejected = stage === 'Rejected by Employer' || stage === 'Rejected by Candidate';
-  rejField.style.display = isRejected ? '' : 'none';
-  if (!isRejected) {
+  const isExit = ['Rejected by Employer','Rejected by Candidate','Dropped / Unavailable'].includes(stage);
+  rejField.style.display = isExit ? '' : 'none';
+  if (!isExit) {
     const rejSel = document.getElementById('rej-reason-sel-' + pid);
     if (rejSel) rejSel.value = '';
     const rejOther = document.getElementById('rej-other-' + pid);
     if (rejOther) rejOther.style.display = 'none';
+  }
+}
+
+// Show/hide Response, Last Contacted, Follow-up #1/#2 based on Stage. Called
+// after every Stage change so the form follows the new disposition.
+function refreshProwFields(pid) {
+  const sel = document.getElementById('stage-sel-' + pid);
+  if (!sel) return;
+  const stage = sel.value;
+  const isExit  = ['Dropped / Unavailable','Rejected by Employer','Rejected by Candidate'].includes(stage);
+  const isHired = stage === 'Hired ✓';
+  const isInterviewOrPending = stage === 'Interview Scheduled' || stage === 'Pending Requirements';
+  const showResp     = !isExit && !isHired && !isInterviewOrPending;
+  const showLC       = !isExit && !isHired;
+  const showFU       = !isExit && !isHired;
+  const setVis = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+  setVis('resp-field-' + pid, showResp);
+  setVis('lc-field-'   + pid, showLC);
+  setVis('fu1-field-'  + pid, showFU);
+  setVis('fu2-field-'  + pid, showFU);
+}
+
+// Sync the prow-inactive dim class from the current Stage. Exit stages and
+// Hired ✓ both dim the row.
+function refreshProwInactivity(pid) {
+  const row = document.getElementById('prow-' + pid);
+  if (!row) return;
+  const sel = document.getElementById('stage-sel-' + pid);
+  const stage = sel ? sel.value : '';
+  const inactive = ['Dropped / Unavailable','Hired ✓','Rejected by Employer','Rejected by Candidate'].includes(stage);
+  row.classList.toggle('prow-inactive', inactive);
+}
+
+// Stage transitions that have non-UI side effects. Moved out of the legacy
+// saveProwField status path so transitions written programmatically (e.g.
+// interview session completion) also trigger them. Verified call sites:
+//   • Hired ✓                 → computeAndSaveCommission(pid, jobOrderId)
+//   • Interview Scheduled     → addCandidateToInterviewSession(jobOrderId, pid)
+function _applyStageSideEffects(pid, newStage) {
+  const mp = manualPlacements.find(function(p) { return p.placementId === pid; });
+  if (!mp) return;
+  if (newStage === 'Hired ✓') {
+    computeAndSaveCommission(pid, mp.jobOrderId);
+  }
+  if (newStage === 'Interview Scheduled') {
+    addCandidateToInterviewSession(mp.jobOrderId, pid);
+  }
+}
+
+// Canonical Stage onchange. Writes dispositionStage, derives Status from
+// STAGE_TO_STATUS and mirrors it into manualPlacements + extras for backward
+// compatibility with the funnel / commission / avg-days-to-place filters, then
+// fires stage-transition side effects and refreshes all visibility.
+function onStageChanged(pid, newStage) {
+  saveProwExtra(pid, 'dispositionStage', newStage);
+
+  // Derive Status from Stage (Pending Requirements derives 'Confirmed' so it
+  // stays below the Hired counting threshold).
+  const derived = STAGE_TO_STATUS[newStage];
+  if (derived !== undefined) {
+    const statusSel = document.getElementById('status-sel-' + pid);
+    if (statusSel) statusSel.value = derived;
+    const mp = manualPlacements.find(function(p) { return p.placementId === pid; });
+    if (mp && mp.status !== derived) {
+      mp.status = derived;
+      saveManualPlacements();
+    }
+    saveProwExtra(pid, 'status', derived);
+  }
+
+  _applyStageSideEffects(pid, newStage);
+
+  // UI refresh
+  refreshProwStage(pid);
+  refreshProwFields(pid);
+  refreshProwInactivity(pid);
+  refreshProwBadges(pid);
+
+  // Header dot + pill follow the new stage
+  const row = document.getElementById('prow-' + pid);
+  if (row) {
+    const dot  = row.querySelector('.prow-status-dot');
+    const pill = row.querySelector('.prow-status-pill');
+    if (dot)  dot.className  = 'prow-status-dot '  + getStageDotClass(newStage);
+    if (pill) {
+      pill.className   = 'prow-status-pill ' + getStagePillClass(newStage);
+      pill.textContent = newStage || 'New';
+    }
   }
 }
 
@@ -5910,34 +6061,32 @@ function saveProwField(pid, field, value, el) {
   if (mp) { mp[field] = value; saveManualPlacements(); }
   // Also save to extra so UI reflects on next load
   saveProwExtra(pid, field, value);
-  // Trigger commission computation when status becomes Hired
-  if (field === 'status' && (value || '').trim().toLowerCase() === 'hired' && mp) {
-    computeAndSaveCommission(pid, mp.jobOrderId);
-  }
-  // Auto-add to interview session when set to Interview Scheduled
-  if (field === 'status' && (value === 'Interview Scheduled' || value === 'For Interview') && mp) {
-    addCandidateToInterviewSession(mp.jobOrderId, pid);
-  }
-  // Auto-enter Call Queue when candidate responds YES / Interested
+  // Auto-enter Call Queue when candidate responds YES / Interested. Commission
+  // and interview-session triggers now live in onStageChanged / _applyStageSideEffects;
+  // do NOT re-trigger them from the legacy status path (Status is derived and
+  // no longer user-editable; firing here would double-count).
   if (field === 'response' && value === 'Interested' && mp) {
     addToCallQueue(mp.candidateId, mp.jobOrderId, pid);
   }
-  // Refresh the dot and pill in header without re-rendering
+  // Refresh the dot and pill in header without re-rendering. Header now follows
+  // the current Stage (the canonical source) rather than the legacy status select.
   const row = document.getElementById(`prow-${pid}`);
   if (!row) return;
-  // Get current response & status from selects
+  const stageSel = document.getElementById('stage-sel-' + pid);
+  const stage = stageSel ? stageSel.value : '';
   const selects = row.querySelectorAll('.prow-body select');
   const response = selects[0]?.value || '';
-  const status = selects[1]?.value || '';
   const dot = row.querySelector('.prow-status-dot');
   const pill = row.querySelector('.prow-status-pill');
-  if (dot) { dot.className = 'prow-status-dot ' + getStatusDotClass(status, response); }
+  if (dot)  dot.className  = 'prow-status-dot '  + getStageDotClass(stage);
   if (pill) {
-    pill.className = 'prow-status-pill ' + getStatusPillClass(status, response);
-    pill.textContent = response === 'Not Interested' ? 'Not Interested' : (status || 'No Status');
+    pill.className   = 'prow-status-pill ' + getStagePillClass(stage);
+    pill.textContent = stage || (response === 'Not Interested' ? 'Not Interested' : 'New');
   }
-  // Toggle inactive class
-  const isInactive = status === 'Dropped / Unavailable' || response === 'Not Interested';
+  // Inactive class follows Stage, with response=Not Interested as an early dim
+  // before the owner has advanced Stage to Rejected by Candidate.
+  const isInactive = ['Dropped / Unavailable','Hired ✓','Rejected by Employer','Rejected by Candidate'].includes(stage)
+    || response === 'Not Interested';
   row.classList.toggle('prow-inactive', isInactive);
 }
 
@@ -13822,6 +13971,10 @@ function confirmIsessComplete() {
       if (pid === hiredPid) {
         saveProwExtra(pid, 'status', 'Hired'); saveProwExtra(pid, 'dispositionStage', 'Hired ✓');
         if (mp) { mp.status = 'Hired'; mp.dispositionStage = 'Hired ✓'; mpChanged = true; }
+        // Fire commission via the unified side-effects helper — this path used
+        // to silently skip computeAndSaveCommission because it writes Status
+        // directly through saveProwExtra, not through the old saveProwField path.
+        _applyStageSideEffects(pid, 'Hired ✓');
       } else {
         saveProwExtra(pid, 'status', 'Dropped'); saveProwExtra(pid, 'dispositionStage', 'Dropped / Unavailable');
         if (mp) { mp.status = 'Dropped'; mp.dispositionStage = 'Dropped / Unavailable'; mpChanged = true; }
