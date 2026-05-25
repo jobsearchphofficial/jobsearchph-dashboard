@@ -14005,11 +14005,33 @@ function addCandidateToInterviewSession(joId, pid) {
 function buildIsessSection(jo, joPlacements) {
   var sessions = getInterviewSessions(jo.id);
   if (!sessions || !sessions.length) return null;
+  // Display-only filter: cancelled sessions are hidden by default but the
+  // records stay intact in storage. A muted toggle reveals them on demand.
+  var visible   = sessions.filter(function(s) { return s.status !== 'cancelled'; });
+  var cancelled = sessions.filter(function(s) { return s.status === 'cancelled'; });
+  if (!visible.length && !cancelled.length) return null;
   var el = document.createElement('div');
   el.className = 'isess-section';
   el.id = 'isess-' + jo.id;
-  el.innerHTML = '<div class="isess-section-title">Interview Sessions</div>' +
-    sessions.map(function(sess) { return buildIsessCard(jo, sess, joPlacements); }).join('');
+  var visibleHtml = visible.map(function(sess) { return buildIsessCard(jo, sess, joPlacements); }).join('');
+  var cancelledHtml = '';
+  if (cancelled.length) {
+    var wrapId = 'isess-cancelled-' + jo.id;
+    var togId  = 'isess-cancelled-tog-' + jo.id;
+    var showLabel = 'Show cancelled (' + cancelled.length + ')';
+    var hideLabel = 'Hide cancelled (' + cancelled.length + ')';
+    cancelledHtml =
+      '<button id="' + togId + '" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--text3);margin-top:6px" ' +
+        'onclick="(function(){var w=document.getElementById(\'' + wrapId + '\');var t=document.getElementById(\'' + togId + '\');' +
+          'var open=w.style.display!==\'none\';w.style.display=open?\'none\':\'\';' +
+          't.textContent=open?\'' + showLabel + '\':\'' + hideLabel + '\';})()">' +
+        showLabel +
+      '</button>' +
+      '<div id="' + wrapId + '" style="display:none;margin-top:10px">' +
+        cancelled.map(function(sess) { return buildIsessCard(jo, sess, joPlacements); }).join('') +
+      '</div>';
+  }
+  el.innerHTML = '<div class="isess-section-title">Interview Sessions</div>' + visibleHtml + cancelledHtml;
   return el;
 }
 
