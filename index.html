@@ -4582,7 +4582,6 @@ async function loadAll(opts) {
   // a JO past its delayed-close date must close on schedule even on a quiet poll.
   const _delayedMutated = checkDelayedCloses();
   const _poolMutated    = checkPoolRemovals(); // auto-reactivate candidates whose availableFrom passed
-  checkUrgentAlerts(); // pure read + toast, no main-render dependency
   const _maintenanceMutated = _delayedMutated || _poolMutated;
 
   // Skip DOM rebuild when caller (poll) passed snapshots, IDs are unchanged,
@@ -5969,40 +5968,6 @@ function prowBlacklist(candId, candName) {
 // ═══════════════════════════════════════════════
 // REMINDER BANNER
 // ═══════════════════════════════════════════════
-function checkUrgentAlerts() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const allPlacements = [...placements, ...manualPlacements];
-  const urgent = [];
-
-  allPlacements.forEach(p => {
-    if (blacklist[p.candidateId]) return;
-    const pid = p.placementId || p.candidateId;
-    let extra = {};
-    try { extra = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e){}
-    const savedStatus = extra.status || p.status || '';
-    if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || savedStatus === 'Hired') return;
-
-    const interviewDate = extra.interviewDate || '';
-    const followupDate = extra.followupDate || '';
-
-    if (interviewDate) {
-      const d = new Date(interviewDate); d.setHours(0,0,0,0);
-      if (d.getTime() === today.getTime())
-        urgent.push('Interview TODAY: ' + p.candidateName);
-    }
-    if (followupDate) {
-      const d = new Date(followupDate); d.setHours(0,0,0,0);
-      if (d <= today)
-        urgent.push(`Follow-up due: ${p.candidateName}`);
-    }
-  });
-
-  if (urgent.length) {
-    // Use a small non-blocking toast instead of alert
-    showToast(urgent.length + ' urgent item' + (urgent.length>1?'s':'') + ' today — check follow-ups', 'orange');
-  }
-}
-
 function showToast(msg, type='gold') {
   const colors = { gold:'var(--gold)', orange:'var(--orange)', green:'var(--green)', red:'var(--red)' };
   const toast = document.createElement('div');
