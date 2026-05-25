@@ -5527,7 +5527,11 @@ function createPlacementRow(p, idx, joId) {
   const savedResponse = extra.response || p.response || 'No Response';
   const followupDate  = extra.followupDate  || '';
   const followup2Date = extra.followup2Date || '';
-  const lastContacted = extra.lastContacted || p.date || '';
+  // Always-on dashboard. Split: input prefill (manual field only) vs. contact-signal date
+  // (used for followup math). p.date is NOT a contact signal — it is set by broadcasting.
+  const lastContactedInputValue = extra.lastContacted || '';
+  const contactSignalDate = extra.lastDirectContactAt || extra.lastContacted || '';
+  const lastContacted = contactSignalDate; // kept for downstream local references
   const interviewDate = extra.interviewDate || '';
 
   // Stage is canonical. Status is derived from Stage for new records; legacy
@@ -5595,8 +5599,10 @@ function createPlacementRow(p, idx, joId) {
   const showRejReason  = isExitStage;
   const showRejOther   = savedRejReason === 'Other';
 
-  // Stale detection: days since last contact with no response
-  const effectiveLastContact = extra.lastContacted || p.date || '';
+  // Always-on dashboard. Stale detection now uses the direct-contact signal
+  // (call logged or DM logged), falling back to the manual lastContacted date.
+  // Broadcast-only candidates intentionally have no signal here.
+  const effectiveLastContact = extra.lastDirectContactAt || extra.lastContacted || '';
   const fmtLastContact = effectiveLastContact ? fmtDateShort(effectiveLastContact) : '';
   const staleDays = (savedResponse === 'No Response' || savedResponse === '') && effectiveLastContact
     ? daysDiff(effectiveLastContact) : 0;
@@ -5654,7 +5660,7 @@ function createPlacementRow(p, idx, joId) {
         </div>
         <div class="prow-field" id="lc-field-${escAttr(pid)}"${showLastContacted ? '' : ' style="display:none"'}>
           <div class="prow-field-label">Last Contacted</div>
-          <input type="date" value="${escAttr(lastContacted)}"
+          <input type="date" value="${escAttr(lastContactedInputValue)}"
             onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value);autoSuggestFollowup('${escAttr(pid)}',this.value)">
         </div>
       </div>
@@ -6026,7 +6032,8 @@ function buildReminderBanner() {
     const savedStatus   = extra.status   || p.status   || '';
     if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || savedStatus === 'Hired' || savedResponse === 'Not Interested') return;
 
-    const lastContact = extra.lastContacted || p.date || '';
+    // Always-on dashboard. Briefing stale alert needs a real contact signal.
+    const lastContact = extra.lastDirectContactAt || extra.lastContacted || '';
     const followupDate = extra.followupDate || '';
     const interviewDate = extra.interviewDate || '';
     const jo = jobOrders.find(j => j.id === p.jobOrderId);
@@ -6336,7 +6343,8 @@ function isCandInactive(candId) {
     const pid = p.placementId || p.candidateId;
     var ex = {};
     try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e2) {}
-    const lc = ex.lastContacted || p.date || '';
+    // Always-on dashboard. 21-day inactive rule requires real direct contact.
+    const lc = ex.lastDirectContactAt || ex.lastContacted || '';
     const resp = ex.response || p.response || 'No Response';
     if ((resp === 'No Response' || resp === '') && lc && daysDiff(lc) >= 21) return true;
   }
@@ -7667,7 +7675,8 @@ function _openCandModalInner(candId) {
     return { p, ex };
   });
   const allLastContactsMeta = candPlacExtras
-    .map(({p, ex}) => ({ date: ex.lastContacted || p.date || '', via: ex.contactVia || '' }))
+    // Always-on dashboard. Profile "Last Contacted" must not surface broadcast dates.
+    .map(({p, ex}) => ({ date: ex.lastDirectContactAt || ex.lastContacted || '', via: ex.contactVia || '' }))
     .filter(x => x.date)
     .sort((a, b) => b.date.localeCompare(a.date));
   const lastContactedOverall = allLastContactsMeta[0]?.date || '';
@@ -7911,7 +7920,8 @@ function _openCandModalInner(candId) {
           const joComp  = jo ? escHtml(jo.company || '') : '';
           const status  = ex.status || p.status || 'Messaged';
           const notes   = ex.notes || '';
-          const lc      = ex.lastContacted || p.date || '';
+          // Always-on dashboard. Profile JO Activity per-row "Last contacted".
+          const lc      = ex.lastDirectContactAt || ex.lastContacted || '';
           const dotCls  = getStatusDotClass(status, ex.response || p.response || '');
           return `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:13px">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -8779,6 +8789,7 @@ function _renderWalker() {
           '>Copy name</button>' +
         '<button class="btn btn-blue" onclick="_walkerCopyMessage()">Copy message</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="_walkerCopyFull()">Copy full details (for after candidate replies YES)</button>' +
+        '<button class="btn btn-gold" onclick="_walkerLogDmSent()" style="margin-top:4px">Log DM sent</button>' +
         '<div style="display:flex;gap:8px;margin-top:6px">' +
           '<button class="btn btn-ghost" style="flex:1" onclick="_walkerSkip()">Skip</button>' +
           '<button class="btn btn-green" style="flex:2" onclick="_walkerNext()">Next →</button>' +
@@ -8871,6 +8882,37 @@ function _walkerMarkBroadcasted(candId) {
   });
   saveManualPlacements();
   w.markedIds.add(candId);
+}
+
+// Logging a manual DM is a real direct contact (distinct from broadcast).
+// Stamps lastDirectContactAt + contactVia on the placement for this JO + candidate.
+// contactVia is auto-filled ONLY when empty — never overwrites a manual choice.
+function _walkerLogDmSent() {
+  if (!_walker) return;
+  const w = _walker;
+  const candId = w.candIds[w.idx];
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return;
+  if (!w.markedIds.has(candId) && !w.alreadyInIds.has(candId)) {
+    _walkerMarkBroadcasted(candId);
+  }
+  const allP = [...placements, ...manualPlacements].filter(function(p) {
+    return p.jobOrderId === w.joId && p.candidateId === candId;
+  });
+  if (!allP.length) { showToast('Could not find placement to log DM.', 'red'); return; }
+  // Prefer most-recently-dated placement when duplicates exist.
+  allP.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+  const target = allP[0];
+  const pid = target.placementId || target.candidateId;
+  const today = new Date().toISOString().split('T')[0];
+  saveProwExtra(pid, 'lastDirectContactAt', today);
+  let _exForVia = {};
+  try { _exForVia = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(_e) {}
+  if (!_exForVia.contactVia) {
+    saveProwExtra(pid, 'contactVia', 'Facebook Messenger');
+  }
+  showToast('DM logged for ' + c.name + '.', 'green');
+  _renderWalker();
 }
 
 function _walkerNext() {
@@ -9164,18 +9206,6 @@ function isCandidateHired(candId) {
   });
 }
 
-function getCandidateLastActive(candId) {
-  const dates = [...placements, ...manualPlacements]
-    .filter(p => p.candidateId === candId)
-    .map(p => {
-      const ex = getPlacementExtra(p.placementId || p.candidateId);
-      return ex.lastContacted || p.date || '';
-    })
-    .filter(Boolean)
-    .sort();
-  return dates.pop() || '';
-}
-
 // ═══════════════════════════════════════════════
 // ERA SCORING SYSTEM
 // Eligibility + Responsiveness + Attitude
@@ -9396,6 +9426,29 @@ function getRatingStars(r) {
 }
 
 function saveCandScore(candId, key, val) {
+  // Guard: "No response" (noShow) can only be set ON if direct contact was
+  // actually attempted (call or DM logged) AND at least 3 days have passed.
+  // Toggling OFF (val=false) is always allowed (reversible).
+  if (key === 'noShow' && val === true) {
+    const allP = [...placements, ...manualPlacements].filter(function(p) { return p.candidateId === candId; });
+    let mostRecentDirect = '';
+    for (let i = 0; i < allP.length; i++) {
+      const p = allP[i];
+      const pid = p.placementId || p.candidateId;
+      let ex = {};
+      try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(_e) {}
+      const d = ex.lastDirectContactAt || '';
+      if (d && d > mostRecentDirect) mostRecentDirect = d;
+    }
+    if (!mostRecentDirect) {
+      showToast("Can't mark No Response — no direct contact logged yet.", 'orange');
+      return;
+    }
+    if (daysDiff(mostRecentDirect) < 3) {
+      showToast('Wait 3 days after contact before marking No Response.', 'orange');
+      return;
+    }
+  }
   if (!candidateRatings[candId]) candidateRatings[candId] = {};
   if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
   candidateRatings[candId].scores[key] = val;
@@ -10345,7 +10398,8 @@ function getReflectionLog(candId) {
       employer: jo?.company || p.company || '—',
       position: p.position || jo?.position || '—',
       result,
-      date: ex.lastContacted || p.date || '',
+      // Always-on dashboard (profile modal reflection log).
+      date: ex.lastDirectContactAt || ex.lastContacted || '',
       notes: ex.notes || p.notes || '',
     };
   });
@@ -11905,7 +11959,8 @@ function renderReengageView() {
     var allP = [...placements, ...manualPlacements].filter(function(p) { return p.candidateId === c.id; });
     var latestPlacDate = allP.reduce(function(acc, p) {
       var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
-      var lc = ex.lastContacted || p.date || '';
+      // SCREENING TAB (to be removed in next commit). Rewire for consistency.
+      var lc = ex.lastDirectContactAt || ex.lastContacted || '';
       return lc > acc ? lc : acc;
     }, '');
     var lastContact = lastLogDate && latestPlacDate ? (lastLogDate > latestPlacDate ? lastLogDate : latestPlacDate) : (lastLogDate || latestPlacDate || null);
@@ -13147,6 +13202,18 @@ function submitCallDecision(decision) {
     placementId: placementId,
   };
   saveCandidateCall(candId, callId, callData);
+
+  // Stamp direct-contact signal on the placement so staleness/inactive logic
+  // recognises this call as a real contact attempt (broadcast does not stamp).
+  // contactVia is auto-filled ONLY when empty — never overwrites a manual choice.
+  if (placementId) {
+    saveProwExtra(placementId, 'lastDirectContactAt', now.toISOString().split('T')[0]);
+    let _exForVia = {};
+    try { _exForVia = JSON.parse(localStorage.getItem('prow_extra_' + placementId) || '{}'); } catch(_e) {}
+    if (!_exForVia.contactVia) {
+      saveProwExtra(placementId, 'contactVia', 'Phone Call');
+    }
+  }
 
   // Update call queue based on decision
   if (decision === 'Confirmed Interested' || decision === 'For Employer Review') {
