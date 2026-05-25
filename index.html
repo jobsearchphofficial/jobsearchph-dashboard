@@ -3966,6 +3966,13 @@ let _underageCands    = [];   // full candidate objects for cleanup modal
 let candidateNotes = {};
 let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
 let candidateRatings = {};    // { candId: { rating, docs, notes } }
+// Mid-call edits captured from the ERA call modal. Override layer: any field
+// here takes precedence over the same field on the Sheet-sourced candidate.
+// Keys: candId → { skills, pastJobs, expectedPay, startDate, civilStatus }.
+// MUST NOT be touched by the 120 s Sheets poll — only by call-modal saves
+// and Firebase listener echoes. Merge is applied at the parser chokepoint
+// so every display site sees the override automatically.
+let candidateOverrides = {};
 
 // ═══════════════════════════════════════════════
 // LOCAL STORAGE
@@ -3977,6 +3984,7 @@ function loadLocal() {
   try { candidateNotes = JSON.parse(localStorage.getItem('candidate_notes') || '{}'); } catch(e){ candidateNotes={}; }
   try { joStatusOverrides = JSON.parse(localStorage.getItem('jo_status_overrides') || '{}'); } catch(e){ joStatusOverrides={}; }
   try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
+  try { candidateOverrides = JSON.parse(localStorage.getItem('candidate_overrides') || '{}'); } catch(e){ candidateOverrides={}; }
   try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
   try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
   try { pipelineStages = JSON.parse(localStorage.getItem('pipeline_stages') || '{}'); } catch(e){ pipelineStages={}; }
@@ -4130,6 +4138,25 @@ function saveManualPlacements() { _lsSet('manual_placements', manualPlacements);
 function saveCandidateNotes() { _lsSet('candidate_notes', candidateNotes); fbSync('candidate_notes', candidateNotes); }
 function saveJOStatusOverrides() { _lsSet('jo_status_overrides', joStatusOverrides); fbSync('jo_status_overrides', joStatusOverrides); }
 function saveCandidateRatings() { _lsSet('candidate_ratings', candidateRatings); fbSyncDebounced('candidate_ratings', candidateRatings); }
+// Save mid-call candidate edits. IMMEDIATE fbSync (not debounced) because
+// the coordinator expects the cross-device sync to land within seconds of
+// hitting Save, and the write is rare (once per call) — debouncing buys nothing.
+function saveCandidateOverrides() { _lsSet('candidate_overrides', candidateOverrides); fbSync('candidate_overrides', candidateOverrides); }
+// Merge override-over-base for the five editable fields. Empty-string overrides
+// are persisted deliberately (the coordinator cleared a wrong value). Derived
+// experienceFlag is recomputed from the overridden pastJobs.
+function _applyCandOverride(c) {
+  const ov = candidateOverrides[c.id];
+  if (!ov) return c;
+  const out = Object.assign({}, c);
+  const has = function(k) { return ov[k] !== undefined && ov[k] !== null; };
+  if (has('skills'))      out.skills      = ov.skills;
+  if (has('pastJobs'))    { out.pastJobs  = ov.pastJobs; out.experienceFlag = (ov.pastJobs.length > 10 ? 'yes' : 'no'); }
+  if (has('expectedPay')) out.expectedPay = ov.expectedPay;
+  if (has('startDate'))   out.startDate   = ov.startDate;
+  if (has('civilStatus')) out.civilStatus = ov.civilStatus;
+  return out;
+}
 
 // ═══════════════════════════════════════════════
 // CSV PARSER
@@ -4471,6 +4498,12 @@ async function loadAll(opts) {
       }
       return true;
     });
+
+    // ── Apply call-captured overrides (poll-safe merge) ──
+    // The 120 s Sheets poll re-runs this whole parser path, so overrides are
+    // re-applied to fresh base data on every fetch. candidateOverrides itself
+    // is in its own localStorage / Firebase key and is never touched by the poll.
+    candidates = candidates.map(_applyCandOverride);
 
     // ── Console report ──
     console.group('%c🔍 Data Quality Filters', 'color:#1755ED;font-weight:700;font-size:13px');
@@ -10947,6 +10980,15 @@ function _applyFbData(data) {
     localStorage.setItem('jo_status_overrides', JSON.stringify(_stripMeta(data.jo_status_overrides)));
   if (data.candidate_ratings && !ownsRoot('candidate_ratings'))
     localStorage.setItem('candidate_ratings', JSON.stringify(_stripMeta(data.candidate_ratings)));
+  if (data.candidate_overrides && !ownsRoot('candidate_overrides')) {
+    const _cov = _stripMeta(data.candidate_overrides);
+    localStorage.setItem('candidate_overrides', JSON.stringify(_cov));
+    candidateOverrides = _cov;
+    // Re-apply overrides to the in-memory candidates array so remote edits
+    // show on this device immediately — the candidates array is rebuilt only
+    // on Sheet fetches (loadAll), not on every listener fire.
+    candidates = candidates.map(_applyCandOverride);
+  }
   if (data.templates && !ownsRoot('templates'))
     localStorage.setItem('templates', JSON.stringify(data.templates));
   if (data.prow_extras)
@@ -11051,6 +11093,7 @@ async function fbPullSilent() {
     if (data.candidate_notes)     _fbMergeObj('candidate_notes',     data.candidate_notes);
     if (data.jo_status_overrides) _fbMergeObj('jo_status_overrides', data.jo_status_overrides);
     if (data.candidate_ratings)   _fbMergeObj('candidate_ratings',   data.candidate_ratings);
+    if (data.candidate_overrides) _fbMergeObj('candidate_overrides', data.candidate_overrides);
     if (data.templates)           localStorage.setItem('templates',   JSON.stringify(data.templates));
     if (data.prow_extras)
       Object.entries(data.prow_extras).forEach(function(e) { if (!localStorage.getItem('prow_extra_' + e[0])) localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
@@ -11112,6 +11155,7 @@ async function loadFromFirebase() {
     if (data.candidate_notes)     _fbMergeObj('candidate_notes',     data.candidate_notes);
     if (data.jo_status_overrides) _fbMergeObj('jo_status_overrides', data.jo_status_overrides);
     if (data.candidate_ratings)   _fbMergeObj('candidate_ratings',   data.candidate_ratings);
+    if (data.candidate_overrides) _fbMergeObj('candidate_overrides', data.candidate_overrides);
     if (data.templates)           localStorage.setItem(TMPL_STORAGE_KEY, JSON.stringify(data.templates));
     if (data.prow_extras)
       Object.entries(data.prow_extras).forEach(function(e) { if (!localStorage.getItem('prow_extra_' + e[0])) localStorage.setItem('prow_extra_' + e[0], JSON.stringify(e[1])); });
@@ -11189,6 +11233,7 @@ async function pushAllToFirebase() {
     candidate_notes:     candidateNotes      || {},
     jo_status_overrides: joStatusOverrides   || {},
     candidate_ratings:   candidateRatings    || {},
+    candidate_overrides: candidateOverrides  || {},
     era_stages:          eraStages           || {},
     era_contact_logs:    eraContactLogs      || {},
     pipeline_stages:     pipelineStages      || {},
@@ -12860,7 +12905,43 @@ function _renderCallAssessment() {
   const showDecision = outcome === 'Answered';
   const showNonAnswerOpts = outcome && outcome !== 'Answered';
 
-  const decisionHTML = showDecision ? '<div class="call-assess-section">' +
+  // "Update candidate info (from call)" — editable override layer. Pre-filled
+  // with current merged values (c.* already reflects any saved override). Save
+  // writes to candidateOverrides[candId] via the immediate fbSync path so the
+  // 120 s Sheets poll cannot overwrite it. Does NOT close the modal so the
+  // ERA scoring + decision-in-progress state survives the save.
+  const covCurrent = candidateOverrides[candId] || {};
+  const covSkills  = covCurrent.skills      !== undefined ? covCurrent.skills      : (c.skills      || '');
+  const covPast    = covCurrent.pastJobs    !== undefined ? covCurrent.pastJobs    : (c.pastJobs    || '');
+  const covPay     = covCurrent.expectedPay !== undefined ? covCurrent.expectedPay : (c.expectedPay || '');
+  const covStart   = covCurrent.startDate   !== undefined ? covCurrent.startDate   : (c.startDate   || '');
+  const covCivil   = covCurrent.civilStatus !== undefined ? covCurrent.civilStatus : (c.civilStatus || '');
+  const editSectionHTML = showDecision ? '<div class="call-assess-section">' +
+    '<div class="call-assess-title">Update candidate info (from call)</div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Edits are stored separately from the Google Form data and survive every 120 s sync. Only what changed needs editing.</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Skills / Qualifications' +
+        '<textarea id="cov-skills" style="width:100%;min-height:50px;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:8px;font-family:var(--sans);font-size:12px;color:var(--text);resize:vertical;outline:none">' + escHtml(covSkills) + '</textarea>' +
+      '</label>' +
+      '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Past Jobs / Experience' +
+        '<textarea id="cov-pastjobs" style="width:100%;min-height:50px;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:8px;font-family:var(--sans);font-size:12px;color:var(--text);resize:vertical;outline:none">' + escHtml(covPast) + '</textarea>' +
+      '</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+        '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Expected Pay' +
+          '<input type="text" id="cov-pay" value="' + escAttr(covPay) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+        '</label>' +
+        '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">When Can Start' +
+          '<input type="text" id="cov-start" value="' + escAttr(covStart) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+        '</label>' +
+        '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Civil Status' +
+          '<input type="text" id="cov-civil" value="' + escAttr(covCivil) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+        '</label>' +
+      '</div>' +
+      '<button class="btn btn-blue" style="align-self:flex-start;margin-top:4px" onclick="saveCandOverrideFromCall(\'' + escAttr(candId) + '\')">Save updates</button>' +
+    '</div>' +
+    '</div>' : '';
+
+  const decisionHTML = showDecision ? editSectionHTML + '<div class="call-assess-section">' +
     '<div class="call-assess-title">Call Notes</div>' +
     '<textarea id="call-notes-input" placeholder="What was discussed, any concerns…" style="width:100%;min-height:80px;background:var(--card);border:1px solid var(--border2);border-radius:9px;padding:10px;font-family:var(--sans);font-size:13px;color:var(--text);resize:vertical;outline:none" onchange=""></textarea>' +
     '</div>' +
@@ -12946,6 +13027,25 @@ function setCallAttitude(candId, val) {
   candidateRatings[candId].scores.callAttitude = val;
   saveCandidateRatings();
   _renderCallAssessment(); // re-render to update button styles
+}
+
+// Save the mid-call candidate info edits. Writes to candidateOverrides
+// (the poll-safe override layer), updates the in-memory candidate so other
+// open UIs (profile, placement rows, broadcast modal) reflect the change
+// immediately, then toasts. Does NOT close the modal or re-render the call
+// modal — the ERA scoring + decision-in-progress state must survive Save.
+function saveCandOverrideFromCall(candId) {
+  const skills      = (document.getElementById('cov-skills')   || {}).value || '';
+  const pastJobs    = (document.getElementById('cov-pastjobs') || {}).value || '';
+  const expectedPay = (document.getElementById('cov-pay')      || {}).value || '';
+  const startDate   = (document.getElementById('cov-start')    || {}).value || '';
+  const civilStatus = (document.getElementById('cov-civil')    || {}).value || '';
+  candidateOverrides[candId] = { skills: skills, pastJobs: pastJobs, expectedPay: expectedPay, startDate: startDate, civilStatus: civilStatus };
+  saveCandidateOverrides();
+  // Re-apply override on the in-memory candidate so other surfaces re-read merged.
+  const ci = candidates.findIndex(function(x) { return x.id === candId; });
+  if (ci >= 0) candidates[ci] = _applyCandOverride(candidates[ci]);
+  showToast('Candidate info updated from call.', 'green');
 }
 
 function showCallbackScheduler() {
