@@ -4318,10 +4318,16 @@ async function loadAll(opts) {
     Promise.resolve([])
   ]);
 
-  // CANDIDATES (Row 1 = title "JOB SEEKERS", Row 2 = merged header, Row 3 = actual headers, data from Row 4)
+  // CANDIDATES (Row 1 = title "JOB SEEKERS", Row 2 = headers, data from Row 3)
   // Actual columns: A=ID, B=Timestamp, C=Full Name, D=Facebook Name, E=Age, F=Contact, G=Email,
   // H=Job Type (Preferred), I=Skills/Qualifications, J=Preferred Location, K=Expected Pay,
-  // L=Gender, M=Past Jobs, N=Resume Link, O=Civil Status, P=When can start, Q=Status, R=Internal Notes
+  // L=Gender, M=Past Jobs, N=Resume Link, O=Civil Status, P=When can start, Q=Consent,
+  // R=Set-up (stay-in/out), S=Internal Notes
+  // NOTE: r[16] (Consent) is still read into c.status for back-compat with
+  // getEffectiveVerified — the literal "Verified" check there falls through to
+  // isAutoVerified when status is anything else, so consent text in this slot
+  // is functionally harmless. The "Status" column the old form had no longer
+  // exists in the sheet.
   if (results[0].status === 'fulfilled') {
     const rows = results[0].value;
     // Find the first row where col A looks like a candidate ID (e.g. C001, C002...)
@@ -4458,7 +4464,7 @@ async function loadAll(opts) {
         civilStatus: r[14] || '',
         startDate: r[15] || '',
         status: r[16] || 'Unverified',
-        setup: normalizeSetup(r[18] || ''),
+        setup: normalizeSetup(r[17] || ''),
         candStatus: 'active', // runtime status: active | interview | hired | blacklisted
       };
     });
