@@ -4564,10 +4564,20 @@ async function loadAll(opts) {
       remarks: r[24] || '',
     }));
     // Apply localStorage status overrides, show all non-cancelled unless toggled
-    jobOrders = allJobOrders.map(jo => ({
-      ...jo,
-      status: joStatusOverrides[jo.id] || jo.sheetStatus || 'Active'
-    })).filter(jo => ['Active','On Hold','Fulfilled'].includes(jo.status) || joStatusOverrides[jo.id]);
+    // Normalize sheet JO Status case-insensitively and soft-default unknown
+    // values (typos, "Pending", "New", "Closed", etc.) to Active so every JO
+    // with a JO-style id appears SOMEWHERE — previously the strict whitelist
+    // silently dropped any row whose Column U was outside the allowed three
+    // values, hiding real job orders from every tab. The visibility filter
+    // tabs (Active / On Hold / Cancelled / Fulfilled / All) at the render
+    // layer still control what shows by default; this just stops the parser
+    // from gating the array itself. localStorage override always wins.
+    const _CANON_JO_STATUS = { 'active':'Active','on hold':'On Hold','fulfilled':'Fulfilled','cancelled':'Cancelled','canceled':'Cancelled' };
+    jobOrders = allJobOrders.map(jo => {
+      const raw = (jo.sheetStatus || '').trim().toLowerCase();
+      const canonical = _CANON_JO_STATUS[raw] || 'Active';
+      return Object.assign({}, jo, { status: joStatusOverrides[jo.id] || canonical });
+    });
     document.getElementById('jo-error').classList.add('hidden');
   } else {
     showError('jo-error', 'Failed to load job orders: ' + results[1].reason?.message);
