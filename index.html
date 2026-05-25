@@ -4630,10 +4630,22 @@ function updateTimestamp() {
 
 function updateStats() {
   const allPlacements = [...placements, ...manualPlacements];
+  // Resolve canonical stage for a placement (uses dispositionStage when present,
+  // falls back to legacy status/response). Hoisted as a local so the three
+  // metric filters below all use the same definition.
+  const _stageOf = function(p) {
+    const pid = p.placementId || p.candidateId;
+    let ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    return getEffectiveStage(ex, p);
+  };
   document.getElementById('stat-candidates').textContent = candidates.length;
   document.getElementById('stat-verified').textContent = candidates.filter(c => getEffectiveVerified(c)).length;
   document.getElementById('stat-active-jobs').textContent = jobOrders.length;
-  document.getElementById('stat-placements').textContent = allPlacements.length;
+  // §C: Placements count only candidates whose stage is Hired ✓. Pending
+  // Requirements explicitly does NOT count (still cancellable, no fee owed).
+  // Pre-Hired stages (Broadcasted / Confirmed Interested / Called / Verified /
+  // For Employer Review / Interview Scheduled) and exit stages are excluded.
+  document.getElementById('stat-placements').textContent = allPlacements.filter(p => _stageOf(p) === 'Hired ✓').length;
   const totalHidden = _hiddenDuplicates.length + _hiddenUnderage.length;
   const noteEl = document.getElementById('stat-hidden-note');
   if (noteEl) {
@@ -4657,7 +4669,9 @@ function updateStats() {
     const pid = p.placementId || p.candidateId;
     var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
     var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
-    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
+    // §C: only Hired ✓ counts toward Avg Days to Place — derived from Stage,
+    // not the legacy status string, so Pending Requirements stays excluded.
+    if (getEffectiveStage(ex, p) !== 'Hired ✓') return;
     if (hireData.issueReported && (hireData.issues || []).some(function(i) { return replacementTypes.indexOf(i.type) >= 0; })) issueCount++;
     var hd = hireData.hireDate;
     if (!hd) return;
@@ -4676,11 +4690,11 @@ function updateStats() {
   var avgDaysEl = document.getElementById('stat-avg-days');
   if (avgDaysEl) avgDaysEl.textContent = daysToPlaceArr.length ? Math.round(daysToPlaceArr.reduce(function(a,b){return a+b;},0)/daysToPlaceArr.length) + 'd' : '—';
 
+  // §C: Replacement Rate denominator = Hired ✓ only (Stage-derived, future-proof).
   var totalHired = allPlacements.filter(function(p) {
     const pid = p.placementId || p.candidateId;
     var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
-    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
-    return (ex.status || p.status || '').trim().toLowerCase() === 'hired';
+    return getEffectiveStage(ex, p) === 'Hired ✓';
   }).length;
 
   var replaceRateEl = document.getElementById('stat-replace-rate');
@@ -5834,6 +5848,55 @@ function _applyStageSideEffects(pid, newStage) {
 // compatibility with the funnel / commission / avg-days-to-place filters, then
 // fires stage-transition side effects and refreshes all visibility.
 function onStageChanged(pid, newStage) {
+  // Capture the prior canonical stage BEFORE any save so we can revert the
+  // select if the §D call-gate or §E duplicate-lock warning is cancelled.
+  let _priorStage = '';
+  try { _priorStage = (JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}').dispositionStage) || ''; } catch(_e) {}
+  const _revertSelect = function() {
+    const sel = document.getElementById('stage-sel-' + pid);
+    if (sel) sel.value = _priorStage;
+  };
+
+  // §D — Call gate: warn (do not block) when endorsing to employer without a
+  // prior Called / Verified pass. Required gate by policy; allow override.
+  if (newStage === 'For Employer Review') {
+    const priorRank = STAGE_RANK[_priorStage] || 0;
+    if (priorRank < STAGE_RANK['Called / Verified']) {
+      if (!confirm("This candidate hasn't been Called / Verified yet. Endorse to employer anyway?")) {
+        _revertSelect();
+        return;
+      }
+    }
+  }
+
+  // §E — Duplicate-lock: warn (do not block) when advancing this candidate
+  // past Confirmed Interested on a JO while they are already at
+  // Called / Verified or beyond on another JO. Surface the conflict JO + stage
+  // so the coordinator can decide; allow override.
+  const newRank = STAGE_RANK[newStage] || 0;
+  if (newRank > STAGE_RANK['Confirmed Interested']) {
+    const mp = manualPlacements.find(function(p) { return p.placementId === pid; });
+    if (mp) {
+      const conflicts = [...placements, ...manualPlacements]
+        .filter(function(x) { return x.candidateId === mp.candidateId && x.jobOrderId !== mp.jobOrderId; })
+        .map(function(x) {
+          const pidOther = x.placementId || x.candidateId;
+          let exOther = {}; try { exOther = JSON.parse(localStorage.getItem('prow_extra_' + pidOther) || '{}'); } catch(_e) {}
+          const stageOther = getEffectiveStage(exOther, x);
+          const rankOther = STAGE_RANK[stageOther] || 0;
+          return rankOther >= STAGE_RANK['Called / Verified'] ? { joId: x.jobOrderId, stage: stageOther } : null;
+        })
+        .filter(Boolean);
+      if (conflicts.length > 0) {
+        const lines = conflicts.map(function(c) { return '  • ' + c.joId + ' — ' + c.stage; }).join('\n');
+        if (!confirm('This candidate is already in advanced stage on another job order:\n' + lines + '\n\nContinue?')) {
+          _revertSelect();
+          return;
+        }
+      }
+    }
+  }
+
   saveProwExtra(pid, 'dispositionStage', newStage);
 
   // Derive Status from Stage (Pending Requirements derives 'Confirmed' so it
