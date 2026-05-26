@@ -5507,7 +5507,6 @@ function createPlacementRow(p, idx, joId) {
   const savedNote     = extra.notes    || candidateNotes[noteKey] || p.notes    || '';
   const savedResponse = extra.response || p.response || 'No Response';
   const followupDate  = extra.followupDate  || '';
-  const followup2Date = extra.followup2Date || '';
   // Always-on dashboard. Split: input prefill (manual field only) vs. contact-signal date
   // (used for followup math). p.date is NOT a contact signal — it is set by broadcasting.
   const lastContactedInputValue = extra.lastContacted || '';
@@ -5536,11 +5535,10 @@ function createPlacementRow(p, idx, joId) {
   // Follow-up check
   const today0 = new Date(); today0.setHours(0,0,0,0);
   const needsFollowup  = followupDate  && new Date(followupDate)  <= today0;
-  const needsFollowup2 = followup2Date && new Date(followup2Date) <= today0;
   const autoFollowup   = !followupDate && (savedStage === 'Broadcasted' || savedStage === 'Messaged') && lastContacted && daysDiff(lastContacted) >= 3;
-  const showFollowup   = needsFollowup || needsFollowup2 || autoFollowup;
+  const showFollowup   = needsFollowup || autoFollowup;
 
-  // Auto-suggest followup2 = lastContacted + 3 days (stored separately)
+  // Auto-suggest follow-up = lastContacted + 3 days
   const suggestFollowup = lastContacted && !followupDate ? (() => {
     const d = new Date(lastContacted); d.setDate(d.getDate()+3);
     return d.toISOString().split('T')[0];
@@ -5628,12 +5626,6 @@ function createPlacementRow(p, idx, joId) {
           </select>
         </div>
         <div class="prow-field">
-          <div class="prow-field-label">Status (derived)</div>
-          <select id="status-sel-${escAttr(pid)}" disabled title="Derived from Stage — edit Stage instead">
-            ${['','Broadcasted','Confirmed','Called','Interview Scheduled','For Employer Review','Hired','Dropped / Unavailable'].map(v=>`<option${v===savedStatus?' selected':''}>${v||'—'}</option>`).join('')}
-          </select>
-        </div>
-        <div class="prow-field">
           <div class="prow-field-label">Contacted Via</div>
           <select onchange="saveProwExtra('${escAttr(pid)}','contactVia',this.value);updateViaDisplay(this,'${escAttr(pid)}')">
             ${['','Phone Call','SMS/Text','Facebook Messenger','Gmail'].map(v=>`<option${v===contactVia?' selected':''}>${v}</option>`).join('')}
@@ -5675,14 +5667,6 @@ function createPlacementRow(p, idx, joId) {
             onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value);refreshProwBadges('${escAttr(pid)}')"
             style="${needsFollowup?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
           ${suggestFollowup && !followupDate ? `<div class="prow-suggest" onclick="applyFollowupSuggest('${escAttr(pid)}','followupDate','${escAttr(suggestFollowup)}')">Suggest: ${escHtml(fmtDateShort(suggestFollowup))}</div>` : ''}
-        </div>
-        <div class="prow-field" id="fu2-field-${escAttr(pid)}"${showFollowups ? '' : ' style="display:none"'}>
-          <div class="prow-field-label" style="color:${needsFollowup2?'var(--orange)':''}">
-            Follow-up #2${needsFollowup2?' — Overdue':''}
-          </div>
-          <input type="date" value="${escAttr(followup2Date)}" id="fu2-${escAttr(pid)}"
-            onchange="saveProwExtra('${escAttr(pid)}','followup2Date',this.value);refreshProwBadges('${escAttr(pid)}')"
-            style="${needsFollowup2?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
         </div>
         ${showInterview ? `
         <div class="prow-field prow-interview-field">
@@ -5815,7 +5799,6 @@ function refreshProwFields(pid) {
   setVis('resp-field-' + pid, showResp);
   setVis('lc-field-'   + pid, showLC);
   setVis('fu1-field-'  + pid, showFU);
-  setVis('fu2-field-'  + pid, showFU);
 }
 
 // Sync the prow-inactive dim class from the current Stage. Exit stages and
@@ -5949,8 +5932,7 @@ function refreshProwBadges(pid) {
   if (!row) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const fu1 = document.getElementById(`fu1-${pid}`)?.value || '';
-  const fu2 = document.getElementById(`fu2-${pid}`)?.value || '';
-  const overdue = (fu1 && new Date(fu1) <= today) || (fu2 && new Date(fu2) <= today);
+  const overdue = fu1 && new Date(fu1) <= today;
   const badge = row.querySelector('.followup-flag');
   if (overdue && !badge) {
     const badges = row.querySelector('.prow-badges');
@@ -6038,9 +6020,10 @@ function buildReminderBanner() {
       }
     }
 
-    // Auto-flag: messaged 3+ days ago, no response
+    // Auto-flag: broadcast 3+ days ago, no response. Status='Messaged' was the
+    // pre-Stage-rework value; Stage='Broadcasted' now derives status='Broadcasted'.
     const daysSince = lastContact ? daysDiff(lastContact) : 0;
-    if (daysSince >= 3 && (savedResponse === 'No Response' || savedResponse === '') && savedStatus === 'Messaged') {
+    if (daysSince >= 3 && (savedResponse === 'No Response' || savedResponse === '') && savedStatus === 'Broadcasted') {
       items.push({ icon:'alert', type:'stale', name: p.candidateName, detail:'No response for ' + daysSince + 'd — ' + joLabel, badge: daysSince + 'd', badgeClass: daysSince >= 14 ? 'rb-red' : 'rb-orange', pid });
     }
   });
@@ -9621,7 +9604,6 @@ function buildHiredExpanded(p, ex, jo, hireData, pid, c, allPlacements) {
   if (addedDate)           events.push({ date: addedDate,        label: 'Added to Job Order ' + escHtml(p.jobOrderId),    sub: jo ? escHtml(jo.company||'') : '',                     cls: 'tl-added',   pri: 1 });
   if (contactDate)         events.push({ date: contactDate,      label: 'Contacted',                                      sub: ex.contactVia ? 'Via ' + escHtml(ex.contactVia) : '', cls: 'tl-contact', pri: 2 });
   if (ex.followupDate)     events.push({ date: ex.followupDate,  label: 'Follow-up #1',                                   sub: '',                                                    cls: 'tl-contact', pri: 3 });
-  if (ex.followup2Date)    events.push({ date: ex.followup2Date, label: 'Follow-up #2',                                   sub: '',                                                    cls: 'tl-contact', pri: 3 });
   if (ex.interviewDate)    events.push({ date: ex.interviewDate, label: 'Interview scheduled',                            sub: '',                                                    cls: 'tl-intv',    pri: 4 });
   if ((ex.status === 'Interviewed' || ex.status === 'Hired') && (ex.interviewDate || contactDate)) {
     var intResult = ex.status === 'Hired' ? 'Passed' : 'Completed';
