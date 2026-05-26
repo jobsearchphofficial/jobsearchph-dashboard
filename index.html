@@ -9178,27 +9178,27 @@ function broadcastCount(candId) {
   return manualPlacements.filter(function(p) { return p.candidateId === candId && p.source === 'broadcast'; }).length;
 }
 
-function hasBeenContacted(candId) {
+function hasBeenContacted(candId, extrasCache) {
   return [...placements, ...manualPlacements].some(function(p) {
     if (p.candidateId !== candId) return false;
-    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
     return !!ex.lastDirectContactAt;
   });
 }
 
-function saidInterested(candId) {
+function saidInterested(candId, extrasCache) {
   return [...placements, ...manualPlacements].some(function(p) {
     if (p.candidateId !== candId) return false;
-    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
     if ((ex.response || p.response) === 'Interested') return true;
     return _POST_INTEREST_STAGES.indexOf(getEffectiveStage(ex, p)) >= 0;
   });
 }
 
-function saidNotInterested(candId) {
+function saidNotInterested(candId, extrasCache) {
   return [...placements, ...manualPlacements].some(function(p) {
     if (p.candidateId !== candId) return false;
-    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
     if ((ex.response || p.response) === 'Not Interested') return true;
     return getEffectiveStage(ex, p) === 'Rejected by Candidate';
   });
@@ -9206,18 +9206,21 @@ function saidNotInterested(candId) {
 
 // Pick a placement to launch a call against. For WARM (broadcast-only) the
 // most-recently-dated broadcast placement matches _walkerLogDmSent's heuristic.
+// Only considers placements that HAVE a placementId — submitCallDecision
+// skips the lastDirectContactAt stamp when placementId is falsy, which would
+// keep a freshly-called candidate stuck on the WARM list.
 function pickCallTarget(candId) {
   const broadcasts = manualPlacements
-    .filter(function(p) { return p.candidateId === candId && p.source === 'broadcast'; })
+    .filter(function(p) { return p.candidateId === candId && p.source === 'broadcast' && p.placementId; })
     .slice()
     .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
   if (broadcasts.length) {
     const t = broadcasts[0];
-    return { joId: t.jobOrderId, placementId: t.placementId || '' };
+    return { joId: t.jobOrderId, placementId: t.placementId };
   }
-  // Fallback: any placement at all
-  const any = [...placements, ...manualPlacements].find(function(p) { return p.candidateId === candId; });
-  return any ? { joId: any.jobOrderId, placementId: any.placementId || '' } : { joId: '', placementId: '' };
+  // Fallback: any placement of this candidate that HAS a placementId.
+  const any = [...placements, ...manualPlacements].find(function(p) { return p.candidateId === candId && p.placementId; });
+  return any ? { joId: any.jobOrderId, placementId: any.placementId } : { joId: '', placementId: '' };
 }
 
 // ═══════════════════════════════════════════════
@@ -11747,13 +11750,28 @@ function renderCallsTab() {
 }
 
 function _getNeedsCallCandidates() {
+  // Per-render extras cache — same pattern as renderCandidates. Parse every
+  // placement's prow_extra ONCE, then thread the Map through the five helpers
+  // that would otherwise re-read+re-parse localStorage per candidate.
+  // broadcastCount reads only manualPlacements (no extras) so it doesn't
+  // need the cache.
+  const extrasCache = new Map();
+  const _allP = [...placements, ...manualPlacements];
+  for (let _i = 0; _i < _allP.length; _i++) {
+    const _p = _allP[_i];
+    const _pid = _p.placementId || _p.candidateId;
+    if (extrasCache.has(_pid)) continue;
+    let _ex = {};
+    try { _ex = JSON.parse(localStorage.getItem('prow_extra_' + _pid) || '{}'); } catch(_e) {}
+    extrasCache.set(_pid, _ex);
+  }
   return candidates.filter(function(c) {
     if (blacklist[c.id]) return false;
-    if (isCandidateHired(c.id)) return false;
-    if (saidNotInterested(c.id)) return false;
-    if (isCandInactive(c.id)) return false;
-    if (saidInterested(c.id)) return false;
-    if (hasBeenContacted(c.id)) return false;
+    if (isCandidateHired(c.id, extrasCache)) return false;
+    if (saidNotInterested(c.id, extrasCache)) return false;
+    if (isCandInactive(c.id, extrasCache)) return false;
+    if (saidInterested(c.id, extrasCache)) return false;
+    if (hasBeenContacted(c.id, extrasCache)) return false;
     return broadcastCount(c.id) >= 1;
   });
 }
@@ -11931,7 +11949,9 @@ function buildNeedsCallHTML() {
         (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
       '</div>' +
       '<div>' +
-        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(target.joId) + '\',\'' + escAttr(target.placementId) + '\')">Call</button>' +
+        (target.placementId
+          ? '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(target.joId) + '\',\'' + escAttr(target.placementId) + '\')">Call</button>'
+          : '<button class="btn btn-ghost" style="font-size:12px;padding:6px 16px;white-space:nowrap" disabled title="No placement to log against — add to a job order first">Call</button>') +
       '</div>' +
     '</div>';
   }).join('');
