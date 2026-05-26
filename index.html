@@ -3093,7 +3093,6 @@ function doLogin(){
     <button class="tab" onclick="switchTab('candidates')">Candidates</button>
     <button class="tab" id="tab-btn-hired" onclick="switchTab('hired')">Hired</button>
     <button class="tab hidden" onclick="switchTab('matcher')">AI Matcher</button>
-    <button class="tab" onclick="switchTab('screening')">Screening</button>
     <button class="tab" id="tab-btn-calls" onclick="switchTab('calls')">Calls<span class="call-tab-badge" id="calls-tab-badge" style="display:none">0</span></button>
     <button class="tab hidden" id="tab-btn-analytics" onclick="switchTab('analytics')">Analytics</button>
   </div>
@@ -3196,11 +3195,6 @@ function doLogin(){
       <div class="badge" id="tmpl-count">0</div>
     </div>
     <div id="templates-container"></div>
-  </div>
-
-  <!-- ═══ TAB: SCREENING ═══ -->
-  <div class="tab-content" id="tab-screening">
-    <div id="screening-inner"></div>
   </div>
 
   <!-- ═══ TAB: CALLS ═══ -->
@@ -3986,9 +3980,7 @@ function loadLocal() {
   try { joStatusOverrides = JSON.parse(localStorage.getItem('jo_status_overrides') || '{}'); } catch(e){ joStatusOverrides={}; }
   try { candidateRatings = JSON.parse(localStorage.getItem('candidate_ratings') || '{}'); } catch(e){ candidateRatings={}; }
   try { candidateOverrides = JSON.parse(localStorage.getItem('candidate_overrides') || '{}'); } catch(e){ candidateOverrides={}; }
-  try { eraStages = JSON.parse(localStorage.getItem('era_stages') || '{}'); } catch(e){ eraStages={}; }
   try { eraContactLogs = JSON.parse(localStorage.getItem('era_contact_logs') || '{}'); } catch(e){ eraContactLogs={}; }
-  try { pipelineStages = JSON.parse(localStorage.getItem('pipeline_stages') || '{}'); } catch(e){ pipelineStages={}; }
   try { callQueue = JSON.parse(localStorage.getItem('call_queue') || '{}'); } catch(e){ callQueue={}; }
 }
 
@@ -4251,22 +4243,10 @@ function repairShiftedPlacements() {
       fbSync('cand_notes/' + correctId, JSON.parse(notes));
     }
 
-    if (eraStages[wrongId]) {
-      eraStages[correctId] = eraStages[wrongId];
-      delete eraStages[wrongId];
-      saveEraStages();
-    }
-
     if (eraContactLogs[wrongId]) {
       eraContactLogs[correctId] = eraContactLogs[wrongId];
       delete eraContactLogs[wrongId];
       saveEraContactLogs();
-    }
-
-    if (pipelineStages[wrongId]) {
-      pipelineStages[correctId] = pipelineStages[wrongId];
-      delete pipelineStages[wrongId];
-      savePipelineStages();
     }
 
     Object.keys(localStorage).forEach(key => {
@@ -6772,14 +6752,10 @@ function renderCandidates() {
       if (isHired && !f.showHired) return false;
 
       if (f.status.length) {
-        const rl = getCandReadiness(c.id).level;
         const statusMatch = f.status.some(function(s) {
           if (s === 'Hired') return isHired;
           if (s === 'Blacklisted') return isBlacklisted;
           if (s === 'Removed from Pool') return isRemoved;
-          if (s === 'Ready') return rl === 'Ready for Matching' && !isHired && !isRemoved;
-          if (s === 'Needs Verification') return rl === 'Needs Verification' && !isHired && !isRemoved;
-          if (s === 'Not Ready') return rl === 'Not Ready' && !isHired && !isRemoved;
           return false;
         });
         if (!statusMatch) return false;
@@ -6878,11 +6854,6 @@ function renderCandidates() {
       // ERA highest first
       const scoreDiff = calcCandRating(b.id) - calcCandRating(a.id);
       if (scoreDiff !== 0) return scoreDiff;
-      const readinessOrder = { 'Ready for Matching': 0, 'Needs Verification': 1, 'Not Ready': 2 };
-      const rdA = readinessOrder[getCandReadiness(a.id).level];
-      const rdB = readinessOrder[getCandReadiness(b.id).level];
-      const rdDiff = (rdA !== undefined ? rdA : 9) - (rdB !== undefined ? rdB : 9);
-      if (rdDiff !== 0) return rdDiff;
       const verDiff = Number(getEffectiveVerified(b)) - Number(getEffectiveVerified(a));
       if (verDiff !== 0) return verDiff;
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -6935,7 +6906,6 @@ function createCandCard(c) {
   const isFlagged = !!flaggedCands[c.id];
   const flagBadge = isFlagged ? `<span class="cand-badge badge-flagged">Flagged: ${escHtml(flaggedCands[c.id].reason||'Issue Reported')}</span>` : '';
 
-  const cardReadiness = getCandReadiness(c.id);
   const cardAutoTags = getAutoTags(c.id);
   card.style.cursor = 'pointer';
   card.onclick = (e) => { if (!e.target.closest('.btn')) openCandModal(c.id); };
@@ -7354,14 +7324,8 @@ async function runMatcher() {
   // Top 30 only for token efficiency
   const eligibleSorted = scoredEligible.slice(0, 30).map(x => x.c);
 
-  // Deprioritize Unproven candidates — push to end of list
-  eligibleSorted.sort((a, b) => {
-    const ra = getCandReadiness(a.id).level;
-    const rb = getCandReadiness(b.id).level;
-    const order = { Ready: 0, Partial: 1, Unproven: 2 };
-    if (order[ra] !== order[rb]) return order[ra] - order[rb];
-    return calcERA(b.id, joId).score - calcERA(a.id, joId).score;
-  });
+  // ERA score descending — higher-scoring candidates first.
+  eligibleSorted.sort((a, b) => calcERA(b.id, joId).score - calcERA(a.id, joId).score);
 
   // Helper: extract numeric salary
   const parseSalary = val => { const n = parseInt((val||'').replace(/[^0-9]/g,'')); return isNaN(n)?null:n; };
@@ -7374,7 +7338,8 @@ async function runMatcher() {
     const effVer = getEffectiveVerified(c);
     const rLabel = getRatingLabel(era.score).label;
     const qf = era.qualityFlags || {};
-    const readiness = getCandReadiness(c.id);
+    // R1: derive readiness from ERA score alone (no gateOk dependency).
+    const readinessLevel = era.score >= 7 ? 'Ready' : era.score >= 5 ? 'Needs Verification' : 'Not Ready';
     const candNotes = getCandNotes(c.id);
     const latestNote = candNotes.length ? candNotes[0].text : '';
     const setupPref = getEffectiveSetup(c);
@@ -7387,7 +7352,7 @@ async function runMatcher() {
     if (!c.jobType) missing.push('no job type');
     if (!effVer && !docs.validId) missing.push('no ID');
     const rejHist = (rejHistMap[c.id] || []).map(r => r.reason + (r.reasonOther ? ': ' + r.reasonOther : '')).join('; ') || 'none';
-    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readiness.level} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age||'?'} | Gender: ${c.gender||'?'} | Job: ${c.jobTypeFormatted||c.jobType||'?'} | Setup: ${setupPref||'?'} | City: ${c.cityFormatted||c.location||'?'} | Pay: ${c.expectedPay||'?'} | SalaryFlag: ${salaryFlag} | Skills: ${c.skills||'none'} | PastJobs: ${c.pastJobs||'none'} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'} | MissingFields: ${missing.join(',')||'none'} | Note: ${latestNote||''} | RejHist: ${rejHist}`;
+    return `ID: ${c.id} | ERA: ${era.score} (${rLabel}) | Readiness: ${readinessLevel} | E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)} | Name: ${c.name} | Age: ${c.age||'?'} | Gender: ${c.gender||'?'} | Job: ${c.jobTypeFormatted||c.jobType||'?'} | Setup: ${setupPref||'?'} | City: ${c.cityFormatted||c.location||'?'} | Pay: ${c.expectedPay||'?'} | SalaryFlag: ${salaryFlag} | Skills: ${c.skills||'none'} | PastJobs: ${c.pastJobs||'none'} | Exp: ${c.experienceFlag} | Verified: ${effVer?'Yes':'No'} | Docs: ${docStr} | JobMatch: ${qf.jobMatch?'Yes':'No'} | LocMatch: ${qf.locationMatch?'Yes':'No'} | AgeMatch: ${qf.ageMatch?'Yes':'No'} | MissingFields: ${missing.join(',')||'none'} | Note: ${latestNote||''} | RejHist: ${rejHist}`;
   }).join('\n');
 
   // Job type equivalents for context
@@ -7667,7 +7632,6 @@ function _openCandModalInner(candId) {
   const highDemand = activeJOs.length >= 2;
 
   // Readiness + placement history data
-  const readiness = getCandReadiness(c.id);
   const candAllPlacements = [...placements, ...manualPlacements].filter(p => p.candidateId === c.id);
   const candPlacExtras = candAllPlacements.map(p => {
     const pid = p.placementId || p.candidateId;
@@ -7784,9 +7748,6 @@ function _openCandModalInner(candId) {
               ${label}: <strong>${text}</strong>
             </div>`;
           }).join('')}
-          <div class="quality-flag-chip" style="border-color:${ratingFull.era.gateOk?'var(--green)20':'var(--red)20'};background:${ratingFull.era.gateOk?'var(--green)10':'var(--red)10'};color:${ratingFull.era.gateOk?'var(--green)':'var(--red)'}">
-            Gate: <strong>${ratingFull.era.gateOk?'Passed':'Failed'}</strong>
-          </div>
         </div>
 
         <!-- Documents -->
@@ -8912,6 +8873,16 @@ function _walkerLogDmSent() {
   if (!_exForVia.contactVia) {
     saveProwExtra(pid, 'contactVia', 'Facebook Messenger');
   }
+  // Also stamp eraContactLogs so isCandInactive's lateReply staleness check
+  // sees DM contact attempts, not just calls.
+  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
+  eraContactLogs[candId].push({
+    method: 'FB Messenger',
+    outcome: 'DM Sent',
+    date: today,
+    ts: Date.now(),
+  });
+  saveEraContactLogs();
   showToast('DM logged for ' + c.name + '.', 'green');
   _renderWalker();
 }
@@ -9373,15 +9344,6 @@ function calcERA(candId, joId) {
   const docConfidence = (hasBrgy && hasPolice && (hasNBI || hasMedical)) ? 'Complete' :
                         (docCount >= 2 ? 'Partial' : 'Incomplete');
 
-  // ── READINESS GATE ──
-  const hasRSignal = !!(scores.repliedFast || scores.answeredCall || scores.confirmedIntv);
-  const hasASignal = hasAActivity;
-  const gateOk     = hasValidId && hasRSignal && hasASignal;
-
-  // ── READINESS STATUS ──
-  const readinessStatus = (E >= 3 && R >= 1 && A >= 1) ? 'Ready for Matching' :
-                          (hasValidId ? 'Needs Verification' : 'Not Ready');
-
   // ── FINAL SCORE ──
   let total = 2.0 + E + R + A + bonus;
   total = Math.min(total, docCap);
@@ -9400,8 +9362,8 @@ function calcERA(candId, joId) {
     eBreakdown, rBreakdown, aBreakdown, bonusBreakdown,
     isBlacklisted, qualityFlags,
     hasRActivity, hasAActivity, hasDocs,
-    gateOk, hasValidId, hasRSignal, hasASignal,
-    docCap, docConfidence, readinessStatus
+    hasValidId,
+    docCap, docConfidence
   };
 }
 
@@ -9423,19 +9385,6 @@ function calcCandRating(candId) {
   return calcERA(candId).score;
 }
 
-// ── Readiness Indicator ──
-// Ready for Matching = gate passed AND E >= 3 AND R >= 1 AND A >= 2
-// Needs Verification = gate passed but score thresholds not met
-// Not Ready          = gate failed (missing Valid ID, R signal, or passed screening)
-function getCandReadiness(candId) {
-  const era = calcERA(candId);
-  if (!era.gateOk)
-    return { level: 'Not Ready', color: 'var(--red)', icon: '○' };
-  if (era.E >= 3 && era.R >= 1 && era.A >= 2)
-    return { level: 'Ready for Matching', color: 'var(--green)', icon: '●' };
-  return { level: 'Needs Verification', color: 'var(--orange)', icon: '◑' };
-}
-
 function getDocConfidence(candId) {
   const stored = candidateRatings[candId] || {};
   const docs = stored.docs || {};
@@ -9446,17 +9395,12 @@ function getDocConfidence(candId) {
 }
 
 function getAutoTags(candId) {
-  const readiness = getCandReadiness(candId);
   const era = calcERA(candId);
   const stored = candidateRatings[candId] || {};
   const scores = stored.scores || {};
   const tags = [];
-  if (readiness.level === 'Ready for Matching')   tags.push({ label: 'Ready',             color: 'var(--green)' });
-  if (readiness.level === 'Needs Verification')    tags.push({ label: 'Needs Verification', color: 'var(--orange)' });
-  if (readiness.level === 'Not Ready')             tags.push({ label: 'Not Ready',          color: 'var(--red)' });
-  if (scores.noShow)                               tags.push({ label: 'No Response',        color: 'var(--red)' });
-  if (era.score >= 8.0 && readiness.level === 'Ready for Matching')
-    tags.push({ label: 'High Potential', color: 'var(--accent)' });
+  if (scores.noShow)        tags.push({ label: 'No Response',    color: 'var(--red)' });
+  if (era.score >= 8.0)     tags.push({ label: 'High Potential', color: 'var(--accent)' });
   return tags;
 }
 
@@ -9504,11 +9448,6 @@ function saveCandScore(candId, key, val) {
   if (!candidateRatings[candId].scores) candidateRatings[candId].scores = {};
   candidateRatings[candId].scores[key] = val;
   saveCandidateRatings();
-  // Auto-advance pipeline: Contacted → In Progress when R signal set
-  const rSignals = ['repliedFast', 'answeredCall', 'confirmedIntv'];
-  if (val === true && rSignals.indexOf(key) >= 0 && getPipelineStage(candId) === 'Contacted') {
-    setPipelineStage(candId, 'In Progress', 'R signal: ' + key);
-  }
   const modal = document.getElementById('modal-cand-profile');
   if (modal?.classList.contains('open')) openCandModal(candId);
 }
@@ -10525,12 +10464,11 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   var tabEl = document.getElementById('tab-' + tab);
   if (tabEl) tabEl.classList.add('active');
-  const allTabs = ['jobs','candidates','hired','matcher','screening','calls','analytics'];
+  const allTabs = ['jobs','candidates','hired','matcher','calls','analytics'];
   const idx = allTabs.indexOf(tab);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
   if (tab === 'hired')     renderHiredTab();
   if (tab === 'templates') renderTemplatesTab();
-  if (tab === 'screening') renderScreeningTab();
   if (tab === 'analytics') renderAnalyticsTab();
   if (tab === 'calls')     renderCallsTab();
 }
@@ -11175,12 +11113,8 @@ function _applyFbData(data) {
       if (isMetaKey(e[0])) return;
       if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(_stripMeta(e[1].cancellation)));
     });
-  if (data.era_stages && !ownsRoot('era_stages'))
-    localStorage.setItem('era_stages', JSON.stringify(_stripMeta(data.era_stages)));
   if (data.era_contact_logs && !ownsRoot('era_contact_logs'))
     localStorage.setItem('era_contact_logs', JSON.stringify(_stripMeta(data.era_contact_logs)));
-  if (data.pipeline_stages && !ownsRoot('pipeline_stages'))
-    localStorage.setItem('pipeline_stages', JSON.stringify(_stripMeta(data.pipeline_stages)));
   if (data.broadcast_log && !ownsRoot('broadcast_log'))
     localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
   if (data.callQueue && !ownsRoot('callQueue')) {
@@ -11260,9 +11194,7 @@ async function fbPullSilent() {
       Object.entries(data.jobOrders).forEach(function(e) {
         if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
       });
-    if (data.era_stages)       _fbMergeObj('era_stages',       data.era_stages);
     if (data.era_contact_logs) _fbMergeObj('era_contact_logs', data.era_contact_logs);
-    if (data.pipeline_stages)  _fbMergeObj('pipeline_stages',  data.pipeline_stages);
     if (data.broadcast_log)    localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
@@ -11322,9 +11254,7 @@ async function loadFromFirebase() {
       Object.entries(data.jobOrders).forEach(function(e) {
         if (e[1] && e[1].cancellation) localStorage.setItem('jo_cancellation_' + e[0], JSON.stringify(e[1].cancellation));
       });
-    if (data.era_stages)       _fbMergeObj('era_stages',       data.era_stages);
     if (data.era_contact_logs) _fbMergeObj('era_contact_logs', data.era_contact_logs);
-    if (data.pipeline_stages)  _fbMergeObj('pipeline_stages',  data.pipeline_stages);
     if (data.broadcast_log)    localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
     if (data.jo_coordinators)
       Object.entries(data.jo_coordinators).forEach(function(e) { localStorage.setItem('jo_coordinator_' + e[0], e[1]); });
@@ -11383,9 +11313,7 @@ async function pushAllToFirebase() {
     jo_status_overrides: joStatusOverrides   || {},
     candidate_ratings:   candidateRatings    || {},
     candidate_overrides: candidateOverrides  || {},
-    era_stages:          eraStages           || {},
     era_contact_logs:    eraContactLogs      || {},
-    pipeline_stages:     pipelineStages      || {},
     templates:           getTemplates(),
     prow_extras:         prowExtras,
     hire_data:           hireData,
@@ -11496,9 +11424,7 @@ async function syncForcePull() {
 // SCREENING TAB
 // ═══════════════════════════════════════════════
 
-let eraStages = {};
 let eraContactLogs = {};
-let pipelineStages = {};
 
 // ─── CALLS STATE ───
 let callQueue = {};       // { candidateId: { joId, placementId, enteredQueueAt, status, scheduledFor, callbackReason } }
@@ -11546,1036 +11472,7 @@ function updateCallsBadge() {
   if (countEl) countEl.textContent = total;
 }
 
-function saveEraStages() { _lsSet('era_stages', eraStages); fbSyncDebounced('era_stages', eraStages); }
 function saveEraContactLogs() { _lsSet('era_contact_logs', eraContactLogs); fbSyncDebounced('era_contact_logs', eraContactLogs); }
-function savePipelineStages() { _lsSet('pipeline_stages', pipelineStages); fbSyncDebounced('pipeline_stages', pipelineStages); }
-
-const PL_STAGES = ['Unscreened', 'Contacted', 'In Progress', 'Ready for Matching'];
-const PL_COLORS = {
-  'Unscreened':         'var(--text3)',
-  'Contacted':          'var(--accent)',
-  'In Progress':        'var(--gold)',
-  'Ready for Matching': 'var(--green)',
-};
-
-function getPipelineStage(candId) {
-  return (pipelineStages[candId] && pipelineStages[candId].stage) || 'Unscreened';
-}
-
-function setPipelineStage(candId, newStage, reason) {
-  const current = getPipelineStage(candId);
-  if (current === newStage) return false;
-  if (!pipelineStages[candId]) pipelineStages[candId] = { history: [] };
-  if (!pipelineStages[candId].history) pipelineStages[candId].history = [];
-  pipelineStages[candId].history.push({ from: current, to: newStage, ts: Date.now(), reason: reason || '' });
-  pipelineStages[candId].stage = newStage;
-  pipelineStages[candId].changedAt = new Date().toISOString();
-  savePipelineStages();
-  return true;
-}
-
-function movePipelineStage(candId, stage) {
-  if (stage === 'Ready for Matching') {
-    const era = calcERA(candId);
-    if (!era.gateOk) { showToast('Needs: Valid ID + R signal + A signal', 'orange'); return; }
-  }
-  const moved = setPipelineStage(candId, stage, 'manual');
-  if (moved) {
-    const cand = candidates.find(function(c) { return c.id === candId; });
-    showToast((cand ? cand.name : candId) + ' moved to ' + stage, 'green');
-    _scrPipelineTab = stage;
-    renderScreeningTab();
-  }
-}
-
-function getEraStage(candId) {
-  return (eraStages[candId] && eraStages[candId].stage) || 'Not Ready';
-}
-
-function setEraStage(candId, stage) {
-  if (!eraStages[candId]) eraStages[candId] = {};
-  eraStages[candId].stage = stage;
-  eraStages[candId].changedAt = new Date().toISOString().slice(0, 10);
-  saveEraStages();
-}
-
-function getStageBadge(stage) {
-  const cls = stage === 'Not Ready' ? 'stage-not-ready' : ('stage-' + stage);
-  const labels = { 'Not Ready': 'Not Ready', 'E': 'E', 'R': 'R', 'A': 'A', 'Ready': 'Ready' };
-  return '<span class="era-stage-badge ' + cls + '">' + (labels[stage] || stage) + '</span>';
-}
-
-function getLastContact(candId) {
-  const logs = eraContactLogs[candId] || [];
-  return logs.length ? logs[logs.length - 1] : null;
-}
-
-function daysSince(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  const now = new Date();
-  return Math.floor((now - d) / 86400000);
-}
-
-function getNudgeReason(candId) {
-  const logs = eraContactLogs[candId] || [];
-  const stage = getEraStage(candId);
-  const lastLog = logs.length ? logs[logs.length - 1] : null;
-  const stageData = eraStages[candId] || {};
-  const scores = (candidateRatings[candId] || {}).scores || {};
-
-  if (scores.backedOut && stage !== 'Ready') {
-    return { text: 'Backed out — review', cls: 'nudge-backed' };
-  }
-  if (stage === 'Ready') {
-    const ds = lastLog ? daysSince(lastLog.date) : 999;
-    if (ds >= 7 || !lastLog) return { text: 'Ready — confirm avail.', cls: 'nudge-ready' };
-    return null;
-  }
-  if (!lastLog) return { text: 'New — not contacted', cls: 'nudge-new' };
-  const ds = daysSince(lastLog.date);
-  if (ds >= 7) return { text: ds + ' days no contact', cls: '' };
-  if (stageData.changedAt) {
-    const stageDays = daysSince(stageData.changedAt);
-    if (stageDays >= 5 && stage !== 'Not Ready') {
-      return { text: 'Stuck at ' + stage + ' — ' + stageDays + ' days', cls: 'nudge-stuck' };
-    }
-  }
-  return null;
-}
-
-function isInNurtureQueue(candId) { return getNudgeReason(candId) !== null; }
-
-function renderNudgePill(candId) {
-  const r = getNudgeReason(candId);
-  if (!r) return '';
-  return '<span class="nudge-pill ' + r.cls + '">' + escHtml(r.text) + '</span>';
-}
-
-let _scrView = 'nurture';
-let _scrSearch = '';
-let _scrFilters = { jobType: [], eraStage: [], gender: [], ageMin: 18, ageMax: 65, location: [], lastContact: [] };
-let _scrActivePanel = null;
-let _scrSelectedCand = null;
-let _scrPipelineTab = 'Unscreened';
-
-function initScrFilters() {
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.scrf-btn-wrap')) {
-      if (_scrActivePanel) { _scrActivePanel = null; buildScrFilterBar(); }
-    }
-  });
-}
-
-function switchScreeningView(view) {
-  _scrView = view;
-  _scrSelectedCand = null;
-  renderScreeningTab();
-}
-
-function switchPipelineTab(stage) {
-  _scrPipelineTab = stage;
-  _scrSelectedCand = null;
-  renderScreeningTab();
-}
-
-function calcScreeningStats() {
-  const counts = { 'Unscreened': 0, 'Contacted': 0, 'In Progress': 0, 'Ready for Matching': 0 };
-  candidates.forEach(function(c) {
-    if (blacklist[c.id]) return;
-    const s = getPipelineStage(c.id);
-    if (counts[s] !== undefined) counts[s]++;
-    else counts['Unscreened']++;
-  });
-  return counts;
-}
-
-function scrSearchChange(val) {
-  _scrSearch = val;
-  var boardEl = document.getElementById('scr-board');
-  if (boardEl) {
-    // Only re-render the candidate board — leave the search input untouched
-    boardEl.innerHTML = renderPipelineBoard();
-  } else {
-    renderScreeningTab();
-  }
-}
-
-function buildScrFilterBar() {
-  const bar = document.getElementById('scr-filter-bar');
-  if (!bar) return;
-  const defs = [
-    { key: 'jobType',     neutral: 'All job types',   prefix: 'Job type' },
-    { key: 'eraStage',    neutral: 'All stages',       prefix: 'Stage' },
-    { key: 'gender',      neutral: 'All genders',      prefix: 'Gender' },
-    { key: 'age',         neutral: 'All ages',         prefix: 'Age' },
-    { key: 'location',    neutral: 'All locations',    prefix: 'Location' },
-    { key: 'lastContact', neutral: 'All contact',      prefix: 'Contact' },
-  ];
-  bar.innerHTML = defs.map(function(d) { return buildScrBtnWrap(d.key, d.neutral, d.prefix); }).join('');
-  if (_scrActivePanel === 'age') setTimeout(initScrAgeSlider, 0);
-}
-
-function buildScrBtnWrap(key, neutralLabel, prefix) {
-  const f = _scrFilters;
-  let isActive = false, label = neutralLabel;
-  if (key === 'age') {
-    isActive = !(f.ageMin === 18 && f.ageMax === 65);
-    label = isActive ? 'Age \u00b7 ' + f.ageMin + '\u2013' + f.ageMax : neutralLabel;
-  } else {
-    const arr = f[key] || [];
-    isActive = arr.length > 0;
-    label = isActive ? prefix + ' \u00b7 ' + arr.length : neutralLabel;
-  }
-  const isOpen = _scrActivePanel === key;
-  const dot = isActive ? '<span class="cf-dot"></span>' : '';
-  const chev = '<span class="cf-chev">' + (isOpen ? '\u25b4' : '\u25be') + '</span>';
-  const panel = isOpen ? buildScrPanel(key) : '';
-  return '<div class="scrf-btn-wrap">' +
-    '<button class="cf-btn' + (isActive ? ' active' : '') + '" onclick="toggleScrPanel(\'' + key + '\')">' +
-    dot + escHtml(label) + chev + '</button>' + panel + '</div>';
-}
-
-function buildScrPanel(key) {
-  const jobTypeOpts = _candJobTypes.length ? _candJobTypes : ['Kasambahay','Yaya/Babysitter','Cook/Labandera','Driver','Dishwasher/Kitchen','Server/Waiter'];
-  if (key === 'jobType') return buildScrCheckPanel('jobType', 'Job Type', jobTypeOpts);
-  if (key === 'eraStage') return buildScrCheckPanel('eraStage', 'ERA Stage', ['Not Ready','E \u2014 Eligibility','R \u2014 Responsiveness','A \u2014 Attitude','Ready']);
-  if (key === 'gender') return buildScrCheckPanel('gender', 'Gender', ['Female','Male','Others']);
-  if (key === 'age') return buildScrAgePanel();
-  if (key === 'location') return buildScrCheckPanel('location', 'Location', ['Bacolod City','Talisay','Silay','Bago City','Others']);
-  if (key === 'lastContact') return buildScrCheckPanel('lastContact', 'Last Contacted', ['Never contacted','Today','Last 3 days','Last 7 days','Over 7 days ago']);
-  return '';
-}
-
-function buildScrCheckPanel(key, title, opts) {
-  const selected = _scrFilters[key] || [];
-  const items = opts.map(function(o) {
-    const safe = o.replace(/'/g, '');
-    const chk = selected.indexOf(o) >= 0 ? ' checked' : '';
-    return '<label class="cf-check-item"><input type="checkbox"' + chk + ' onchange="scrFilterToggle(\'' + key + '\',\'' + safe + '\')">' + escHtml(o) + '</label>';
-  }).join('');
-  return '<div class="cf-panel open">' +
-    '<div class="cf-panel-hd"><span class="cf-panel-title">' + title + '</span><span class="cf-clear" onclick="scrFilterClear(\'' + key + '\')">Clear</span></div>' +
-    '<div class="cf-checklist">' + items + '</div></div>';
-}
-
-function buildScrAgePanel() {
-  const lo = _scrFilters.ageMin, hi = _scrFilters.ageMax;
-  const loP = ((lo - 18) / 47 * 100).toFixed(1);
-  const hiP = ((hi - 18) / 47 * 100).toFixed(1);
-  return '<div class="cf-panel open" style="min-width:240px">' +
-    '<div class="cf-panel-hd"><span class="cf-panel-title">Age Range</span><span class="cf-clear" onclick="scrAgeReset()">Reset</span></div>' +
-    '<div class="dr-wrap">' +
-    '<div class="dr-lbl" id="scr-dr-lbl">' + lo + ' \u2013 ' + hi + ' years old</div>' +
-    '<div class="dr-track-wrap" id="scr-dr-wrap">' +
-    '<div class="dr-track"></div>' +
-    '<div class="dr-fill" id="scr-dr-fill" style="left:' + loP + '%;width:' + (parseFloat(hiP) - parseFloat(loP)) + '%"></div>' +
-    '<div class="dr-handle" id="scr-dr-lo" style="left:' + loP + '%"></div>' +
-    '<div class="dr-handle" id="scr-dr-hi" style="left:' + hiP + '%"></div>' +
-    '</div>' +
-    '<div class="dr-reset-row"><span class="dr-reset" onclick="scrAgeReset()">Reset to 18\u201365</span></div>' +
-    '</div></div>';
-}
-
-function initScrAgeSlider() {
-  const trackWrap = document.getElementById('scr-dr-wrap');
-  const loH = document.getElementById('scr-dr-lo');
-  const hiH = document.getElementById('scr-dr-hi');
-  const fill = document.getElementById('scr-dr-fill');
-  const lbl  = document.getElementById('scr-dr-lbl');
-  if (!trackWrap || !loH || !hiH) return;
-
-  function pctToVal(p) { return Math.round(18 + (p / 100) * 47); }
-  function valToPct(v) { return ((v - 18) / 47) * 100; }
-
-  function updateVis() {
-    const lo = _scrFilters.ageMin, hi = _scrFilters.ageMax;
-    const loP = valToPct(lo), hiP = valToPct(hi);
-    loH.style.left = loP + '%';
-    hiH.style.left = hiP + '%';
-    if (fill) { fill.style.left = loP + '%'; fill.style.width = (hiP - loP) + '%'; }
-    if (lbl) lbl.textContent = lo + ' \u2013 ' + hi + ' years old';
-  }
-
-  function startDrag(e, which) {
-    e.preventDefault(); e.stopPropagation();
-    const rect = trackWrap.getBoundingClientRect();
-    function onMove(ev) {
-      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
-      const pct = Math.max(0, Math.min(100, (cx - rect.left) / rect.width * 100));
-      const val = pctToVal(pct);
-      if (which === 'lo') _scrFilters.ageMin = Math.min(val, _scrFilters.ageMax - 1);
-      else _scrFilters.ageMax = Math.max(val, _scrFilters.ageMin + 1);
-      updateVis();
-      renderScreeningTab();
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onUp);
-      buildScrFilterBar();
-      setTimeout(initScrAgeSlider, 0);
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onUp);
-  }
-
-  loH.onmousedown = function(e) { startDrag(e, 'lo'); };
-  hiH.onmousedown = function(e) { startDrag(e, 'hi'); };
-  loH.ontouchstart = function(e) { startDrag(e, 'lo'); };
-  hiH.ontouchstart = function(e) { startDrag(e, 'hi'); };
-}
-
-function toggleScrPanel(key) {
-  _scrActivePanel = _scrActivePanel === key ? null : key;
-  buildScrFilterBar();
-}
-
-function scrFilterToggle(key, val) {
-  if (!_scrFilters[key]) _scrFilters[key] = [];
-  const arr = _scrFilters[key];
-  const idx = arr.indexOf(val);
-  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
-  renderScreeningTab();
-  buildScrFilterBar();
-}
-
-function scrFilterClear(key) {
-  if (key === 'age') { _scrFilters.ageMin = 18; _scrFilters.ageMax = 65; }
-  else _scrFilters[key] = [];
-  renderScreeningTab();
-  buildScrFilterBar();
-}
-
-function scrAgeReset() {
-  _scrFilters.ageMin = 18; _scrFilters.ageMax = 65;
-  renderScreeningTab();
-  buildScrFilterBar();
-  setTimeout(initScrAgeSlider, 0);
-}
-
-function filterScrCandidates(cands) {
-  const f = _scrFilters;
-  let result = cands.filter(function(c) { return !blacklist[c.id] && !isCandidateHired(c.id); });
-  const q = _scrSearch.toLowerCase();
-  if (q) result = result.filter(function(c) {
-    return c.name.toLowerCase().includes(q) ||
-      c.id.toLowerCase().includes(q) ||
-      (c.jobType || '').toLowerCase().includes(q) ||
-      (c.location || '').toLowerCase().includes(q);
-  });
-
-  if (f.jobType.length) {
-    result = result.filter(function(c) {
-      return f.jobType.some(function(jt) { return (c.jobType||'').toLowerCase().includes(jt.toLowerCase()); });
-    });
-  }
-  if (f.eraStage.length) {
-    const stageMap = { 'Not Ready': 'Not Ready', 'E \u2014 Eligibility': 'E', 'R \u2014 Responsiveness': 'R', 'A \u2014 Attitude': 'A', 'Ready': 'Ready' };
-    result = result.filter(function(c) {
-      const s = getEraStage(c.id);
-      return f.eraStage.some(function(v) { return (stageMap[v] || v) === s; });
-    });
-  }
-  if (f.gender.length) {
-    result = result.filter(function(c) {
-      const g = c.gender || '';
-      return f.gender.some(function(gv) {
-        if (gv === 'Others') return ['Female','Male'].indexOf(g) < 0;
-        return g === gv;
-      });
-    });
-  }
-  if (!(f.ageMin === 18 && f.ageMax === 65)) {
-    result = result.filter(function(c) {
-      const age = parseInt(c.age) || 0;
-      return age <= 0 || (age >= f.ageMin && age <= f.ageMax);
-    });
-  }
-  if (f.location.length) {
-    result = result.filter(function(c) {
-      const loc = c.location || '';
-      const known = ['Bacolod City','Talisay','Silay','Bago City'];
-      return f.location.some(function(l) {
-        if (l === 'Others') return !known.some(function(k) { return loc.includes(k); });
-        return loc.includes(l);
-      });
-    });
-  }
-  if (f.lastContact.length) {
-    result = result.filter(function(c) {
-      const last = getLastContact(c.id);
-      const ds = last ? daysSince(last.date) : null;
-      return f.lastContact.some(function(v) {
-        if (v === 'Never contacted') return !last;
-        if (v === 'Today') return ds !== null && ds === 0;
-        if (v === 'Last 3 days') return ds !== null && ds <= 3;
-        if (v === 'Last 7 days') return ds !== null && ds <= 7;
-        if (v === 'Over 7 days ago') return ds === null || ds > 7;
-        return false;
-      });
-    });
-  }
-  return result;
-}
-
-function renderScreeningTab() {
-  const el = document.getElementById('screening-inner');
-  if (!el) return;
-
-  const _winScroll = window.scrollY;
-  const _spBody = document.querySelector('#scr-panel .sp-body');
-  const _panelScroll = _spBody ? _spBody.scrollTop : 0;
-  const _noteInp = _scrSelectedCand ? document.getElementById('sp-note-input-' + _scrSelectedCand) : null;
-  const _noteDraft = _noteInp ? _noteInp.value : '';
-
-  const viewBar = '<div class="screening-view-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-    '<input class="screening-search" type="text" placeholder="Search candidates\u2026" id="scr-search" value="' + escAttr(_scrSearch) + '" oninput="scrSearchChange(this.value)" style="flex:1;min-width:160px">' +
-    '<div style="display:flex;gap:4px">' +
-      '<button class="btn ' + (_scrView !== 'reengage' ? 'btn-gold' : 'btn-ghost') + '" style="font-size:11px;padding:5px 12px" onclick="switchScreeningView(\'nurture\')">Pipeline</button>' +
-      '<button class="btn ' + (_scrView === 'reengage' ? 'btn-gold' : 'btn-ghost') + '" style="font-size:11px;padding:5px 12px" onclick="switchScreeningView(\'reengage\')">Re-engage</button>' +
-    '</div>' +
-    '</div>';
-
-  const hasActiveFilter = Object.keys(_scrFilters).some(function(k) {
-    if (k === 'ageMin' || k === 'ageMax') return false;
-    return _scrFilters[k] && _scrFilters[k].length > 0;
-  }) || !(_scrFilters.ageMin === 18 && _scrFilters.ageMax === 65);
-
-  const filterSummaryParts = [];
-  if (_scrFilters.jobType.length) filterSummaryParts.push(_scrFilters.jobType.join(', '));
-  if (_scrFilters.eraStage.length) filterSummaryParts.push(_scrFilters.eraStage.join(', '));
-  if (_scrFilters.gender.length) filterSummaryParts.push(_scrFilters.gender.join(', '));
-  if (!(_scrFilters.ageMin === 18 && _scrFilters.ageMax === 65)) filterSummaryParts.push('Age ' + _scrFilters.ageMin + '\u2013' + _scrFilters.ageMax);
-  if (_scrFilters.location.length) filterSummaryParts.push(_scrFilters.location.join(', '));
-  if (_scrFilters.lastContact.length) filterSummaryParts.push(_scrFilters.lastContact.join(', '));
-
-  const filterBarDiv = '<div class="cf-bar" id="scr-filter-bar"></div>' +
-    (filterSummaryParts.length ? '<div class="cf-summary">' + escHtml(filterSummaryParts.join(' \u00b7 ')) + '</div>' : '<div class="cf-summary"></div>');
-
-  const stats = calcScreeningStats();
-  const statDefs = [
-    { stage: 'Unscreened',         color: 'var(--text3)',  label: 'Unscreened',  valColor: '' },
-    { stage: 'Contacted',          color: 'var(--accent)', label: 'Contacted',   valColor: 'var(--accent)' },
-    { stage: 'In Progress',        color: 'var(--gold)',   label: 'In Progress', valColor: 'var(--gold)' },
-    { stage: 'Ready for Matching', color: 'var(--green)',  label: 'Ready',       valColor: 'var(--green)' },
-  ];
-  const statsRow = '<div class="screening-stats-row">' +
-    statDefs.map(function(d) {
-      const active = _scrPipelineTab === d.stage ? ' active' : '';
-      const borderCol = _scrPipelineTab === d.stage ? d.color : '';
-      return '<div class="scr-stat-card' + active + '" onclick="switchPipelineTab(\'' + escAttr(d.stage) + '\')" style="' + (borderCol ? 'border-color:' + borderCol : '') + '">' +
-        '<div class="scr-stat-dot" style="background:' + d.color + '"></div>' +
-        '<div><div class="scr-stat-val" style="' + (d.valColor ? 'color:' + d.valColor : '') + '">' + stats[d.stage] + '</div>' +
-        '<div class="scr-stat-label">' + d.label + '</div></div></div>';
-    }).join('') + '</div>';
-
-  if (_scrView === 'reengage') {
-    el.innerHTML = viewBar + renderReengageView();
-    return;
-  }
-
-  const viewHtml = renderPipelineBoard();
-
-  el.innerHTML = viewBar + filterBarDiv + statsRow + '<div id="scr-board">' + viewHtml + '</div>';
-  buildScrFilterBar();
-
-  window.scrollTo(0, _winScroll);
-  const _newSpBody = document.querySelector('#scr-panel .sp-body');
-  if (_newSpBody && _panelScroll) _newSpBody.scrollTop = _panelScroll;
-  if (_noteDraft && _scrSelectedCand) {
-    const _newNoteInp = document.getElementById('sp-note-input-' + _scrSelectedCand);
-    if (_newNoteInp) _newNoteInp.value = _noteDraft;
-  }
-}
-
-function renderReengageView() {
-  const DAYS_THRESHOLD = 30;
-  const today = Date.now();
-  const hiredIds = new Set([...placements, ...manualPlacements].filter(function(p) {
-    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
-    return (ex.status || p.status || '').toLowerCase() === 'hired';
-  }).map(function(p) { return p.candidateId; }));
-
-  const eligible = candidates.filter(function(c) {
-    if (blacklist[c.id]) return false;
-    if (hiredIds.has(c.id)) return false;
-    // Find most recent contact date across all sources
-    var logs = eraContactLogs[c.id] || [];
-    var lastLogDate = logs.length ? logs[logs.length - 1].date : null;
-    // Also check placement rows
-    var allP = [...placements, ...manualPlacements].filter(function(p) { return p.candidateId === c.id; });
-    var latestPlacDate = allP.reduce(function(acc, p) {
-      var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(e) {}
-      // SCREENING TAB (to be removed in next commit). Rewire for consistency.
-      var lc = ex.lastDirectContactAt || ex.lastContacted || '';
-      return lc > acc ? lc : acc;
-    }, '');
-    var lastContact = lastLogDate && latestPlacDate ? (lastLogDate > latestPlacDate ? lastLogDate : latestPlacDate) : (lastLogDate || latestPlacDate || null);
-    if (!lastContact) { c._reengageDays = null; return true; } // never contacted
-    var ms = parseDateFlex(lastContact);
-    if (!ms || isNaN(ms)) { c._reengageDays = null; return true; }
-    var daysSinceContact = Math.floor((today - ms.getTime()) / 86400000);
-    c._reengageDays = daysSinceContact;
-    return daysSinceContact >= DAYS_THRESHOLD;
-  });
-
-  // Sort newest registration first
-  eligible.sort(function(a, b) {
-    var ta = (a.timestamp || '').split(' ')[0];
-    var tb = (b.timestamp || '').split(' ')[0];
-    return tb.localeCompare(ta);
-  });
-
-  if (!eligible.length) {
-    return '<div style="padding:32px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px">All active candidates have been contacted within the last ' + DAYS_THRESHOLD + ' days.</div>';
-  }
-
-  var bulkMsgs = eligible.map(function(c) {
-    var jobType = c.jobTypeFormatted || c.jobType || 'available positions';
-    var loc = c.cityFormatted || c.location || 'your area';
-    return 'Hi ' + (c.name.split(' ')[0] || c.name) + '! 👋 This is Job Search PH. We have new job openings for ' + jobType + ' in ' + loc + '. Interested? Reply YES and we\'ll send you details right away! 😊';
-  }).join('\n\n---\n\n');
-
-  var header = '<div style="display:flex;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap">' +
-    '<div style="font-size:14px;font-weight:700;flex:1">' + eligible.length + ' candidates need re-engagement (30+ days no contact)</div>' +
-    '<button class="btn btn-gold" onclick="copyReengageBulk()" style="font-size:12px">Select All + Bulk Copy</button>' +
-    '</div>' +
-    '<textarea id="reengage-bulk-area" style="display:none;width:100%;min-height:180px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;font-family:var(--sans);resize:vertical;margin-bottom:12px">' + escHtml(bulkMsgs) + '</textarea>';
-
-  var rows = eligible.map(function(c) {
-    var jobType = c.jobTypeFormatted || c.jobType || 'available positions';
-    var loc = c.cityFormatted || c.location || 'your area';
-    var firstName = c.name.split(' ')[0] || c.name;
-    var msg = 'Hi ' + firstName + '! 👋 This is Job Search PH. We have new job openings for ' + jobType + ' in ' + loc + '. Interested? Reply YES and we\'ll send you details right away! 😊';
-    var era = calcCandRating(c.id);
-    var eraColor = era >= 7 ? 'var(--green)' : era >= 5 ? 'var(--gold)' : 'var(--red)';
-    var daysLabel = c._reengageDays === null ? 'Never contacted' : c._reengageDays + 'd ago';
-    var daysColor = c._reengageDays === null ? 'var(--text3)' : c._reengageDays >= 60 ? 'var(--red)' : 'var(--orange)';
-    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:160px">' +
-        '<div style="font-size:13px;font-weight:700">' + escHtml(c.name) + '</div>' +
-        '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + escHtml(c.id) + '</div>' +
-        '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + escHtml(jobType) + ' · ' + escHtml(c.location || '—') + '</div>' +
-      '</div>' +
-      '<div style="display:flex;gap:12px;align-items:center;flex-shrink:0">' +
-        '<span style="font-size:11px;font-weight:700;color:' + daysColor + '">' + escHtml(daysLabel) + '</span>' +
-        '<span style="font-size:12px;font-weight:800;color:' + eraColor + '">ERA ' + era + '</span>' +
-      '</div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0">' +
-        '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="copyReengageMsg(\'' + escAttr(c.id) + '\',\'' + escAttr(msg) + '\',this)">Copy Message</button>' +
-        '<button class="btn btn-green" style="font-size:11px;padding:4px 10px" onclick="markReengaged(\'' + escAttr(c.id) + '\')">Mark Re-engaged</button>' +
-      '</div>' +
-      '</div>';
-  }).join('');
-
-  return header + '<div>' + rows + '</div>';
-}
-
-function copyReengageMsg(candId, msg, btn) {
-  navigator.clipboard.writeText(msg).then(function() {
-    var orig = btn.textContent;
-    btn.textContent = 'Copied!'; btn.style.color = 'var(--green)';
-    setTimeout(function() { btn.textContent = orig; btn.style.color = ''; }, 2000);
-  }).catch(function() { fallbackCopy(msg); });
-}
-
-function copyReengageBulk() {
-  var area = document.getElementById('reengage-bulk-area');
-  if (!area) return;
-  area.style.display = area.style.display === 'none' ? '' : 'none';
-  if (area.style.display !== 'none') {
-    navigator.clipboard.writeText(area.value).then(function() {
-      showToast('All re-engagement messages copied!', 'green');
-    }).catch(function() { area.select(); document.execCommand('copy'); });
-  }
-}
-
-function markReengaged(candId) {
-  var today = new Date().toISOString().split('T')[0];
-  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
-  eraContactLogs[candId].push({ method: 'Re-engagement', outcome: 'Attempted', date: today, ts: Date.now() });
-  saveEraContactLogs();
-  showToast('Contact logged for ' + candId, 'green');
-  renderScreeningTab();
-}
-
-function renderPipelineBoard() {
-  const filtered = filterScrCandidates(candidates);
-
-  // Candidates for selected stage
-  const stageCands = filtered.filter(function(c) {
-    return getPipelineStage(c.id) === _scrPipelineTab;
-  });
-
-  stageCands.sort(function(a, b) {
-    const la = getLastContact(a.id);
-    const lb = getLastContact(b.id);
-    if (!la && !lb) return a.name.localeCompare(b.name);
-    if (!la) return 1;
-    if (!lb) return -1;
-    return new Date(lb.date) - new Date(la.date);
-  });
-
-  const stageColor = PL_COLORS[_scrPipelineTab] || 'var(--text3)';
-  const listHeader = '<div class="pl-list-header">' +
-    '<span style="font-size:12px;font-weight:600;color:var(--text2)">Showing: </span>' +
-    '<span style="font-size:12px;font-weight:700;color:' + stageColor + '">' + escHtml(_scrPipelineTab) + '</span>' +
-    '<span style="font-size:12px;color:var(--text3)"> (' + stageCands.length + ')</span>' +
-    '</div>';
-
-  const listHtml = stageCands.length ? stageCands.map(function(c) {
-    const era = calcERA(c.id);
-    const last = getLastContact(c.id);
-    const sel = _scrSelectedCand === c.id ? ' pl-card-sel' : '';
-    const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
-    const lcText = last ? escHtml(fmtDate(last.date)) + ' &middot; ' + escHtml(last.method) : '<span style="font-style:italic;color:var(--text3)">Never contacted</span>';
-    return '<div class="pl-card' + sel + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
-      '<div style="flex:1;min-width:0">' +
-      '<div class="pl-card-name">' + escHtml(c.name) + ' <span class="pl-card-id">' + escHtml(c.id) + '</span></div>' +
-      '<div class="pl-card-sub">' + escHtml(c.jobType||'') + (c.location ? ' &middot; ' + escHtml(c.location) : '') + '</div>' +
-      '<div class="pl-card-lc">' + lcText + '</div>' +
-      '</div>' +
-      '<div class="pl-card-era" style="color:' + eraColor + '">' + era.score + '<div class="pl-card-era-lbl">ERA</div></div>' +
-      '</div>';
-  }).join('') :
-  '<div class="pl-empty">No candidates in this stage</div>';
-
-  const panelHtml = '<div class="screening-panel" id="scr-panel">' +
-    (_scrSelectedCand ? buildScreeningPanelInner(_scrSelectedCand) : '<div class="screening-panel-empty"><div style="font-size:20px;color:var(--text3)">Select a candidate</div></div>') +
-    '</div>';
-
-  return '<div class="nurture-layout">' +
-    '<div class="nurture-list">' + listHeader + listHtml + '</div>' +
-    panelHtml + '</div>';
-}
-
-function openScreeningPanel(candId) {
-  _scrSelectedCand = candId;
-  renderScreeningTab();
-}
-
-function renderPipelineView() {
-  const filtered = filterScrCandidates(candidates);
-  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
-  const stageColors = { 'Not Ready': 'var(--red)', 'E': 'var(--accent)', 'R': 'var(--gold)', 'A': 'var(--purple)', 'Ready': 'var(--green)' };
-  const stageLbls = { 'Not Ready': 'Not ready', 'E': 'E — Eligibility', 'R': 'R — Responsiveness', 'A': 'A — Attitude', 'Ready': 'Ready' };
-
-  const byCols = {};
-  stageOrder.forEach(function(s) { byCols[s] = []; });
-  filtered.forEach(function(c) {
-    const s = getEraStage(c.id);
-    if (byCols[s]) byCols[s].push(c);
-  });
-
-  const colsHtml = stageOrder.map(function(stage) {
-    const cands = byCols[stage];
-    const cardsHtml = cands.length ? cands.map(function(c) {
-      const era = calcERA(c.id);
-      const nudge = getNudgeReason(c.id);
-      const last = getLastContact(c.id);
-      const ds = last ? daysSince(last.date) : null;
-      const accentCls = (stage === 'R' && ds !== null && ds >= 7) ? 'accent-amber' : (stage === 'Ready' ? 'accent-green' : '');
-      const nudgeHtml = nudge ? '<span class="nudge-pill ' + nudge.cls + '" style="margin-bottom:4px;display:inline-flex">' + escHtml(nudge.text) + '</span>' : '';
-      return '<div class="pipeline-card ' + accentCls + '" onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
-        '<div class="pc-name">' + escHtml(c.name) + '</div>' +
-        '<div class="pc-type">' + escHtml(c.jobType||'') + '</div>' +
-        nudgeHtml +
-        '<div class="pc-score" style="color:' + getRatingColor(era.score) + '">' + era.score + ' ERA</div>' +
-        '</div>';
-    }).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">Empty</div>';
-
-    return '<div class="pipeline-col">' +
-      '<div class="pipeline-col-header" style="color:' + stageColors[stage] + '">' + stageLbls[stage] +
-      '<span class="pipeline-col-count">' + cands.length + '</span></div>' +
-      '<div class="pipeline-cards">' + cardsHtml + '</div></div>';
-  }).join('');
-
-  if (_scrSelectedCand) {
-    return '<div style="display:flex;gap:16px;align-items:start">' +
-      '<div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">' + colsHtml + '</div>' +
-      '<div class="screening-panel" id="scr-panel" style="width:400px;flex-shrink:0;position:sticky;top:80px">' + buildScreeningPanelInner(_scrSelectedCand) + '</div>' +
-      '</div>';
-  }
-  return '<div class="pipeline-layout">' + colsHtml + '</div>';
-}
-
-function renderAllCandidatesView() {
-  const filtered = filterScrCandidates(candidates);
-  if (!filtered.length) {
-    return '<div class="scr-all-wrap"><div style="padding:40px;text-align:center;color:var(--text3)">No candidates found</div></div>';
-  }
-
-  const bodyHtml = filtered.map(function(c) {
-    const stage = getEraStage(c.id);
-    const r = getCandReadiness(c.id);
-    const readinessHtml = '<span style="font-size:11px;font-weight:700;color:' + r.color + '">' + r.level + '</span>';
-    return '<tr onclick="openScreeningPanel(\'' + escAttr(c.id) + '\')">' +
-      '<td><strong>' + escHtml(c.name) + '</strong> <span style="color:var(--text3);font-size:11px">' + escHtml(c.id) + '</span></td>' +
-      '<td>' + escHtml(c.jobType||'—') + '</td>' +
-      '<td>' + escHtml(c.location||'—') + '</td>' +
-      '<td>' + getStageBadge(stage) + '</td>' +
-      '<td>' + readinessHtml + '</td>' +
-      '</tr>';
-  }).join('');
-
-  const tableHtml = '<div class="scr-all-wrap"><table class="scr-all-table">' +
-    '<thead><tr><th>Candidate</th><th>Job Type</th><th>Location</th><th>ERA Stage</th><th>Readiness</th></tr></thead>' +
-    '<tbody>' + bodyHtml + '</tbody></table></div>';
-
-  if (_scrSelectedCand) {
-    return '<div style="display:flex;gap:16px;align-items:start">' +
-      '<div style="flex:1;min-width:0">' + tableHtml + '</div>' +
-      '<div class="screening-panel" id="scr-panel" style="width:420px;flex-shrink:0;position:sticky;top:80px">' + buildScreeningPanelInner(_scrSelectedCand) + '</div>' +
-      '</div>';
-  }
-  return tableHtml;
-}
-
-function buildScreeningPanelInner(candId) {
-  const c = candidates.find(function(x) { return x.id === candId; });
-  if (!c) return '<div class="screening-panel-empty">Candidate not found</div>';
-
-  const era = calcERA(candId);
-  const stored = candidateRatings[candId] || {};
-  const docs = stored.docs || {};
-  const scores = stored.scores || {};
-  const stage = getEraStage(candId);
-  const eraColor = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
-  const parts = c.name.split(' ').filter(Boolean);
-  const initials = parts.slice(0, 2).map(function(n) { return n[0] || ''; }).join('').toUpperCase();
-  const gateOk = era.gateOk;
-
-  const header = '<div class="sp-header">' +
-    '<div class="sp-avatar">' + initials + '</div>' +
-    '<div style="flex:1;min-width:0">' +
-    '<div class="sp-name">' + escHtml(c.name) + '</div>' +
-    '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:2px">' + escHtml(c.id) + '</div>' +
-    '<div class="sp-sub">' + escHtml(c.jobType||'') + ' &middot; ' + escHtml(c.gender||'') + (c.age ? ', ' + escHtml(c.age) : '') + ' &middot; ' + escHtml(c.location||'') + '</div>' +
-    (c.expectedPay ? '<div class="sp-sub">' + escHtml(c.expectedPay) + '</div>' : '') +
-    '<div class="sp-badges">' + getStageBadge(stage) +
-    '<span class="era-stage-badge ' + (gateOk ? 'stage-Ready' : 'stage-not-ready') + '">' + (gateOk ? 'Gate Passed' : 'Gate Failed') + '</span>' +
-    '</div></div>' +
-    '<button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0" onclick="_scrSelectedCand=null;renderScreeningTab()">&#x2715;</button>' +
-    '</div>';
-
-  const eraSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">ERA Score</div>' +
-    '<div class="sp-era-score-hero">' +
-    '<div><div class="sp-era-num" style="color:' + eraColor + '">' + era.score + '</div>' +
-    '<div class="sp-era-formula">Base 2.0 + E(' + (era.E >= 0 ? '+' : '') + era.E.toFixed(1) + ') + R(' + (era.R >= 0 ? '+' : '') + era.R.toFixed(1) + ') + A(' + (era.A >= 0 ? '+' : '') + era.A.toFixed(1) + ') + Bonus(' + (era.bonus >= 0 ? '+' : '') + era.bonus.toFixed(1) + ')</div>' +
-    '</div></div>' +
-    '<div class="sp-era-rows">' +
-    [['E','Eligibility',era.E,'var(--accent)'],['R','Responsiveness',era.R,'var(--gold)'],['A','Attitude',era.A,'var(--purple)']].map(function(item) {
-      const letter = item[0], label = item[1], val = item[2], col = item[3];
-      return '<div class="sp-era-row">' +
-        '<div class="sp-era-letter" style="background:' + col + '18;color:' + col + '">' + letter + '</div>' +
-        '<div class="sp-era-label">' + label + '</div>' +
-        '<div class="sp-era-contrib" style="color:' + (val >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (val >= 0 ? '+' : '') + val.toFixed(1) + '</div>' +
-        '</div>';
-    }).join('') + '</div>' +
-    '<div class="sp-gate-pills">' +
-    '<span class="sp-gate-pill ' + (docs.validId ? 'met' : 'missing') + '">Valid ID: ' + (docs.validId ? 'Met' : 'Missing') + '</span>' +
-    '<span class="sp-gate-pill ' + (era.hasRSignal ? 'met' : 'missing') + '">R Signal: ' + (era.hasRSignal ? 'Met' : 'Missing') + '</span>' +
-    '<span class="sp-gate-pill ' + (era.hasASignal ? 'met' : 'missing') + '">A Signal: ' + (era.hasASignal ? 'Met' : 'Missing') + '</span>' +
-    '</div>' +
-    '<div style="margin-top:8px;display:flex;align-items:center;gap:10px">' +
-    '<span style="font-size:11px;font-weight:700;color:var(--text3)">Max Score Cap:</span>' +
-    '<span style="font-size:13px;font-weight:800;color:var(--accent)">' + era.docCap + ' / 10</span>' +
-    '<span style="font-size:11px;font-weight:600;color:var(--text3)">&nbsp;&middot;&nbsp;Docs: ' + era.docConfidence + '</span>' +
-    '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:' + (era.readinessStatus === 'Ready for Matching' ? 'var(--green)18' : era.readinessStatus === 'Needs Verification' ? 'var(--gold)18' : 'var(--red)18') + ';color:' + (era.readinessStatus === 'Ready for Matching' ? 'var(--green)' : era.readinessStatus === 'Needs Verification' ? 'var(--gold)' : 'var(--red)') + '">' + era.readinessStatus + '</span>' +
-    '</div>' +
-    '</div>';
-
-  const docList = [
-    ['validId', 'Valid ID',         '+1.0', true],
-    ['brgy',    'Brgy Clearance',   '+0.5', true],
-    ['police',  'Police Clearance', '+1.0', true],
-    ['nbi',     'NBI Clearance',    '+0.5', true],
-    ['medical', 'Medical Cert',     '+0.5', true],
-    ['resume',  'Resume',           '+0.5', false],
-  ];
-  const docsSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Documents <span style="font-size:10px;font-weight:700;color:' + (era.docConfidence === 'Complete' ? 'var(--green)' : era.docConfidence === 'Partial' ? 'var(--gold)' : 'var(--red)') + '">' + era.docConfidence.toUpperCase() + '</span></div>' +
-    '<div class="sp-docs-grid">' +
-    docList.map(function(item) {
-      const key = item[0], label = item[1], pts = item[2], verifies = item[3];
-      return '<div class="sp-doc-card ' + (docs[key] ? 'verified' : '') + '" onclick="saveCandDoc(\'' + escAttr(candId) + '\',\'' + key + '\',' + (!docs[key]) + ');renderScreeningTab()">' +
-        (verifies ? '<div class="sp-verifies-tag">VERIFIES</div>' : '<div></div>') +
-        '<div class="sp-doc-name">' + label + '</div>' +
-        '<div class="sp-doc-pts" style="color:' + (pts === 'info' ? 'var(--text3)' : 'var(--green)') + '">' + pts + '</div>' +
-        '<div class="sp-doc-status">' + (docs[key] ? 'Verified' : 'Not submitted') + '</div>' +
-        '</div>';
-    }).join('') + '</div></div>';
-
-  const att = parseInt(scores.callAttitude) || 0;
-  const attLabels = {1:'Poor',2:'Below Avg',3:'Average',4:'Good',5:'Excellent'};
-  const attPts = {1:'-1.5',2:'-0.5',3:'0',4:'+1.0',5:'+1.0'};
-  const attitudeSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Call Attitude</div>' +
-    '<div class="attitude-row">' +
-    [1,2,3,4,5].map(function(n) {
-      const sel = att === n ? 'attitude-sel' : '';
-      return '<button class="attitude-btn ' + sel + '" onclick="saveCandScore(\'' + escAttr(candId) + '\',\'callAttitude\',' + n + ');renderScreeningTab()">' +
-        '<div class="att-num">' + n + '</div>' +
-        '<div class="att-label">' + attLabels[n] + '</div>' +
-        '<div class="att-pts">' + attPts[n] + '</div>' +
-        '</button>';
-    }).join('') + '</div></div>';
-
-  const buildFlagGroup = function(groupLabel, groupColor, flagDefs) {
-    const cardsHtml = flagDefs.map(function(item) {
-      const key = item[0], label = item[1], pts = item[2], bad = item[3];
-      return '<div class="rating-flag-card ' + (scores[key] ? 'flag-active' : '') + ' ' + (bad ? 'flag-bad' : 'flag-good') + '" onclick="saveCandScore(\'' + escAttr(candId) + '\',\'' + key + '\',' + (!scores[key]) + ');renderScreeningTab()">' +
-        '<div class="flag-label" style="font-size:11px;font-weight:600">' + label + '</div>' +
-        '<div class="flag-pts" style="color:' + (bad ? 'var(--red)' : 'var(--green)') + '">' + pts + '</div>' +
-        '<div class="flag-check">' + (scores[key] ? '&#9745;' : '&#9744;') + '</div>' +
-        '</div>';
-    }).join('');
-    return '<div class="era-flags-group-label" style="color:' + groupColor + ';margin-top:8px">' + groupLabel + '</div>' +
-      '<div class="rating-flags-grid">' + cardsHtml + '</div>';
-  };
-
-  const flagsSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Behavior Flags <span style="font-size:10px;font-weight:400;color:var(--text3)">click to toggle</span></div>' +
-    '<div class="era-flags-section">' +
-    buildFlagGroup('R — Responsiveness', 'var(--accent)', [
-      ['repliedFast',   'Replied within 24 hours',     'R +1.0', false],
-      ['answeredCall',  'Answered call',                'R +1.0', false],
-      ['confirmedIntv', 'Confirmed availability',      'R +1.0', false],
-      ['lateReply',     'Slow reply (3+ days)',         'R -1.0', true],
-      ['noShow',        'No response',                  'R -2.5', true],
-      ['multiFollowup', 'Needed multiple follow-ups',  'R -1.0', true],
-    ]) +
-    buildFlagGroup('A — Attitude', 'var(--purple)', [
-      ['polite',              'Clear communication',               'A +1.0', false],
-      ['passedScreening',     'Consistent answers',                'A +1.0', false],
-      ['willingToWork',       'Willing to work',                   'A +0.5', false],
-      ['followsInstructions', 'Follows instructions',              'A +0.5', false],
-      ['hesitantAnswers',     'Hesitant answers',                  'A -1.0', true],
-      ['confusingAnswers',    'Confusing / inconsistent answers',  'A -1.0', true],
-    ]) +
-    buildFlagGroup('Track Record / Bonus', 'var(--green)', [
-      ['showedUp',              'Showed up to interview',     'Bonus +1.5', false],
-      ['completedJob',          'Completed a job',            'Bonus +2.0', false],
-      ['workIntentConfirmed',   'Work intent confirmed',      'E +1.0',     false],
-      ['availabilityConfirmed', 'Availability confirmed',     'E +1.0',     false],
-      ['backedOut',             'Backed out after accepting', 'Bonus -2.0', true],
-    ]) +
-    '</div></div>';
-
-  const logs = eraContactLogs[candId] || [];
-  const methodIcons = { 'Phone call': '&#128222;', 'FB Messenger': '&#128172;', 'SMS Text': '&#9993;', 'Email': '&#128231;' };
-  const logsHtml = logs.length ? logs.slice().reverse().map(function(log) {
-    return '<div class="sp-log-entry">' +
-      '<div class="sp-log-icon">' + (methodIcons[log.method] || '&#128221;') + '</div>' +
-      '<div style="flex:1;min-width:0">' +
-      '<div class="sp-log-method">' + escHtml(log.method) + '</div>' +
-      (log.outcome ? '<div class="sp-log-outcome">' + escHtml(log.outcome) + '</div>' : '') +
-      '<div class="sp-log-date">' + escHtml(fmtDate(log.date)) + '</div>' +
-      '</div></div>';
-  }).join('') : '<div style="font-size:12px;color:var(--text3);font-style:italic">No contact attempts logged yet</div>';
-
-  const safeId = escAttr(candId);
-  const today = new Date().toISOString().slice(0, 10);
-  const contactSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Contact Log</div>' +
-    '<div class="sp-contact-log">' + logsHtml + '</div>' +
-    '<div style="margin-top:8px">' +
-    '<select id="scr-log-method-' + safeId + '" class="sfp-select" style="width:100%" onchange="showLogInline(\'' + safeId + '\',this.value)">' +
-    '<option value="">+ Log contact attempt...</option>' +
-    '<option>Phone call</option><option>FB Messenger</option><option>SMS Text</option><option>Email</option>' +
-    '</select>' +
-    '<div id="scr-log-inline-' + safeId + '" style="display:none">' +
-    '<div class="sp-log-add-inline">' +
-    '<input type="text" id="scr-log-outcome-' + safeId + '" class="sfp-select" placeholder="Outcome / notes..." style="width:100%">' +
-    '<input type="date" id="scr-log-date-' + safeId + '" class="sfp-select" style="width:100%" value="' + today + '">' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
-    '<button class="btn btn-ghost" onclick="cancelLogInline(\'' + safeId + '\')">Cancel</button>' +
-    '<button class="btn btn-blue" onclick="submitLogEntry(\'' + safeId + '\')">Add</button>' +
-    '</div></div></div></div></div>';
-
-  const profileInfoRows = [
-    ['Age',          c.age || '—'],
-    ['Gender',       c.gender || '—'],
-    ['Location',     c.location || '—'],
-    ['Expected Pay', c.expectedPay || '—'],
-    ['Setup',        getEffectiveSetup(c) || '—'],
-    ['Civil Status', c.civilStatus || '—'],
-    ['Can Start',    c.startDate || '—'],
-    ['Facebook',     c.facebook || '—'],
-    ['Phone',        c.phone || '—'],
-  ];
-  const profileGrid = '<div class="sp-profile-grid">' +
-    profileInfoRows.map(function(row) {
-      return '<div class="sp-profile-row">' +
-        '<div class="sp-profile-label">' + row[0] + '</div>' +
-        '<div class="sp-profile-val">' + escHtml(row[1]) + '</div>' +
-        '</div>';
-    }).join('') + '</div>';
-
-  const profContactBtns = [];
-  if (c.phone) {
-    profContactBtns.push('<a class="sp-contact-btn" href="sms:' + escAttr(c.phone) + '">&#128172; SMS</a>');
-    profContactBtns.push('<a class="sp-contact-btn" href="tel:' + escAttr(c.phone) + '">&#128222; Call</a>');
-  }
-  if (c.facebook) {
-    const fbUrl = 'https://www.facebook.com/search/people/?q=' + encodeURIComponent(c.facebook);
-    profContactBtns.push('<a class="sp-contact-btn" href="' + escAttr(fbUrl) + '" target="_blank">&#128483; Messenger</a>');
-  }
-  if (c.email) {
-    profContactBtns.push('<a class="sp-contact-btn" href="mailto:' + escAttr(c.email) + '">&#9993; Email</a>');
-  }
-  const contactBtnsHtml = profContactBtns.length ? '<div class="sp-contact-btns">' + profContactBtns.join('') + '</div>' : '';
-
-  const skillsHtml = c.skills ? '<div class="sp-profile-full"><div class="sp-profile-label">Skills</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.skills) + '</div></div>' : '';
-  const pastJobsHtml = c.pastJobs ? '<div class="sp-profile-full"><div class="sp-profile-label">Past Jobs</div><div class="sp-profile-val" style="font-weight:400;font-size:12px;line-height:1.5">' + escHtml(c.pastJobs) + '</div></div>' : '';
-  const resumeHtml = c.resumeLink ? '<a class="sp-contact-btn" href="' + escAttr(c.resumeLink) + '" target="_blank" style="width:fit-content">&#128196; View Resume</a>' : '';
-
-  const profileSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Candidate Profile</div>' +
-    profileGrid +
-    contactBtnsHtml +
-    skillsHtml +
-    pastJobsHtml +
-    (resumeHtml ? '<div style="margin-top:4px">' + resumeHtml + '</div>' : '') +
-    '</div>';
-
-  const isBlacklisted = !!blacklist[candId];
-  const pStage = getPipelineStage(candId);
-  const pIdx = PL_STAGES.indexOf(pStage);
-  const pColor = PL_COLORS[pStage] || 'var(--text3)';
-
-  const nextPlStage = pIdx < PL_STAGES.length - 1 ? PL_STAGES[pIdx + 1] : null;
-  const prevPlStage = pIdx > 0 ? PL_STAGES[pIdx - 1] : null;
-  const canAdvancePl = !nextPlStage ? false : (nextPlStage !== 'Ready for Matching' || era.gateOk);
-  const advancePlTip = nextPlStage === 'Ready for Matching' && !era.gateOk ? 'Needs: Valid ID + R signal + A signal' : '';
-
-  const bottomActions = '<div class="sp-bottom-actions">' +
-    '<div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:8px">' +
-    '<span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Pipeline:</span>' +
-    '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:' + pColor + '22;color:' + pColor + '">' + escHtml(pStage) + '</span>' +
-    '</div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;width:100%">' +
-    (nextPlStage ? '<button class="btn btn-green" style="flex:2" ' + (!canAdvancePl ? 'disabled title="' + escAttr(advancePlTip) + '"' : '') + ' onclick="movePipelineStage(\'' + safeId + '\',\'' + escAttr(nextPlStage) + '\')">Move to ' + escHtml(nextPlStage) + '</button>' : '') +
-    (prevPlStage ? '<button class="btn btn-ghost" onclick="movePipelineStage(\'' + safeId + '\',\'' + escAttr(prevPlStage) + '\')">Back</button>' : '') +
-    (!isBlacklisted ? '<button class="btn btn-red" onclick="confirmBlacklistFromPanel(\'' + safeId + '\',\'' + escAttr(c.name) + '\')">Blacklist</button>' : '') +
-    '</div></div>';
-
-  importPendingIntakeNotes(candId, c.name);
-  var spNotes = getCandNotes(candId);
-  var spNoteItems = spNotes.length ? spNotes.map(function(n, i) {
-    return '<div style="background:var(--card2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:12px">' +
-      '<div style="color:var(--text3);font-size:10px;margin-bottom:3px">' + new Date(n.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) + (n.source === 'intake' ? ' · Intake' : '') + '</div>' +
-      '<div style="color:var(--text);line-height:1.4">' + escHtml(n.text) + '</div>' +
-      '</div>';
-  }).join('') : '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:4px 0">No notes yet.</div>';
-  var notesSection = '<div class="sp-section">' +
-    '<div class="sp-section-title">Notes</div>' +
-    spNoteItems +
-    '<div style="display:flex;gap:6px;margin-top:8px">' +
-    '<input type="text" id="sp-note-input-' + safeId + '" placeholder="Add a note..." style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:7px;font-family:var(--sans);font-size:12px;outline:none" onkeydown="if(event.key===\'Enter\'){saveCandNoteFromPanel(\'' + safeId + '\')}">' +
-    '<button class="btn btn-accent" style="font-size:12px;padding:7px 12px" onclick="saveCandNoteFromPanel(\'' + safeId + '\')">Add</button>' +
-    '</div></div>';
-
-  return header + '<div class="sp-body">' + profileSection + eraSection + docsSection + attitudeSection + flagsSection + contactSection + notesSection + '</div>' + bottomActions;
-}
-
-function showLogInline(candId, method) {
-  if (!method) return;
-  const wrap = document.getElementById('scr-log-inline-' + candId);
-  if (wrap) wrap.style.display = 'block';
-}
-
-function cancelLogInline(candId) {
-  const wrap = document.getElementById('scr-log-inline-' + candId);
-  if (wrap) wrap.style.display = 'none';
-  const sel = document.getElementById('scr-log-method-' + candId);
-  if (sel) sel.value = '';
-}
-
-function submitLogEntry(candId) {
-  const methodSel = document.getElementById('scr-log-method-' + candId);
-  const outcomeEl = document.getElementById('scr-log-outcome-' + candId);
-  const dateEl    = document.getElementById('scr-log-date-' + candId);
-  if (!methodSel) return;
-  const method  = methodSel.value;
-  const outcome = outcomeEl ? outcomeEl.value.trim() : '';
-  const date    = dateEl ? (dateEl.value || new Date().toISOString().slice(0, 10)) : new Date().toISOString().slice(0, 10);
-  if (!method) { showToast('Select a contact method', 'orange'); return; }
-  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
-  eraContactLogs[candId].push({ method: method, outcome: outcome, date: date, ts: Date.now() });
-  saveEraContactLogs();
-  // Auto-advance pipeline: Unscreened → Contacted on first contact
-  // Only switch the viewed tab when the candidate was Unscreened — never reset
-  // the tab when the candidate already matches the currently viewed stage
-  if (getPipelineStage(candId) === 'Unscreened') {
-    setPipelineStage(candId, 'Contacted', 'contact logged');
-    _scrPipelineTab = 'Contacted';
-  }
-  // Preserve panel — must be set before renderScreeningTab is ever called
-  _scrSelectedCand = candId;
-  showToast('Contact logged', 'green');
-  // Show ✓ Logged in-place next to the Add button for 2 seconds
-  const inlineDiv = document.getElementById('scr-log-inline-' + candId);
-  const actionsRow = inlineDiv ? inlineDiv.querySelector('[style*="flex-end"]') : null;
-  if (actionsRow) {
-    const loggedSpan = document.createElement('span');
-    loggedSpan.textContent = '✓ Logged';
-    loggedSpan.style.cssText = 'color:var(--green);font-size:12px;font-weight:700;flex:1';
-    actionsRow.insertBefore(loggedSpan, actionsRow.firstChild);
-    var addBtn = actionsRow.querySelector('.btn-blue');
-    if (addBtn) addBtn.disabled = true;
-  }
-  // After 2s: re-render (resets form, refreshes log list) keeping panel open
-  setTimeout(function() {
-    _scrSelectedCand = candId;
-    renderScreeningTab();
-  }, 2000);
-}
-
-function saveCandNoteFromPanel(candId) {
-  var inp = document.getElementById('sp-note-input-' + candId);
-  if (!inp || !inp.value.trim()) return;
-  var notes = getCandNotes(candId);
-  notes.unshift({ text: inp.value.trim(), ts: new Date().toISOString() });
-  localStorage.setItem('cand_notes_' + candId, JSON.stringify(notes.slice(0, 50)));
-  fbSync('cand_notes/' + candId, notes.slice(0, 50));
-  showToast('Note saved', 'green');
-  renderScreeningTab();
-}
-
-function advanceEraStage(candId) {
-  const stageOrder = ['Not Ready', 'E', 'R', 'A', 'Ready'];
-  const current = getEraStage(candId);
-  const idx = stageOrder.indexOf(current);
-  if (idx >= 0 && idx < stageOrder.length - 1) {
-    const next = stageOrder[idx + 1];
-    setEraStage(candId, next);
-    const cand = candidates.find(function(c) { return c.id === candId; });
-    showToast((cand ? cand.name : candId) + ' advanced to ' + next, 'green');
-    renderScreeningTab();
-  }
-}
-
-function markEraReady(candId) {
-  const era = calcERA(candId);
-  if (!era.gateOk) { showToast('Gate conditions not met', 'orange'); return; }
-  setEraStage(candId, 'Ready');
-  setPipelineStage(candId, 'Ready for Matching', 'gate passed');
-  _scrPipelineTab = 'Ready for Matching';
-  const cand = candidates.find(function(c) { return c.id === candId; });
-  showToast((cand ? cand.name : candId) + ' marked Ready for Matching', 'green');
-  renderScreeningTab();
-}
-
-function confirmBlacklistFromPanel(candId, name) {
-  _scrSelectedCand = null;
-  openBlacklistModal(candId, name);
-}
 
 // ═══════════════════════════════════════════════
 // INIT
@@ -13357,6 +12254,17 @@ function submitCallDecision(decision) {
     }
   }
 
+  // Keep isCandInactive's lateReply 14-day staleness path receiving fresh data
+  // now that the Screening tab's contact-log writers are gone.
+  if (!eraContactLogs[candId]) eraContactLogs[candId] = [];
+  eraContactLogs[candId].push({
+    method: 'Phone Call',
+    outcome: outcome || decision || 'Logged',
+    date: now.toISOString().split('T')[0],
+    ts: Date.now(),
+  });
+  saveEraContactLogs();
+
   // Update call queue based on decision
   if (decision === 'Confirmed Interested' || decision === 'For Employer Review') {
     // Move to confirmed stage in the placement row
@@ -14019,18 +12927,6 @@ var TOUR_STEPS = [
     title: '+ Add to Job Order',
     body: 'From any candidate card, click "+ Add to Job Order" to assign them directly to an open job order without leaving the Candidates tab.'
   },
-  {
-    tab: 'screening',
-    targetFn: function() { return document.querySelector('.tab[onclick*="screening"]') || document.querySelectorAll('.tab')[3]; },
-    title: 'Screening Tab',
-    body: 'Work through unscreened candidates systematically. Move each from Unscreened → Contacted → In Progress → Ready for Matching using the ERA scoring system.'
-  },
-  {
-    tab: 'screening',
-    targetFn: function() { return document.querySelector('.era-hero') || document.querySelector('.sp-era-score-hero') || document.getElementById('screening-inner'); },
-    title: 'ERA Score',
-    body: 'ERA = Eligibility, Responsiveness, Attitude. Score each candidate as you screen them. Candidates scoring 7–10 are Ready for Matching and are prioritised in the AI Matcher.'
-  }
 ];
 
 var _tourStep = 0;
@@ -14693,7 +13589,6 @@ loadAll().then(function() {
     }
   });
   initCandFilters();
-  initScrFilters();
 });
 </script>
 
