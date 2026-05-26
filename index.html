@@ -4309,8 +4309,14 @@ async function loadAll(opts) {
     applyRoleUI();
   }
 
-  document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
-  document.getElementById('cand-container').innerHTML = loadingHTML('Loading candidates…');
+  // Spinners only on real loads — never on quiet polls. The 120s _pollSheets
+  // path passes opts.skipRenderIfUnchanged=true and may short-circuit at the
+  // same-snapshot check below; if we set the spinner unconditionally here and
+  // then return early without re-rendering, the spinner is left up forever.
+  if (!opts || !opts.skipRenderIfUnchanged) {
+    document.getElementById('jo-container').innerHTML = loadingHTML('Loading job orders…');
+    document.getElementById('cand-container').innerHTML = loadingHTML('Loading candidates…');
+  }
 
   const results = await Promise.allSettled([
     fetchCSV(SHEET_CANDIDATES),
@@ -6311,7 +6317,7 @@ function renderPoolHealth() {
   bar.style.display = 'flex';
 }
 
-function isCandInactive(candId) {
+function isCandInactive(candId, extrasCache) {
   const ratings = candidateRatings[candId];
   const scores = ratings ? (ratings.scores || {}) : {};
   if (scores.noShow === true) return true;
@@ -6324,8 +6330,7 @@ function isCandInactive(candId) {
   for (var i = 0; i < allP.length; i++) {
     const p = allP[i];
     const pid = p.placementId || p.candidateId;
-    var ex = {};
-    try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e2) {}
+    const ex = getPlacementExtra(pid, extrasCache);
     // Always-on dashboard. 21-day inactive rule requires real direct contact.
     const lc = ex.lastDirectContactAt || ex.lastContacted || '';
     const resp = ex.response || p.response || 'No Response';
@@ -6717,9 +6722,25 @@ function renderCandidates() {
   const container = document.getElementById('cand-container');
   const summaryEl = document.getElementById('cand-filter-summary');
   try {
+    // Per-render extras cache — parse every placement's prow_extra ONCE.
+    // Passed through to isCandidateHired/isCandInactive/isHighDemand so they
+    // skip the per-call localStorage + JSON.parse on every candidate.
+    // External callers (profile modal, walker, calls tab) still call these
+    // helpers without a cache and fall back to on-demand parsing.
+    const extrasCache = new Map();
+    const _allP = [...placements, ...manualPlacements];
+    for (let _i = 0; _i < _allP.length; _i++) {
+      const _p = _allP[_i];
+      const _pid = _p.placementId || _p.candidateId;
+      if (extrasCache.has(_pid)) continue;
+      let _ex = {};
+      try { _ex = JSON.parse(localStorage.getItem('prow_extra_' + _pid) || '{}'); } catch(_e) {}
+      extrasCache.set(_pid, _ex);
+    }
+
     const search = String(document.getElementById('cand-search')?.value || '').toLowerCase();
     const f = _candFilters;
-    const hiredIds = new Set((candidates || []).filter(function(c) { return c && c.id && isCandidateHired(c.id); }).map(function(c) { return c.id; }));
+    const hiredIds = new Set((candidates || []).filter(function(c) { return c && c.id && isCandidateHired(c.id, extrasCache); }).map(function(c) { return c.id; }));
 
     let filtered = (candidates || []).filter(function(c) {
       if (!c || !c.id) return false;
@@ -6802,8 +6823,8 @@ function renderCandidates() {
       }
 
       // Active / inactive status
-      if (f.activeStatus === 'active' && isCandInactive(c.id)) return false;
-      if (f.activeStatus === 'inactive' && !isCandInactive(c.id)) return false;
+      if (f.activeStatus === 'active' && isCandInactive(c.id, extrasCache)) return false;
+      if (f.activeStatus === 'inactive' && !isCandInactive(c.id, extrasCache)) return false;
 
       // Registration date range
       if (f.regDateRange !== 'all') {
@@ -6863,7 +6884,7 @@ function renderCandidates() {
 
     let rendered = 0;
     filtered.forEach(function(c) {
-      try { container.appendChild(createCandCard(c)); rendered++; }
+      try { container.appendChild(createCandCard(c, extrasCache)); rendered++; }
       catch (err) { console.error('Card render failed for', c?.id, err); }
     });
 
@@ -6885,7 +6906,7 @@ function genderEmoji(g) {
   return 'P';
 }
 
-function createCandCard(c) {
+function createCandCard(c, extrasCache) {
   const isBlacklisted = !!blacklist[c.id];
   const bl = blacklist[c.id] || {};
   const isRemoved = !!(candidateRatings[c.id] && candidateRatings[c.id].removedFromPool);
@@ -6893,8 +6914,17 @@ function createCandCard(c) {
 
   const card = document.createElement('div');
   card.className = 'cand-card' + (isBlacklisted ? ' blacklisted' : '') + (isRemoved ? ' blacklisted' : '');
-  const _candIsInactive = isCandInactive(c.id);
+  const _candIsInactive = isCandInactive(c.id, extrasCache);
   if (_candIsInactive && _candFilters.activeStatus === 'inactive') card.style.opacity = '0.65';
+
+  // Compute ERA + rating + color + label ONCE per card. Previously these
+  // were called 5+ times per card (each call re-runs calcERA which does an
+  // O(n) candidates.find).
+  const _era         = calcERA(c.id);
+  const _candRating  = _era.score;
+  const _ratingColor = getRatingColor(_candRating);
+  const _ratingLabel = getRatingLabel(_candRating).label;
+  const _docConf     = getDocConfidence(c.id);
 
   const effectiveVerifiedCard = getEffectiveVerified(c);
   const autoVerCard = isAutoVerified(c.id) && c.status !== 'Verified';
@@ -6935,12 +6965,13 @@ function createCandCard(c) {
       <div class="cand-detail" style="grid-column:1/-1">
         <span class="cand-detail-label">ERA Score</span>
         <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="color:${getRatingColor(calcCandRating(c.id))};font-weight:800;font-family:var(--mono);font-size:14px">${calcCandRating(c.id)}</span>
-          <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:${getRatingColor(calcCandRating(c.id))}18;color:${getRatingColor(calcCandRating(c.id))};border:1px solid ${getRatingColor(calcCandRating(c.id))}40">${getRatingLabel(calcCandRating(c.id)).label}</span>
-          ${(()=>{ const era=calcERA(c.id); const dc=getDocConfidence(c.id); return `<span style="font-size:10px;color:var(--text3)">E:${era.E>=0?'+':''}${era.E.toFixed(1)} R:${era.R>=0?'+':''}${era.R.toFixed(1)} A:${era.A>=0?'+':''}${era.A.toFixed(1)}</span><span style="font-size:10px;font-weight:600;color:${dc.color};margin-left:6px">Docs: ${dc.label}</span>`; })()}
+          <span style="color:${_ratingColor};font-weight:800;font-family:var(--mono);font-size:14px">${_candRating}</span>
+          <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:${_ratingColor}18;color:${_ratingColor};border:1px solid ${_ratingColor}40">${_ratingLabel}</span>
+          <span style="font-size:10px;color:var(--text3)">E:${_era.E>=0?'+':''}${_era.E.toFixed(1)} R:${_era.R>=0?'+':''}${_era.R.toFixed(1)} A:${_era.A>=0?'+':''}${_era.A.toFixed(1)}</span>
+          <span style="font-size:10px;font-weight:600;color:${_docConf.color};margin-left:6px">Docs: ${_docConf.label}</span>
         </span>
       </div>
-      ${isHighDemand(c.id) ? '<div class="cand-detail" style="grid-column:1/-1"><span style="font-size:10px;font-weight:700;color:var(--orange)">High Demand — in multiple active orders</span></div>' : ''}
+      ${isHighDemand(c.id, extrasCache) ? '<div class="cand-detail" style="grid-column:1/-1"><span style="font-size:10px;font-weight:700;color:var(--orange)">High Demand — in multiple active orders</span></div>' : ''}
       <div class="cand-detail"><span class="cand-detail-label">Expected Pay</span><span class="cand-detail-val">${escHtml(c.expectedPay)}</span></div>
       <div class="cand-detail" style="grid-column:1/-1">
         <span class="cand-detail-label">Setup</span>
@@ -9187,16 +9218,17 @@ function getEffectiveVerified(c) {
   return c.status === 'Verified' || isAutoVerified(c.id);
 }
 
-function getPlacementExtra(pid) {
+function getPlacementExtra(pid, extrasCache) {
+  if (extrasCache && extrasCache.has(pid)) return extrasCache.get(pid);
   let ex = {};
   try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
   return ex;
 }
 
-function isCandidateHired(candId) {
+function isCandidateHired(candId, extrasCache) {
   return [...placements, ...manualPlacements].some(p => {
     if (p.candidateId !== candId) return false;
-    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
     return (ex.status || p.status || '').trim().toLowerCase() === 'hired';
   });
 }
@@ -9509,19 +9541,19 @@ function saveCandAdjustment(candId, val) {
 // ═══════════════════════════════════════════════
 // DUPLICATE CANDIDATE WARNING + HIGH DEMAND TAG
 // ═══════════════════════════════════════════════
-function getCandidateActiveJOs(candId) {
+function getCandidateActiveJOs(candId, extrasCache) {
   const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
   return allP.filter(p => {
     const jo = jobOrders.find(j => j.id === p.jobOrderId);
     if (!jo || jo.status !== 'Active') return false;
-    const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
     const s = ex.status || p.status || '';
     return s !== 'Dropped';
   });
 }
 
-function isHighDemand(candId) {
-  return getCandidateActiveJOs(candId).length >= 2;
+function isHighDemand(candId, extrasCache) {
+  return getCandidateActiveJOs(candId, extrasCache).length >= 2;
 }
 
 function checkDuplicateBeforeAdd(candId, candName, joId, onConfirm) {
