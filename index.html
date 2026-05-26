@@ -4135,6 +4135,23 @@ function saveCandidateRatings() { _lsSet('candidate_ratings', candidateRatings);
 // the coordinator expects the cross-device sync to land within seconds of
 // hitting Save, and the write is rare (once per call) — debouncing buys nothing.
 function saveCandidateOverrides() { _lsSet('candidate_overrides', candidateOverrides); fbSync('candidate_overrides', candidateOverrides); }
+
+// Inline-save helper for the profile-modal Personal Info grid. Writes one
+// field into candidateOverrides[candId] and re-merges the in-memory candidate
+// so other open surfaces see the change. When hasKids flips to anything other
+// than 'Yes', numKids is cleared in the same write to prevent stale orphans.
+function saveCandPersonalField(candId, field, value) {
+  if (!candidateOverrides[candId]) candidateOverrides[candId] = {};
+  candidateOverrides[candId][field] = value;
+  if (field === 'hasKids' && value !== 'Yes') {
+    candidateOverrides[candId].numKids = '';
+  }
+  saveCandidateOverrides();
+  const ci = candidates.findIndex(function(x) { return x.id === candId; });
+  if (ci >= 0) candidates[ci] = _applyCandOverride(candidates[ci]);
+  const modal = document.getElementById('modal-cand-profile');
+  if (modal && modal.classList.contains('open')) openCandModal(candId);
+}
 // Merge override-over-base for the five editable fields. Empty-string overrides
 // are persisted deliberately (the coordinator cleared a wrong value). Derived
 // experienceFlag is recomputed from the overridden pastJobs.
@@ -4148,6 +4165,8 @@ function _applyCandOverride(c) {
   if (has('expectedPay')) out.expectedPay = ov.expectedPay;
   if (has('startDate'))   out.startDate   = ov.startDate;
   if (has('civilStatus')) out.civilStatus = ov.civilStatus;
+  if (has('hasKids'))     out.hasKids     = ov.hasKids;
+  if (has('numKids'))     out.numKids     = ov.numKids;
   return out;
 }
 
@@ -7837,6 +7856,29 @@ function _openCandModalInner(candId) {
           ${field('Job Type', c.jobTypeRaw || c.jobType)}
           ${field('Verified Status', effectiveVerified ? (autoVerifiedByDoc ? 'Verified (auto via docs)' : 'Verified') : 'Unverified')}
           ${field('Last Contacted', lastContactedOverall ? (fmtDate(lastContactedOverall) + (lastContactedVia ? ' · ' + lastContactedVia : '')) : '—')}
+          <div class="cand-modal-field">
+            <div class="cand-modal-field-label">Civil Status</div>
+            <div class="cand-modal-field-val">
+              <select onchange="saveCandPersonalField('${escAttr(c.id)}','civilStatus',this.value)" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-family:var(--sans);font-size:12px;outline:none">
+                ${['','Single','Married','Separated','Widowed','Other'].map(v=>`<option value="${escAttr(v)}"${v===(c.civilStatus||'')?' selected':''}>${v||'—'}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="cand-modal-field">
+            <div class="cand-modal-field-label">Has Kids</div>
+            <div class="cand-modal-field-val">
+              <select onchange="saveCandPersonalField('${escAttr(c.id)}','hasKids',this.value)" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-family:var(--sans);font-size:12px;outline:none">
+                ${['','Yes','No'].map(v=>`<option value="${escAttr(v)}"${v===(c.hasKids||'')?' selected':''}>${v||'—'}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          ${c.hasKids === 'Yes' ? `
+          <div class="cand-modal-field">
+            <div class="cand-modal-field-label"># of Kids</div>
+            <div class="cand-modal-field-val">
+              <input type="number" min="0" max="20" value="${escAttr(c.numKids||'')}" onchange="saveCandPersonalField('${escAttr(c.id)}','numKids',this.value)" style="width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none">
+            </div>
+          </div>` : ''}
         </div>
       </div>
 
@@ -7885,9 +7927,7 @@ function _openCandModalInner(candId) {
         }).join('')}
       </div>` : ''}
 
-      ${buildCallHistorySection(c.id)}
-
-      ${buildReflectionLog(c.id)}
+      ${buildContactHistory(c.id)}
 
       ${buildCandNotesSection(c.id)}
 
@@ -10350,89 +10390,87 @@ function buildCandNotesSection(candId) {
 // ═══════════════════════════════════════════════
 // REFLECTION LOG
 // ═══════════════════════════════════════════════
-function getReflectionLog(candId) {
-  // Auto-build from placements data
-  const allP = [...placements, ...manualPlacements].filter(p => p.candidateId === candId);
-  const log = allP.map(p => {
-    const pid = p.placementId || p.candidateId;
-    let ex = {};
-    try { ex = JSON.parse(localStorage.getItem(`prow_extra_${pid}`) || '{}'); } catch(e) {}
-    const status = ex.status || p.status || '';
-    const result = status === 'Hired' ? 'Hired'
-      : status === 'Interviewed' ? 'Interviewed'
-      : status === 'Dropped' ? 'Dropped'
-      : (ex.response || p.response) === 'No Response' ? 'No Reply'
-      : status === 'For Interview' ? 'Interview Scheduled'
-      : 'Messaged';
-    const jo = jobOrders.find(j => j.id === p.jobOrderId);
+// Unified Contact History — merges rich calls (candidateCalls) and lightweight
+// contact attempts (eraContactLogs) into one chronological timeline.
+//
+// Dedup: submitCallDecision writes BOTH a rich candidateCalls row AND a
+// lightweight eraContactLogs 'Phone Call' entry for the same call. The dedup
+// key is (date, candId): if a rich call exists on a given calendar date,
+// suppress any 'Phone Call' eraContactLogs entry sharing that date. FB
+// Messenger entries (walker DM logs) are never written to candidateCalls,
+// so they always pass through. Legacy 'Phone call' (lowercase) entries from
+// the deleted Screening tab survive too — they don't have a matching rich
+// row so they're treated as standalone events.
+function buildContactHistory(candId) {
+  const calls = getCandidateCalls(candId);
+  const richDates = new Set();
+  const richRows = Object.values(calls).map(function(call) {
+    if (call.date) richDates.add(call.date);
     return {
-      joId: p.jobOrderId,
-      employer: jo?.company || p.company || '—',
-      position: p.position || jo?.position || '—',
-      result,
-      // Always-on dashboard (profile modal reflection log).
-      date: ex.lastDirectContactAt || ex.lastContacted || '',
-      notes: ex.notes || p.notes || '',
+      kind: 'call',
+      date: call.date || (call.createdAt ? call.createdAt.split('T')[0] : ''),
+      ts: call.createdAt ? new Date(call.createdAt).getTime() : 0,
+      call: call,
     };
   });
-  // Also include manually saved reflections
-  const saved = (() => { try { return JSON.parse(localStorage.getItem(`reflection_${candId}`) || '[]'); } catch(e) { return []; } })();
-  return [...log, ...saved].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-}
 
-function addReflection(candId) {
-  const joId   = document.getElementById(`refl-jo-${candId}`)?.value || '';
-  const result = document.getElementById(`refl-result-${candId}`)?.value || '';
-  const notes  = document.getElementById(`refl-notes-${candId}`)?.value || '';
-  if (!result) return;
-  const saved = (() => { try { return JSON.parse(localStorage.getItem(`reflection_${candId}`) || '[]'); } catch(e) { return []; } })();
-  saved.unshift({ joId, employer: jobOrders.find(j=>j.id===joId)?.company||'Manual entry', position: '', result, date: new Date().toISOString().split('T')[0], notes, manual: true });
-  localStorage.setItem(`reflection_${candId}`, JSON.stringify(saved));
-  fbSync('reflections/' + candId, saved);
-  openCandModal(candId);
-}
+  const logs = eraContactLogs[candId] || [];
+  const lightRows = logs.filter(function(e) {
+    if (e.method === 'Phone Call' && richDates.has(e.date)) return false;
+    return true;
+  }).map(function(e) {
+    return {
+      kind: 'log',
+      date: e.date || '',
+      ts: typeof e.ts === 'number' ? e.ts : 0,
+      log: e,
+    };
+  });
 
-function buildReflectionLog(candId) {
-  const log = getReflectionLog(candId);
-  const resultColors = {
-    'Hired':'var(--green)','Interviewed':'var(--accent)','Interview Scheduled':'var(--purple)',
-    'Dropped':'var(--red)','No Reply':'var(--text3)','Messaged':'var(--orange)'
-  };
-  const items = log.map(entry => `
-    <div class="refl-item">
-      <div class="refl-dot" style="background:${resultColors[entry.result]||'var(--text3)'}"></div>
-      <div class="refl-content">
-        <div class="refl-header">
-          <span class="refl-result" style="color:${resultColors[entry.result]||'var(--text3)'}">${escHtml(entry.result)}</span>
-          <span class="refl-jo">${escHtml(entry.joId||'')}</span>
-          <span class="refl-date">${entry.date ? fmtDateShort(entry.date) : ''}</span>
-        </div>
-        <div class="refl-employer">${escHtml(entry.employer)}${entry.position?' · '+escHtml(entry.position):''}</div>
-        ${entry.notes ? `<div class="refl-notes">${escHtml(entry.notes)}</div>` : ''}
-      </div>
-    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No history yet.</div>';
+  const all = richRows.concat(lightRows).sort(function(a, b) {
+    if (b.ts !== a.ts) return b.ts - a.ts;
+    return (b.date || '').localeCompare(a.date || '');
+  });
 
-  return `
-    <div class="cand-modal-section">
-      <div class="cand-modal-section-title">Reflection History</div>
-      <div class="refl-timeline">${items}</div>
-      <div class="refl-add-form">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-          <select id="refl-jo-${escAttr(candId)}" style="flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
-            <option value="">Manual / No JO</option>
-            ${jobOrders.map(jo=>`<option value="${escAttr(jo.id)}">${escHtml(jo.id)} — ${escHtml(jo.company)}</option>`).join('')}
-          </select>
-          <select id="refl-result-${escAttr(candId)}" style="flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
-            <option value="">Select result…</option>
-            ${['Hired','Interviewed','Interview Scheduled','Dropped','No Reply','Messaged'].map(r=>`<option>${r}</option>`).join('')}
-          </select>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <input type="text" id="refl-notes-${escAttr(candId)}" placeholder="Notes…" style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:7px;font-family:var(--sans);font-size:11px;outline:none">
-          <button class="btn btn-accent" onclick="addReflection('${escAttr(candId)}')">Add</button>
-        </div>
-      </div>
-    </div>`;
+  if (!all.length) {
+    return '<div class="cand-modal-section">' +
+      '<div class="cand-modal-section-title">Contact History</div>' +
+      '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No calls or DMs logged yet.</div>' +
+      '</div>';
+  }
+
+  const rows = all.map(function(row) {
+    if (row.kind === 'call') {
+      const call = row.call;
+      const outcomeColor = call.outcome === 'Answered' ? 'var(--green)' : 'var(--gold2)';
+      const decisionColor = call.decision === 'Confirmed Interested' || call.decision === 'For Employer Review' ? 'var(--green)'
+        : call.decision === 'Rejected by Jobseeker' ? 'var(--red)' : 'var(--text2)';
+      return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:12px">' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:4px;flex-wrap:wrap">' +
+          '<span style="font-size:10px;font-weight:700;background:rgba(37,99,235,.12);color:var(--accent);border:1px solid rgba(37,99,235,.35);border-radius:6px;padding:1px 6px">CALL</span>' +
+          '<span style="font-weight:700;color:var(--text2)">' + escHtml(call.date || '') + (call.time ? ' ' + escHtml(call.time) : '') + '</span>' +
+          '<span style="font-weight:700;color:' + outcomeColor + '">' + escHtml(call.outcome || '') + '</span>' +
+          '<span style="font-weight:700;color:' + decisionColor + '">' + escHtml(call.decision || '') + '</span>' +
+          '<span style="color:var(--text3);font-size:11px;margin-left:auto">ERA ' + (call.eraScore || '—') + '</span>' +
+        '</div>' +
+        (call.notes ? '<div style="color:var(--text2);line-height:1.5;border-top:1px solid var(--border);padding-top:6px;margin-top:4px">' + escHtml(call.notes) + '</div>' : '') +
+        (call.calledBy ? '<div style="font-size:10px;color:var(--text3);margin-top:4px">Called by: ' + escHtml(call.calledBy) + '</div>' : '') +
+      '</div>';
+    }
+    const log = row.log;
+    const methodColor = log.method === 'FB Messenger' ? 'var(--purple)' : 'var(--text2)';
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<span style="font-size:10px;font-weight:700;background:rgba(100,116,139,.12);color:var(--text2);border:1px solid rgba(100,116,139,.35);border-radius:6px;padding:1px 6px">CONTACT</span>' +
+      '<span style="font-weight:700;color:' + methodColor + '">' + escHtml(log.method || '') + '</span>' +
+      '<span style="color:var(--text2)">' + escHtml(log.outcome || '') + '</span>' +
+      '<span style="color:var(--text3);font-size:11px;margin-left:auto">' + escHtml(log.date || '') + '</span>' +
+      '</div>';
+  }).join('');
+
+  return '<div class="cand-modal-section">' +
+    '<div class="cand-modal-section-title">Contact History (' + all.length + ')</div>' +
+    rows +
+    '</div>';
 }
 
 // ═══════════════════════════════════════════════
@@ -12036,6 +12074,8 @@ function _renderCallAssessment() {
   const covPay     = covCurrent.expectedPay !== undefined ? covCurrent.expectedPay : (c.expectedPay || '');
   const covStart   = covCurrent.startDate   !== undefined ? covCurrent.startDate   : (c.startDate   || '');
   const covCivil   = covCurrent.civilStatus !== undefined ? covCurrent.civilStatus : (c.civilStatus || '');
+  const covHasKids = covCurrent.hasKids     !== undefined ? covCurrent.hasKids     : (c.hasKids     || '');
+  const covNumKids = covCurrent.numKids     !== undefined ? covCurrent.numKids     : (c.numKids     || '');
   const editSectionHTML = showDecision ? '<div class="call-assess-section">' +
     '<div class="call-assess-title">Update candidate info (from call)</div>' +
     '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Edits are stored separately from the Google Form data and survive every 120 s sync. Only what changed needs editing.</div>' +
@@ -12054,7 +12094,19 @@ function _renderCallAssessment() {
           '<input type="text" id="cov-start" value="' + escAttr(covStart) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
         '</label>' +
         '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Civil Status' +
-          '<input type="text" id="cov-civil" value="' + escAttr(covCivil) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+          '<select id="cov-civil" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+            ['','Single','Married','Separated','Widowed','Other'].map(function(v){ return '<option value="' + escAttr(v) + '"' + (v === covCivil ? ' selected' : '') + '>' + (v || '—') + '</option>'; }).join('') +
+          '</select>' +
+        '</label>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)">Has Kids' +
+          '<select id="cov-haskids" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none">' +
+            ['','Yes','No'].map(function(v){ return '<option value="' + escAttr(v) + '"' + (v === covHasKids ? ' selected' : '') + '>' + (v || '—') + '</option>'; }).join('') +
+          '</select>' +
+        '</label>' +
+        '<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--text2)"># of Kids' +
+          '<input type="number" min="0" max="20" id="cov-numkids" value="' + escAttr(covNumKids) + '" style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none">' +
         '</label>' +
       '</div>' +
       '<button class="btn btn-blue" style="align-self:flex-start;margin-top:4px" onclick="saveCandOverrideFromCall(\'' + escAttr(candId) + '\')">Save updates</button>' +
@@ -12160,7 +12212,10 @@ function saveCandOverrideFromCall(candId) {
   const expectedPay = (document.getElementById('cov-pay')      || {}).value || '';
   const startDate   = (document.getElementById('cov-start')    || {}).value || '';
   const civilStatus = (document.getElementById('cov-civil')    || {}).value || '';
-  candidateOverrides[candId] = { skills: skills, pastJobs: pastJobs, expectedPay: expectedPay, startDate: startDate, civilStatus: civilStatus };
+  const hasKids     = (document.getElementById('cov-haskids')  || {}).value || '';
+  // If hasKids isn't 'Yes', drop any number — no orphan stale value.
+  const numKids     = hasKids === 'Yes' ? ((document.getElementById('cov-numkids') || {}).value || '') : '';
+  candidateOverrides[candId] = { skills: skills, pastJobs: pastJobs, expectedPay: expectedPay, startDate: startDate, civilStatus: civilStatus, hasKids: hasKids, numKids: numKids };
   saveCandidateOverrides();
   // Re-apply override on the in-memory candidate so other surfaces re-read merged.
   const ci = candidates.findIndex(function(x) { return x.id === candId; });
@@ -12284,33 +12339,6 @@ function submitCallDecision(decision) {
 }
 
 // ─── CALL HISTORY section inside candidate profile ───
-
-function buildCallHistorySection(candId) {
-  const calls = getCandidateCalls(candId);
-  const entries = Object.entries(calls).sort(function(a, b) { return b[1].createdAt.localeCompare(a[1].createdAt); });
-  if (!entries.length) return '';
-
-  const rows = entries.map(function(e) {
-    const call = e[1];
-    const outcomeColor = call.outcome === 'Answered' ? 'var(--green)' : 'var(--gold2)';
-    const decisionColor = call.decision === 'Confirmed Interested' || call.decision === 'For Employer Review' ? 'var(--green)'
-      : call.decision === 'Rejected by Jobseeker' ? 'var(--red)' : 'var(--text2)';
-    return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:12px">' +
-      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:4px;flex-wrap:wrap">' +
-        '<span style="font-weight:700;color:var(--text2)">' + escHtml(call.date) + (call.time ? ' ' + call.time : '') + '</span>' +
-        '<span style="font-weight:700;color:' + outcomeColor + '">' + escHtml(call.outcome) + '</span>' +
-        '<span style="font-weight:700;color:' + decisionColor + '">' + escHtml(call.decision || '') + '</span>' +
-        '<span style="color:var(--text3);font-size:11px;margin-left:auto">ERA ' + (call.eraScore || '—') + '</span>' +
-      '</div>' +
-      (call.notes ? '<div style="color:var(--text2);line-height:1.5;border-top:1px solid var(--border);padding-top:6px;margin-top:4px">' + escHtml(call.notes) + '</div>' : '') +
-      (call.calledBy ? '<div style="font-size:10px;color:var(--text3);margin-top:4px">Called by: ' + escHtml(call.calledBy) + '</div>' : '') +
-    '</div>';
-  }).join('');
-
-  return '<div class="cand-modal-section">' +
-    '<div class="cand-modal-section-title">Call History (' + entries.length + ')</div>' +
-    rows + '</div>';
-}
 
 function buildReopenAnalysis() {
   // Gather all reopen events across all job orders
