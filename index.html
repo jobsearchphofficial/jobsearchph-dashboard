@@ -3209,8 +3209,9 @@ function doLogin(){
       <div class="section-title">Calls</div>
       <div class="badge" id="calls-count">0</div>
       <div style="margin-left:auto;display:flex;gap:6px">
-        <button id="calls-view-btn-queue"     class="btn btn-gold"  onclick="setCallsView('queue')"     style="font-size:12px;padding:5px 14px">Call Queue</button>
-        <button id="calls-view-btn-callbacks" class="btn btn-ghost" onclick="setCallsView('callbacks')" style="font-size:12px;padding:5px 14px">Scheduled Callbacks</button>
+        <button id="calls-view-btn-queue"      class="btn btn-gold"  onclick="setCallsView('queue')"      style="font-size:12px;padding:5px 14px">Call Queue</button>
+        <button id="calls-view-btn-callbacks"  class="btn btn-ghost" onclick="setCallsView('callbacks')"  style="font-size:12px;padding:5px 14px">Scheduled Callbacks</button>
+        <button id="calls-view-btn-needs-call" class="btn btn-ghost" onclick="setCallsView('needs-call')" style="font-size:12px;padding:5px 14px">Needs a Call<span id="calls-needs-count" class="call-tab-badge" style="display:none;margin-left:6px">0</span></button>
       </div>
     </div>
     <div id="calls-inner"></div>
@@ -9206,6 +9207,56 @@ function isCandidateHired(candId) {
   });
 }
 
+// Per-candidate predicates used by the WARM "Needs a Call" list.
+// All read placements + manualPlacements + prow_extras already in scope.
+const _POST_INTEREST_STAGES = ['Confirmed Interested','Called / Verified','For Employer Review','Interview Scheduled','Pending Requirements','Hired ✓'];
+
+function broadcastCount(candId) {
+  return manualPlacements.filter(function(p) { return p.candidateId === candId && p.source === 'broadcast'; }).length;
+}
+
+function hasBeenContacted(candId) {
+  return [...placements, ...manualPlacements].some(function(p) {
+    if (p.candidateId !== candId) return false;
+    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    return !!ex.lastDirectContactAt;
+  });
+}
+
+function saidInterested(candId) {
+  return [...placements, ...manualPlacements].some(function(p) {
+    if (p.candidateId !== candId) return false;
+    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    if ((ex.response || p.response) === 'Interested') return true;
+    return _POST_INTEREST_STAGES.indexOf(getEffectiveStage(ex, p)) >= 0;
+  });
+}
+
+function saidNotInterested(candId) {
+  return [...placements, ...manualPlacements].some(function(p) {
+    if (p.candidateId !== candId) return false;
+    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    if ((ex.response || p.response) === 'Not Interested') return true;
+    return getEffectiveStage(ex, p) === 'Rejected by Candidate';
+  });
+}
+
+// Pick a placement to launch a call against. For WARM (broadcast-only) the
+// most-recently-dated broadcast placement matches _walkerLogDmSent's heuristic.
+function pickCallTarget(candId) {
+  const broadcasts = manualPlacements
+    .filter(function(p) { return p.candidateId === candId && p.source === 'broadcast'; })
+    .slice()
+    .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+  if (broadcasts.length) {
+    const t = broadcasts[0];
+    return { joId: t.jobOrderId, placementId: t.placementId || '' };
+  }
+  // Fallback: any placement at all
+  const any = [...placements, ...manualPlacements].find(function(p) { return p.candidateId === candId; });
+  return any ? { joId: any.jobOrderId, placementId: any.placementId || '' } : { joId: '', placementId: '' };
+}
+
 // ═══════════════════════════════════════════════
 // ERA SCORING SYSTEM
 // Eligibility + Responsiveness + Attitude
@@ -12792,8 +12843,10 @@ function setCallsView(view) {
   _callsView = view;
   var qBtn = document.getElementById('calls-view-btn-queue');
   var cBtn = document.getElementById('calls-view-btn-callbacks');
+  var nBtn = document.getElementById('calls-view-btn-needs-call');
   if (qBtn) { qBtn.className = view === 'queue' ? 'btn btn-gold' : 'btn btn-ghost'; qBtn.style.fontSize = '12px'; qBtn.style.padding = '5px 14px'; }
   if (cBtn) { cBtn.className = view === 'callbacks' ? 'btn btn-gold' : 'btn btn-ghost'; cBtn.style.fontSize = '12px'; cBtn.style.padding = '5px 14px'; }
+  if (nBtn) { nBtn.className = view === 'needs-call' ? 'btn btn-gold' : 'btn btn-ghost'; nBtn.style.fontSize = '12px'; nBtn.style.padding = '5px 14px'; }
   renderCallsTab();
 }
 
@@ -12801,8 +12854,30 @@ function renderCallsTab() {
   const inner = document.getElementById('calls-inner');
   if (!inner) return;
   updateCallsBadge();
+  updateNeedsCallCount();
   if (_callsView === 'queue') inner.innerHTML = buildCallQueueHTML();
+  else if (_callsView === 'needs-call') inner.innerHTML = buildNeedsCallHTML();
   else inner.innerHTML = buildCallbacksHTML();
+}
+
+function _getNeedsCallCandidates() {
+  return candidates.filter(function(c) {
+    if (blacklist[c.id]) return false;
+    if (isCandidateHired(c.id)) return false;
+    if (saidNotInterested(c.id)) return false;
+    if (isCandInactive(c.id)) return false;
+    if (saidInterested(c.id)) return false;
+    if (hasBeenContacted(c.id)) return false;
+    return broadcastCount(c.id) >= 1;
+  });
+}
+
+function updateNeedsCallCount() {
+  var el = document.getElementById('calls-needs-count');
+  if (!el) return;
+  var n = _getNeedsCallCandidates().length;
+  el.textContent = n;
+  el.style.display = n > 0 ? '' : 'none';
 }
 
 function buildCallQueueHTML() {
@@ -12841,9 +12916,13 @@ function buildCallQueueHTML() {
     const eraScore = calcCandRating(candId);
     const eraColor = eraScore >= 7 ? 'var(--green)' : eraScore >= 5 ? 'var(--gold)' : 'var(--red)';
     const waitLabel = hoursWaiting < 1 ? 'Just now' : hoursWaiting < 24 ? hoursWaiting + 'h ago' : Math.floor(hoursWaiting/24) + 'd ago';
+    // HOT badge: came from a broadcast and still has no direct contact stamp.
+    const hotBadge = (broadcastCount(candId) >= 1 && !hasBeenContacted(candId))
+      ? ' <span style="display:inline-block;font-size:9px;font-weight:800;background:rgba(220,38,38,.12);color:var(--red);border:1px solid rgba(220,38,38,.4);border-radius:6px;padding:1px 6px;margin-left:4px;text-transform:uppercase;letter-spacing:.4px">broadcast · never called</span>'
+      : '';
     return '<div class="call-queue-row' + (overdue ? ' overdue' : '') + '">' +
       '<div>' +
-        '<div style="font-size:14px;font-weight:700">' + escHtml(c.name) + '</div>' +
+        '<div style="font-size:14px;font-weight:700">' + escHtml(c.name) + hotBadge + '</div>' +
         '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">' + escHtml(candId) + ' · ' + escHtml(c.jobTypeFormatted || c.jobType || '—') + '</div>' +
         '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + (jo ? escHtml(jo.id) + ' — ' + escHtml(jo.position) + ' @ ' + escHtml(jo.company) : escHtml(q.joId)) + '</div>' +
         (c.phone ? '<div style="font-size:11px;color:var(--accent);margin-top:2px;font-family:var(--mono)">' + escHtml(c.phone) + '</div>' : '') +
@@ -12909,6 +12988,69 @@ function buildCallbacksHTML() {
   }).join('');
 
   return '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">' + entries.length + ' scheduled callback' + (entries.length !== 1 ? 's' : '') + '</div>' + rows;
+}
+
+// WARM list: broadcast-to candidates who never said yes and were never directly
+// contacted. Logging a call via openCallAssessment stamps lastDirectContactAt
+// and drops the candidate off this list automatically.
+function buildNeedsCallHTML() {
+  const cands = _getNeedsCallCandidates();
+  // Decorate with broadcast metadata for sort + display.
+  const decorated = cands.map(function(c) {
+    const broadcasts = manualPlacements
+      .filter(function(p) { return p.candidateId === c.id && p.source === 'broadcast'; })
+      .slice()
+      .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    const bcCount = broadcasts.length;
+    const latestDate = broadcasts.length ? (broadcasts[0].date || '') : '';
+    const joIds = [...new Set(broadcasts.map(function(b) { return b.jobOrderId; }))];
+    return { c, bcCount, latestDate, joIds };
+  });
+  decorated.sort(function(a, b) {
+    if (b.bcCount !== a.bcCount) return b.bcCount - a.bcCount;
+    return (b.latestDate || '').localeCompare(a.latestDate || '');
+  });
+
+  if (!decorated.length) {
+    return '<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px">No one waiting for a first call — everyone broadcast has been contacted or responded.</div>';
+  }
+
+  const rows = decorated.map(function(d) {
+    const c = d.c;
+    const target = pickCallTarget(c.id);
+    const joLabels = d.joIds.map(function(id) {
+      const jo = jobOrders.find(function(j) { return j.id === id; });
+      return jo ? (escHtml(id) + ' — ' + escHtml(jo.company || jo.position || '')) : escHtml(id);
+    }).join(', ');
+    const meta = [];
+    if (c.jobTypeFormatted || c.jobType) meta.push(escHtml(c.jobTypeFormatted || c.jobType));
+    if (c.location)                       meta.push(escHtml(c.location));
+    if (c.expectedPay)                    meta.push('₱' + escHtml(c.expectedPay));
+    const metaLine = meta.length ? '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + meta.join(' · ') + '</div>' : '';
+    const bcPill = '<span style="display:inline-block;font-size:10px;font-weight:700;background:rgba(100,116,139,.15);color:var(--text2);border:1px solid rgba(100,116,139,.35);border-radius:6px;padding:1px 7px;margin-left:6px">broadcast ' + d.bcCount + '×</span>';
+    return '<div class="call-queue-row">' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:700">' + escHtml(c.name) + bcPill + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">' + escHtml(c.id) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:2px">' + joLabels + '</div>' +
+        metaLine +
+        (c.phone ? '<div style="font-size:11px;color:var(--accent);margin-top:2px;font-family:var(--mono)">' + escHtml(c.phone) + '</div>' : '') +
+      '</div>' +
+      '<div style="text-align:center">' +
+        '<span style="font-size:11px;color:var(--text3)">last bc</span>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--text2)">' + (d.latestDate ? escHtml(fmtDateShort(d.latestDate)) : '—') + '</div>' +
+      '</div>' +
+      '<div></div>' +
+      '<div>' +
+        (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
+      '</div>' +
+      '<div>' +
+        '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(target.joId) + '\',\'' + escAttr(target.placementId) + '\')">Call</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return '<div style="font-size:12px;color:var(--text3);margin-bottom:12px">' + decorated.length + ' candidate' + (decorated.length !== 1 ? 's' : '') + ' broadcast to but never directly contacted</div>' + rows;
 }
 
 // ─── CALL ASSESSMENT MODAL ───
