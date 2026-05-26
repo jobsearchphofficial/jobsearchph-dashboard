@@ -7154,36 +7154,47 @@ function saveAtjPlacement() {
 
   if (!joId) { alert('Please select a Job Order.'); return; }
 
-  // Check already placed
+  // Check already placed (same-JO is a hard block; cross-JO is checked below
+  // by the dismissible warning).
   const allP = [...placements, ...manualPlacements];
   if (allP.find(p => p.jobOrderId === joId && p.candidateId === candId)) {
     alert('This candidate is already in that Job Order.');
     return;
   }
 
-  const placement = {
-    placementId: `M-${Date.now()}`,
-    jobOrderId: joId,
-    candidateId: candId,
-    candidateName: (() => { const cObj = candidates.find(x => x.id === candId); return cObj ? cObj.name : candName; })(),
-    company, position, response, status, date, notes,
-    source: 'manual'
-  };
-  const replacementCtxAtj = (() => { try { return JSON.parse(localStorage.getItem('pending_replacement_jo_' + joId) || 'null'); } catch(e){ return null; } })();
-  if (replacementCtxAtj) {
-    placement.isReplacement = true;
-    placement.replacesCandidate = replacementCtxAtj.candId;
-    placement.replacementReason = replacementCtxAtj.issueType;
-    localStorage.removeItem('pending_replacement_jo_' + joId);
-    fbSync('pending_replacement/' + joId, null);
-  }
+  const doSave = () => {
+    const placement = {
+      placementId: `M-${Date.now()}`,
+      jobOrderId: joId,
+      candidateId: candId,
+      candidateName: (() => { const cObj = candidates.find(x => x.id === candId); return cObj ? cObj.name : candName; })(),
+      company, position, response, status, date, notes,
+      source: 'manual'
+    };
+    const replacementCtxAtj = (() => { try { return JSON.parse(localStorage.getItem('pending_replacement_jo_' + joId) || 'null'); } catch(e){ return null; } })();
+    if (replacementCtxAtj) {
+      placement.isReplacement = true;
+      placement.replacesCandidate = replacementCtxAtj.candId;
+      placement.replacementReason = replacementCtxAtj.issueType;
+      localStorage.removeItem('pending_replacement_jo_' + joId);
+      fbSync('pending_replacement/' + joId, null);
+    }
 
-  manualPlacements.push(placement);
-  saveManualPlacements();
-  closeModal('modal-add-to-jo');
-  renderJobOrders([...placements, ...manualPlacements]);
-  buildReminderBanner();
-  updateStats();
+    manualPlacements.push(placement);
+    saveManualPlacements();
+    closeModal('modal-add-to-jo');
+    renderJobOrders([...placements, ...manualPlacements]);
+    buildReminderBanner();
+    updateStats();
+  };
+
+  // Cross-JO dismissible warning — mirrors savePlacement's wrapping. Skips
+  // straight to save when candId is absent (no candidate to look up).
+  if (candId) {
+    checkDuplicateBeforeAdd(candId, candName, joId, doSave);
+  } else {
+    doSave();
+  }
 }
 
 // ═══════════════════════════════════════════════
