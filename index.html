@@ -5611,9 +5611,16 @@ function createPlacementRow(p, idx, joId) {
   const staleDays = (savedResponse === 'No Response' || savedResponse === '') && effectiveLastContact
     ? daysDiff(effectiveLastContact) : 0;
 
-  // Auto-mark as No Response if 14+ days stale (save silently)
-  if (staleDays >= 14 && savedResponse !== 'Not Interested' && savedStatus !== 'Dropped / Unavailable'
-      && savedStatus !== 'Dropped' && savedStatus !== 'Hired' && savedStatus !== 'Interviewed') {
+  // Auto-mark as No Response if 14+ days stale (save silently).
+  // Skip when the candidate has advanced past the call gate or has exited
+  // the active funnel. Gate on Stage RANK, not status strings — the previous
+  // status-string match for 'Interviewed' rotted after the Stage rework and
+  // silently auto-marked Interview Scheduled candidates as No Response.
+  // STAGE_RANK lookup misses (legacy unstaged rows, exit stages) coerce to 0;
+  // exit stages are caught separately via isExitStage so they still skip.
+  const _stageRank = STAGE_RANK[savedStage] || 0;
+  const _skipAutoMark = isExitStage || _stageRank >= STAGE_RANK['Called / Verified'];
+  if (staleDays >= 14 && savedResponse !== 'Not Interested' && !_skipAutoMark) {
     if (!extra.autoMarkedNoResp) {
       extra.autoMarkedNoResp = true;
       extra.response = 'No Response';
