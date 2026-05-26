@@ -5531,43 +5531,34 @@ function createPlacementRow(p, idx, joId) {
 
   const savedNote     = extra.notes    || candidateNotes[noteKey] || p.notes    || '';
   const savedResponse = extra.response || p.response || 'No Response';
-  const followupDate  = extra.followupDate  || '';
-  // Always-on dashboard. Split: input prefill (manual field only) vs. contact-signal date
-  // (used for followup math). p.date is NOT a contact signal — it is set by broadcasting.
+  // Always-on dashboard. Split: input prefill (manual field only) vs. contact-signal date.
+  // p.date is NOT a contact signal — it is set by broadcasting.
   const lastContactedInputValue = extra.lastContacted || '';
   const contactSignalDate = extra.lastDirectContactAt || extra.lastContacted || '';
   const lastContacted = contactSignalDate; // kept for downstream local references
   const interviewDate = extra.interviewDate || '';
 
-  // Stage is canonical. Status is derived from Stage for new records; legacy
-  // records keep their saved status as fallback for display only.
+  // Stage is canonical. ex.status is still WRITTEN by onStageChanged for the
+  // Hired-flow filters that read it; we just don't surface it in the row UI.
   const savedStage = getEffectiveStage(extra, p);
-  const savedStatus = (extra.dispositionStage && STAGE_TO_STATUS[savedStage]) || extra.status || p.status || '';
 
   const isExitStage = ['Dropped / Unavailable','Rejected by Employer','Rejected by Candidate'].includes(savedStage);
   const isHiredStage = savedStage === 'Hired ✓';
   const isInactive = isExitStage || isHiredStage;
-  // Pipeline-field visibility — Stage drives everything; Response/Last Contacted/
-  // Follow-up are pre-confirm tracking only and disappear once the candidate has
-  // moved past the calling/verification phase or out of the active pipeline.
+  // Pipeline-field visibility — Stage drives everything; Response and Last
+  // Contacted are pre-confirm tracking only and disappear once the candidate
+  // has moved past the calling/verification phase or out of the active pipeline.
   const showResponse      = !isExitStage && !isHiredStage && savedStage !== 'Interview Scheduled' && savedStage !== 'Pending Requirements';
   const showLastContacted = !isExitStage && !isHiredStage;
-  const showFollowups     = !isExitStage && !isHiredStage;
   const dotClass   = getStageDotClass(savedStage);
   const pillClass  = getStagePillClass(savedStage);
   const pillLabel  = savedStage || 'New';
 
-  // Follow-up check
-  const today0 = new Date(); today0.setHours(0,0,0,0);
-  const needsFollowup  = followupDate  && new Date(followupDate)  <= today0;
-  const autoFollowup   = !followupDate && (savedStage === 'Broadcasted' || savedStage === 'Messaged') && lastContacted && daysDiff(lastContacted) >= 3;
-  const showFollowup   = needsFollowup || autoFollowup;
-
-  // Auto-suggest follow-up = lastContacted + 3 days
-  const suggestFollowup = lastContacted && !followupDate ? (() => {
-    const d = new Date(lastContacted); d.setDate(d.getDate()+3);
-    return d.toISOString().split('T')[0];
-  })() : '';
+  // "Broadcast only" badge — true when no real contact (Call or DM via the
+  // canonical paths) has been logged. The broadcast walker never stamps
+  // lastDirectContactAt, only the Call Modal and the walker's "Log DM sent"
+  // button do. Mirrors the Calls-tab "broadcast · never called" vocabulary.
+  const isBroadcastOnly = !extra.lastDirectContactAt && !isInactive;
 
   // Show interview date field for interview-related stages
   const showInterview = ['Interview Scheduled','Interview Completed'].includes(savedStage);
@@ -5641,7 +5632,7 @@ function createPlacementRow(p, idx, joId) {
         <div class="prow-id">${escHtml(p.candidateId)}${fmtLastContact ? ' · ' + escHtml(fmtLastContact) : ''}</div>
       </div>
       <div class="prow-badges">
-        ${showFollowup ? '<span class="followup-flag">Follow up</span>' : ''}
+        ${isBroadcastOnly ? '<span style="font-size:9px;font-weight:800;background:rgba(220,38,38,.12);color:var(--red);border:1px solid rgba(220,38,38,.4);border-radius:6px;padding:1px 6px;text-transform:uppercase;letter-spacing:.4px">broadcast only</span>' : ''}
         ${staleDays >= 14 ? `<span class="prow-stale-badge">${staleDays}d no reply</span>` : ''}
         ${contactVia ? `<span class="prow-via-badge">${escHtml(contactVia)}</span>` : ''}
         <span class="prow-status-pill ${pillClass}">${escHtml(pillLabel)}</span>
@@ -5666,7 +5657,7 @@ function createPlacementRow(p, idx, joId) {
         <div class="prow-field" id="lc-field-${escAttr(pid)}"${showLastContacted ? '' : ' style="display:none"'}>
           <div class="prow-field-label">Last Contacted</div>
           <input type="date" value="${escAttr(lastContactedInputValue)}"
-            onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value);autoSuggestFollowup('${escAttr(pid)}',this.value)">
+            onchange="saveProwExtra('${escAttr(pid)}','lastContacted',this.value)">
         </div>
       </div>
 
@@ -5691,15 +5682,6 @@ function createPlacementRow(p, idx, joId) {
       </div>
 
       <div class="prow-fields" style="margin-top:8px">
-        <div class="prow-field" id="fu1-field-${escAttr(pid)}"${showFollowups ? '' : ' style="display:none"'}>
-          <div class="prow-field-label" style="color:${needsFollowup?'var(--orange)':''}">
-            Follow-up #1${needsFollowup?' — Overdue':''}
-          </div>
-          <input type="date" value="${escAttr(followupDate)}" id="fu1-${escAttr(pid)}"
-            onchange="saveProwExtra('${escAttr(pid)}','followupDate',this.value);refreshProwBadges('${escAttr(pid)}')"
-            style="${needsFollowup?'border-color:var(--orange);box-shadow:0 0 0 2px rgba(234,88,12,0.15)':''}">
-          ${suggestFollowup && !followupDate ? `<div class="prow-suggest" onclick="applyFollowupSuggest('${escAttr(pid)}','followupDate','${escAttr(suggestFollowup)}')">Suggest: ${escHtml(fmtDateShort(suggestFollowup))}</div>` : ''}
-        </div>
         ${showInterview ? `
         <div class="prow-field prow-interview-field">
           <div class="prow-field-label" style="color:var(--purple)">Interview Date</div>
@@ -5761,31 +5743,6 @@ function saveProwExtra(pid, field, value) {
   fbSyncDebounced('prow_extras/' + pid, extra);
 }
 
-function autoSuggestFollowup(pid, lastContactedVal) {
-  if (!lastContactedVal) return;
-  const d = new Date(lastContactedVal);
-  d.setDate(d.getDate() + 3);
-  const suggested = d.toISOString().split('T')[0];
-  // Only suggest if followup1 is empty
-  const fu1 = document.getElementById(`fu1-${pid}`);
-  if (fu1 && !fu1.value) {
-    // Show suggestion text - re-render would be complex, just set value with confirm
-    const suggestEl = fu1.parentElement.querySelector('.prow-suggest');
-    if (suggestEl) {
-      suggestEl.style.display = 'block';
-      suggestEl.onclick = () => applyFollowupSuggest(pid, 'followupDate', suggested);
-    }
-  }
-}
-
-function applyFollowupSuggest(pid, field, val) {
-  saveProwExtra(pid, field, val);
-  const input = document.getElementById(`fu1-${pid}`);
-  if (input) input.value = val;
-  const suggestEl = input?.parentElement.querySelector('.prow-suggest');
-  if (suggestEl) suggestEl.style.display = 'none';
-}
-
 function refreshProwBody(pid) {
   // Re-render just the interview field visibility based on new status
   const row = document.getElementById(`prow-${pid}`);
@@ -5815,8 +5772,8 @@ function refreshProwStage(pid) {
   }
 }
 
-// Show/hide Response, Last Contacted, Follow-up #1/#2 based on Stage. Called
-// after every Stage change so the form follows the new disposition.
+// Show/hide Response and Last Contacted based on Stage. Called after every
+// Stage change so the form follows the new disposition.
 function refreshProwFields(pid) {
   const sel = document.getElementById('stage-sel-' + pid);
   if (!sel) return;
@@ -5826,11 +5783,9 @@ function refreshProwFields(pid) {
   const isInterviewOrPending = stage === 'Interview Scheduled' || stage === 'Pending Requirements';
   const showResp     = !isExit && !isHired && !isInterviewOrPending;
   const showLC       = !isExit && !isHired;
-  const showFU       = !isExit && !isHired;
   const setVis = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
   setVis('resp-field-' + pid, showResp);
   setVis('lc-field-'   + pid, showLC);
-  setVis('fu1-field-'  + pid, showFU);
 }
 
 // Sync the prow-inactive dim class from the current Stage. Exit stages and
@@ -5936,7 +5891,6 @@ function onStageChanged(pid, newStage) {
   refreshProwStage(pid);
   refreshProwFields(pid);
   refreshProwInactivity(pid);
-  refreshProwBadges(pid);
 
   // Header dot + pill follow the new stage
   const row = document.getElementById('prow-' + pid);
@@ -5956,23 +5910,6 @@ function refreshRejOther(pid) {
   const otherInput = document.getElementById('rej-other-' + pid);
   if (!sel || !otherInput) return;
   otherInput.style.display = sel.value === 'Other' ? '' : 'none';
-}
-
-function refreshProwBadges(pid) {
-  // Update the follow-up warning in collapsed header
-  const row = document.getElementById(`prow-${pid}`);
-  if (!row) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const fu1 = document.getElementById(`fu1-${pid}`)?.value || '';
-  const overdue = fu1 && new Date(fu1) <= today;
-  const badge = row.querySelector('.followup-flag');
-  if (overdue && !badge) {
-    const badges = row.querySelector('.prow-badges');
-    const b = document.createElement('span'); b.className = 'followup-flag'; b.textContent = 'Follow up';
-    badges.insertBefore(b, badges.firstChild);
-  } else if (!overdue && badge) {
-    badge.remove();
-  }
 }
 
 // ═══════════════════════════════════════════════
@@ -6029,7 +5966,6 @@ function buildReminderBanner() {
 
     // Always-on dashboard. Briefing stale alert needs a real contact signal.
     const lastContact = extra.lastDirectContactAt || extra.lastContacted || '';
-    const followupDate = extra.followupDate || '';
     const interviewDate = extra.interviewDate || '';
     const jo = jobOrders.find(j => j.id === p.jobOrderId);
     const joLabel = jo ? `${jo.position} @ ${jo.company}` : p.jobOrderId;
@@ -6044,24 +5980,18 @@ function buildReminderBanner() {
       }
     }
 
-    // Follow-up date reached
-    if (followupDate) {
-      const fDate = new Date(followupDate); fDate.setHours(0,0,0,0);
-      if (fDate <= today) {
-        items.push({ icon:'bell', type:'followup', name: p.candidateName, detail:`Follow-up due — ${joLabel}`, badge:'Follow up now', badgeClass:'rb-orange', pid });
-      }
-    }
-
-    // Auto-flag: broadcast 3+ days ago, no response. Status='Messaged' was the
-    // pre-Stage-rework value; Stage='Broadcasted' now derives status='Broadcasted'.
+    // Auto-flag: broadcast 3+ days ago, no response. This stage-derived alert
+    // replaces the old manual extra.followupDate reminder — coordinators no
+    // longer set follow-up dates on the prow row; staleness is computed from
+    // the contact-signal date instead.
     const daysSince = lastContact ? daysDiff(lastContact) : 0;
     if (daysSince >= 3 && (savedResponse === 'No Response' || savedResponse === '') && savedStatus === 'Broadcasted') {
       items.push({ icon:'alert', type:'stale', name: p.candidateName, detail:'No response for ' + daysSince + 'd — ' + joLabel, badge: daysSince + 'd', badgeClass: daysSince >= 14 ? 'rb-red' : 'rb-orange', pid });
     }
   });
 
-  // Sort: interview today first, then followup, then stale by days
-  const typeOrder = {'interview-today':0,'interview-tmr':1,'followup':2,'stale':3};
+  // Sort: interview today first, then stale by days
+  const typeOrder = {'interview-today':0,'interview-tmr':1,'stale':3};
   items.sort((a,b) => (typeOrder[a.type]??9) - (typeOrder[b.type]??9));
 
   banner.classList.remove('hidden');
