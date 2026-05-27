@@ -631,6 +631,37 @@ function normalizeAvailability(val) {
   return val;
 }
 
+// Map short / Botcake-format labels onto the canonical labels the parser
+// already reads. Keep keys lowercased; values must match the strings passed
+// to get() below.
+var LABEL_ALIASES = {
+  'name':         'full name',
+  'contact':      'contact number',
+  'phone':        'contact number',
+  'mobile':       'contact number',
+  'job type':     'preferred job type',
+  'job':          'preferred job type',
+  'location':     'preferred location',
+  'expected pay': 'expected salary',
+  'salary':       'expected salary',
+  'pay':          'expected salary',
+  'experience':   'past jobs / work experience',
+  'can start':    'when can you start',
+  'available':    'when can you start',
+  'availability': 'when can you start',
+  'fb':           'facebook name',
+  'facebook':     'facebook name'
+};
+
+// "6k" / "7.5k" → thousands; otherwise strip non-numeric (preserves prior
+// behavior for "P6,000", "7000", etc.).
+function normalizeSalary(val) {
+  if (!val) return '';
+  var m = val.match(/^\s*[₱P]?\s*([\d.]+)\s*k\s*$/i);
+  if (m) return String(Math.round(parseFloat(m[1]) * 1000));
+  return val.replace(/[^0-9.]/g, '');
+}
+
 // ── Parse the NEW CANDIDATE block ──
 function parseBlock() {
   var raw = document.getElementById('pasteBox').value.trim();
@@ -656,7 +687,9 @@ function parseBlock() {
     // Treat "(not provided)" as empty
     if (val.toLowerCase() === '(not provided)') val = '';
 
-    parsed[label] = val;
+    // Map short / Botcake labels to the canonical labels the parser reads
+    var canonical = LABEL_ALIASES[label] || label;
+    parsed[canonical] = val;
   }
 
   function get(label) {
@@ -728,7 +761,7 @@ function parseBlock() {
   setField('f_age',        get('age'));
   setField('f_contact',    get('contact number'));
   setField('f_email',      get('email'));
-  setField('f_salary',     get('expected salary').replace(/[^0-9.]/g, ''));
+  setField('f_salary',     normalizeSalary(get('expected salary')));
   setField('f_available',  normalizeAvailability(get('when can you start')));
   setField('f_skills',     get('skills / qualifications'));
   setField('f_experience', get('past jobs / work experience'));
@@ -739,7 +772,21 @@ function parseBlock() {
   setSelect('f_gender',    get('gender'));
   setSelect('f_civil',     get('civil status'));
   setSelect('f_location',  get('preferred location'));
-  // "Setup" is parsed but never mapped to any field
+
+  // Setup has no dedicated form field — append it to Notes so the value
+  // isn't lost. If Notes already has content (from "experience summary"),
+  // add the Setup line below it; never overwrite.
+  var setupVal = get('setup');
+  if (setupVal) {
+    var notesEl = document.getElementById('f_notes');
+    if (notesEl) {
+      var existing = notesEl.value.trim();
+      var addition = 'Setup: ' + setupVal;
+      notesEl.value = existing ? existing + '\n' + addition : addition;
+      notesEl.classList.add('filled');
+      notesEl.classList.remove('warn-field');
+    }
+  }
 
   // Consent: auto-check if value is "Yes"
   if (get('consent').toLowerCase() === 'yes') {
