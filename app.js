@@ -5917,16 +5917,49 @@ function isHighDemand(candId, extrasCache) {
 }
 
 function checkDuplicateBeforeAdd(candId, candName, joId, onConfirm) {
-  const activeJOs = getCandidateActiveJOs(candId).filter(p => p.jobOrderId !== joId);
-  if (!activeJOs.length) { onConfirm(); return; }
+  // All placements of this candidate on OTHER active JOs.
+  const otherP = [...placements, ...manualPlacements].filter(function(p) {
+    if (p.candidateId !== candId) return false;
+    if (p.jobOrderId === joId) return false;
+    const jo = jobOrders.find(function(j) { return j.id === p.jobOrderId; });
+    return jo && jo.status === 'Active';
+  });
+  if (!otherP.length) { onConfirm(); return; }
 
-  const joList = activeJOs.map(p => {
-    const jo = jobOrders.find(j => j.id === p.jobOrderId);
-    return `${p.jobOrderId}${jo ? ' — ' + jo.company : ''}`;
-  }).join(', ');
+  // Bucket each other-JO placement by its effective stage:
+  //   Hired ✓       → hard block (Hired wins over everything)
+  //   Active stage  → dismissible warning (STAGE_RANK keys active stages)
+  //   Exit stage    → silently allowed (absent from STAGE_RANK)
+  const hiredOn  = [];
+  const activeOn = [];
+  otherP.forEach(function(p) {
+    const ex = getPlacementExtra(p.placementId || p.candidateId);
+    const stage = getEffectiveStage(ex, p);
+    if (stage === 'Hired ✓')      hiredOn.push({ p: p, stage: stage });
+    else if (STAGE_RANK[stage])    activeOn.push({ p: p, stage: stage });
+  });
 
-  const msg = `${candName} is already in: ${joList}\n\nAdd to this job order anyway?`;
-  if (confirm(msg)) onConfirm();
+  if (hiredOn.length) {
+    const list = hiredOn.map(function(x) {
+      const jo = jobOrders.find(function(j) { return j.id === x.p.jobOrderId; });
+      return x.p.jobOrderId + (jo ? ' — ' + jo.company : '');
+    }).join(', ');
+    alert('Cannot add — ' + candName + ' is currently Hired on ' + list + '. Move them off Hired first if the placement has ended.');
+    return;
+  }
+
+  if (activeOn.length) {
+    const list = activeOn.map(function(x) {
+      const jo = jobOrders.find(function(j) { return j.id === x.p.jobOrderId; });
+      return x.p.jobOrderId + (jo ? ' — ' + jo.company : '') + ' (' + x.stage + ')';
+    }).join(', ');
+    const msg = candName + ' is already in: ' + list + '\n\nAdd to this job order anyway?';
+    if (confirm(msg)) onConfirm();
+    return;
+  }
+
+  // All other-JO placements are at exit stages — allow silently.
+  onConfirm();
 }
 
 // ═══════════════════════════════════════════════
