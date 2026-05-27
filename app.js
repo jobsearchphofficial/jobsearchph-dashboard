@@ -2067,10 +2067,18 @@ function createPlacementRow(p, idx, joId) {
         </div>
         <div class="prow-field" id="rej-reason-field-${escAttr(pid)}"${showRejReason?'':' style="display:none"'}>
           <div class="prow-field-label" style="color:var(--red)">Rejection Reason</div>
-          <select id="rej-reason-sel-${escAttr(pid)}" onchange="saveProwExtra('${escAttr(pid)}','rejectionReason',this.value);refreshRejOther('${escAttr(pid)}')">
-            <option value="">-- Select --</option>
-            ${REJECTION_REASONS.map(v=>`<option${v===effectiveRejDropdown?' selected':''}>${v}</option>`).join('')}
-          </select>
+          ${createCustomSelect({
+            id: 'rej-reason-sel-' + pid,
+            options: [{value:'', label:'-- Select --'}].concat(
+              REJECTION_REASONS.map(function(v) { return {value: v, label: v}; })
+            ),
+            value: effectiveRejDropdown,
+            placeholder: '-- Select --',
+            onchange: function(value) {
+              saveProwExtra(pid, 'rejectionReason', value);
+              refreshRejOther(pid);
+            }
+          })}
           <input type="text" id="rej-other-${escAttr(pid)}" value="${escAttr(effectiveRejOther)}" placeholder="Specify reason..."
             onchange="saveProwExtra('${escAttr(pid)}','rejectionReasonOther',this.value)"
             style="margin-top:4px${showRejOther?'':';display:none'}">
@@ -2162,7 +2170,10 @@ function refreshProwStage(pid) {
   rejField.style.display = isExit ? '' : 'none';
   if (!isExit) {
     const rejSel = document.getElementById('rej-reason-sel-' + pid);
-    if (rejSel) rejSel.value = '';
+    if (rejSel) {
+      if (rejSel.classList.contains('cs-wrap')) setCustomSelectValue('rej-reason-sel-' + pid, '');
+      else rejSel.value = '';
+    }
     const rejOther = document.getElementById('rej-other-' + pid);
     if (rejOther) rejOther.style.display = 'none';
   }
@@ -2318,7 +2329,10 @@ function refreshRejOther(pid) {
   const sel = document.getElementById('rej-reason-sel-' + pid);
   const otherInput = document.getElementById('rej-other-' + pid);
   if (!sel || !otherInput) return;
-  otherInput.style.display = sel.value === 'Other' ? '' : 'none';
+  // Works for both native <select> (sel.value) and the custom dropdown
+  // (.cs-wrap with data-value). Stays backward-compatible during rollout.
+  const val = sel.classList.contains('cs-wrap') ? (sel.dataset.value || '') : sel.value;
+  otherInput.style.display = val === 'Other' ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════
@@ -2327,6 +2341,173 @@ function refreshRejOther(pid) {
 function prowBlacklist(candId, candName) {
   openBlacklistModal(candId, candName);
 }
+
+// ═══════════════════════════════════════════════
+// CUSTOM DROPDOWN COMPONENT (cs-*)
+// ─────────────────────────────────────────────────
+// Themable replacement for native <select> popups (which OS-style on light
+// theme). createCustomSelect() returns the trigger HTML and registers the
+// option list + onchange in _csRegistry. The popup itself is portalled to
+// <body> on open so it isn't clipped by overflow:hidden ancestors.
+//
+//   var html = createCustomSelect({
+//     id:       'my-dropdown',
+//     options:  [{value:'a', label:'Alpha'}, {value:'b', label:'Beta'}],
+//     value:    'a',
+//     placeholder: '-- Select --',
+//     onchange: function(newValue) { ... }
+//   });
+//   // Read:  document.getElementById('my-dropdown').dataset.value
+//   // Write: setCustomSelectValue('my-dropdown', 'b')   (doesn't fire onchange)
+// ═══════════════════════════════════════════════
+var _csRegistry = {};       // id → { options, onchange, placeholder }
+var _csCurrentOpen = null;  // id of currently open dropdown
+var _csHlIdx = 0;           // index of keyboard-highlighted option
+
+function createCustomSelect(opts) {
+  // Close any stale popup for the same id (row may be re-rendering)
+  if (_csCurrentOpen === opts.id) csClose();
+  _csRegistry[opts.id] = {
+    options:     opts.options || [],
+    onchange:    opts.onchange,
+    placeholder: opts.placeholder || '-- Select --'
+  };
+  var cur = (opts.options || []).find(function(o) { return o.value === (opts.value || ''); });
+  var label = cur ? cur.label : (opts.placeholder || '-- Select --');
+  return '<div class="cs-wrap" id="' + escAttr(opts.id) + '" data-value="' + escAttr(opts.value || '') + '">' +
+    '<button type="button" class="cs-trigger" onclick="csToggle(\'' + escAttr(opts.id) + '\')">' +
+      '<span class="cs-label">' + escHtml(label) + '</span>' +
+      '<span class="cs-chevron">&#9662;</span>' +
+    '</button>' +
+  '</div>';
+}
+
+function csToggle(id) {
+  if (_csCurrentOpen === id) { csClose(); return; }
+  csOpen(id);
+}
+
+function csOpen(id) {
+  csClose();
+  var wrap  = document.getElementById(id);
+  var entry = _csRegistry[id];
+  if (!wrap || !entry) return;
+  var current = wrap.getAttribute('data-value') || '';
+
+  var popup = document.createElement('div');
+  popup.className = 'cs-popup';
+  popup.id = '_cs_popup_' + id;
+  popup.innerHTML = entry.options.map(function(o, i) {
+    var sel = o.value === current;
+    return '<div class="cs-option' + (sel ? ' sel' : '') + '" data-idx="' + i + '" ' +
+      'onmouseenter="csHl(' + i + ')" ' +
+      'onclick="csPick(\'' + escAttr(id) + '\',' + i + ')">' +
+      '<span>' + escHtml(o.label) + '</span>' +
+      (sel ? '<span class="cs-check">&#10003;</span>' : '') +
+    '</div>';
+  }).join('');
+  document.body.appendChild(popup);
+
+  _csCurrentOpen = id;
+  wrap.classList.add('cs-open');
+  csReposition();
+
+  var curIdx = entry.options.findIndex(function(o) { return o.value === current; });
+  _csHlIdx = curIdx >= 0 ? curIdx : 0;
+  csHl(_csHlIdx);
+}
+
+function csClose() {
+  if (!_csCurrentOpen) return;
+  var popup = document.getElementById('_cs_popup_' + _csCurrentOpen);
+  var wrap  = document.getElementById(_csCurrentOpen);
+  if (popup) popup.remove();
+  if (wrap)  wrap.classList.remove('cs-open');
+  _csCurrentOpen = null;
+}
+
+// Anchors popup below the trigger; flips above when there isn't room;
+// nudges back from the right edge on narrow viewports.
+function csReposition() {
+  if (!_csCurrentOpen) return;
+  var wrap  = document.getElementById(_csCurrentOpen);
+  var popup = document.getElementById('_cs_popup_' + _csCurrentOpen);
+  if (!wrap || !popup) return;
+  var trigger = wrap.querySelector('.cs-trigger');
+  var rect = trigger.getBoundingClientRect();
+  popup.style.minWidth = rect.width + 'px';
+  var ph = popup.offsetHeight;
+  var spaceBelow = window.innerHeight - rect.bottom;
+  popup.style.top = (spaceBelow < ph + 12 && rect.top > ph + 12)
+    ? (rect.top - 4 - ph) + 'px'
+    : (rect.bottom + 4) + 'px';
+  var pw = popup.offsetWidth;
+  var maxLeft = window.innerWidth - pw - 8;
+  popup.style.left = Math.min(rect.left, Math.max(8, maxLeft)) + 'px';
+}
+
+function csHl(idx) {
+  if (!_csCurrentOpen) return;
+  var popup = document.getElementById('_cs_popup_' + _csCurrentOpen);
+  if (!popup) return;
+  var opts = popup.querySelectorAll('.cs-option');
+  for (var i = 0; i < opts.length; i++) {
+    if (i === idx) opts[i].classList.add('hl');
+    else           opts[i].classList.remove('hl');
+  }
+  _csHlIdx = idx;
+}
+
+function csPick(id, idx) {
+  var entry = _csRegistry[id];
+  var wrap  = document.getElementById(id);
+  if (!entry || !wrap) return;
+  var opt = entry.options[idx];
+  if (!opt) return;
+  wrap.setAttribute('data-value', opt.value);
+  var lbl = wrap.querySelector('.cs-label');
+  if (lbl) lbl.textContent = opt.label;
+  csClose();
+  if (typeof entry.onchange === 'function') entry.onchange(opt.value);
+}
+
+function setCustomSelectValue(id, value) {
+  var entry = _csRegistry[id];
+  var wrap  = document.getElementById(id);
+  if (!entry || !wrap) return;
+  var opt = entry.options.find(function(o) { return o.value === value; });
+  if (!opt) return;
+  wrap.setAttribute('data-value', value);
+  var lbl = wrap.querySelector('.cs-label');
+  if (lbl) lbl.textContent = opt.label;
+}
+
+// Outside click closes (capture phase so trigger's own click doesn't fire it)
+document.addEventListener('click', function(e) {
+  if (!_csCurrentOpen) return;
+  var wrap  = document.getElementById(_csCurrentOpen);
+  var popup = document.getElementById('_cs_popup_' + _csCurrentOpen);
+  if (wrap  && wrap.contains(e.target))  return;
+  if (popup && popup.contains(e.target)) return;
+  csClose();
+}, true);
+
+// Esc/Arrow/Enter — Esc closes always; arrows + Enter ignored while typing.
+document.addEventListener('keydown', function(e) {
+  if (!_csCurrentOpen) return;
+  var entry = _csRegistry[_csCurrentOpen];
+  if (!entry) return;
+  if (e.key === 'Escape') { e.preventDefault(); csClose(); return; }
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); csHl((_csHlIdx + 1) % entry.options.length); return; }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); csHl((_csHlIdx - 1 + entry.options.length) % entry.options.length); return; }
+  if (e.key === 'Enter')     { e.preventDefault(); csPick(_csCurrentOpen, _csHlIdx); return; }
+});
+
+// Reposition on scroll/resize while open (capture catches nested scrolls)
+window.addEventListener('scroll', function() { csReposition(); }, true);
+window.addEventListener('resize', function() { csReposition(); });
 
 // ═══════════════════════════════════════════════
 // REMINDER BANNER
