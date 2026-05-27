@@ -155,6 +155,12 @@
     }
   }
 
+  /* Native control rendering (open <select> popups, date pickers, scrollbars)
+     follows the active theme instead of the OS default. Paired with the
+     themed `select option` rule below so the open popup matches in both modes. */
+  :root.light { color-scheme: light; }
+  :root.dark  { color-scheme: dark; }
+
   :root.dark {
     --bg:    #0F1117;
     --bg2:   #1A1D27;
@@ -1295,7 +1301,7 @@
   }
   .notes-input:focus { border-color: var(--accent); }
 
-  select option { background: #ffffff; color: #0f172a; }
+  select option { background: var(--card); color: var(--text); }
   .prow-profile-btn {
     background: none; border: 1px solid var(--border2);
     color: var(--text3); border-radius: 5px; padding: 1px 5px;
@@ -5375,7 +5381,22 @@ const STAGE_TO_STATUS = {
   'Dropped / Unavailable':  'Dropped / Unavailable'
 };
 
-const REJECTION_REASONS = ['Has young child / no guardian','Salary mismatch','Location issue','Attitude / behavior concern','Already placed elsewhere','No show / unresponsive','Employer preference','Other'];
+// Standardised reasons surfaced on the row's exit-stage dropdown. Edit here
+// to add/rename — the dropdown, the row badge, and the rejection-history
+// side panels all read from this one list. "Other" must stay last; selecting
+// it reveals a free-text input that persists separately in
+// extra.rejectionReasonOther. Legacy saved reasons that aren't in this list
+// are rendered as-is on the row and surface in the dropdown as "Other" with
+// the legacy text pre-filled into the free-text box.
+const REJECTION_REASONS = [
+  'Candidate stopped responding / ghosted',
+  'Candidate backed out after accepting',
+  'Candidate no longer available',
+  'Pay / location mismatch',
+  'Failed requirements (NBI / ID / medical)',
+  'Employer chose someone else',
+  'Other'
+];
 
 // Swipe-to-remove plumbing for the placement rows in "CANDIDATES IN THIS JOB ORDER".
 // Right-swipe (pointer moves right) past 60 px reveals a red Remove affordance.
@@ -5592,7 +5613,25 @@ function createPlacementRow(p, idx, joId) {
   const savedRejOther  = extra.rejectionReasonOther || '';
   // Reason field now reveals for every exit stage, not just the explicitly-Rejected ones.
   const showRejReason  = isExitStage;
-  const showRejOther   = savedRejReason === 'Other';
+  // Legacy-value handling: if the saved reason isn't in the current list,
+  // present it in the dropdown as "Other" and pre-fill the free-text with the
+  // original string so it stays visible. Saved data is untouched until the
+  // coordinator picks a new option.
+  const _rejInList     = !savedRejReason || REJECTION_REASONS.indexOf(savedRejReason) >= 0;
+  const effectiveRejDropdown = _rejInList ? savedRejReason : 'Other';
+  const effectiveRejOther    = savedRejOther || (_rejInList ? '' : savedRejReason);
+  const showRejOther   = effectiveRejDropdown === 'Other';
+  // Short label for the collapsed row badge — surfaces WHY without expanding.
+  // Known reason: full text. Other: truncated free-text (or just "Other"
+  // if none). Legacy string not in the list: rendered as-is.
+  const _rejBadge = (() => {
+    if (!isExitStage || !savedRejReason) return '';
+    if (savedRejReason === 'Other') {
+      if (!savedRejOther) return 'Other';
+      return savedRejOther.length > 40 ? savedRejOther.slice(0, 38) + '…' : savedRejOther;
+    }
+    return savedRejReason;
+  })();
 
   // Always-on dashboard. Stale detection now uses the direct-contact signal
   // (call logged or DM logged), falling back to the manual lastContacted date.
@@ -5636,6 +5675,7 @@ function createPlacementRow(p, idx, joId) {
         ${staleDays >= 14 ? `<span class="prow-stale-badge">${staleDays}d no reply</span>` : ''}
         ${contactVia ? `<span class="prow-via-badge">${escHtml(contactVia)}</span>` : ''}
         <span class="prow-status-pill ${pillClass}">${escHtml(pillLabel)}</span>
+        ${_rejBadge ? `<span style="font-size:10px;font-weight:600;background:var(--red-dim);color:var(--red);border:1px solid rgba(220,38,38,.35);border-radius:6px;padding:1px 7px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escAttr(savedRejReason === 'Other' ? (savedRejOther || 'Other') : savedRejReason)}">${escHtml(_rejBadge)}</span>` : ''}
         <button class="prow-bl-btn" onclick="event.stopPropagation();prowBlacklist('${escAttr(p.candidateId)}','${escAttr(p.candidateName)}')" title="Blacklist">Block</button>
         <span class="prow-chevron">▾</span>
       </div>
@@ -5673,9 +5713,9 @@ function createPlacementRow(p, idx, joId) {
           <div class="prow-field-label" style="color:var(--red)">Rejection Reason</div>
           <select id="rej-reason-sel-${escAttr(pid)}" onchange="saveProwExtra('${escAttr(pid)}','rejectionReason',this.value);refreshRejOther('${escAttr(pid)}')">
             <option value="">-- Select --</option>
-            ${REJECTION_REASONS.map(v=>`<option${v===savedRejReason?' selected':''}>${v}</option>`).join('')}
+            ${REJECTION_REASONS.map(v=>`<option${v===effectiveRejDropdown?' selected':''}>${v}</option>`).join('')}
           </select>
-          <input type="text" id="rej-other-${escAttr(pid)}" value="${escAttr(savedRejOther)}" placeholder="Specify reason..."
+          <input type="text" id="rej-other-${escAttr(pid)}" value="${escAttr(effectiveRejOther)}" placeholder="Specify reason..."
             onchange="saveProwExtra('${escAttr(pid)}','rejectionReasonOther',this.value)"
             style="margin-top:4px${showRejOther?'':';display:none'}">
         </div>
