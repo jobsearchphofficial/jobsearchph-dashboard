@@ -4636,6 +4636,7 @@ async function loadAll(opts) {
   populateMatcherDropdown();
   populateFilterDropdowns();
   updateTimestamp();
+  _backfillCallQueue();
   updateCallsBadge();
 }
 
@@ -5926,6 +5927,19 @@ function onStageChanged(pid, newStage) {
   }
 
   _applyStageSideEffects(pid, newStage);
+
+  // Mirror the Response='Interested' Call-Queue trigger: when a candidate
+  // is moved into 'Confirmed Interested' via the Stage dropdown (a path
+  // that previously bypassed addToCallQueue), queue them for a first call.
+  // Idempotent — addToCallQueue itself skips if already queued. Skipped
+  // entirely if the candidate has already been directly contacted (call/DM
+  // logged), since hasBeenContacted=true means a first call isn't needed.
+  if (newStage === 'Confirmed Interested') {
+    const _mpQueue = manualPlacements.find(function(p) { return p.placementId === pid; });
+    if (_mpQueue && !callQueue[_mpQueue.candidateId] && !hasBeenContacted(_mpQueue.candidateId)) {
+      addToCallQueue(_mpQueue.candidateId, _mpQueue.jobOrderId, pid);
+    }
+  }
 
   // UI refresh
   refreshProwStage(pid);
@@ -11503,6 +11517,57 @@ function removeFromCallQueue(candId) {
   delete callQueue[candId];
   saveCallQueue();
   updateCallsBadge();
+}
+
+// One-time-per-load recovery for candidates who reached "interested" through
+// a path that bypassed the Response-dropdown trigger (Stage-dropdown change
+// before the forward fix, cross-device prow_extras sync, legacy data). For
+// each eligible candidate, attach the queue entry to the placement that
+// actually carries the interested signal — preferring a placement currently
+// at exactly 'Confirmed Interested', or with Response='Interested' and stage
+// rank not past Confirmed Interested. If no qualifying placement exists, the
+// candidate has moved past needing a first call and is skipped.
+//
+// Idempotent: removeFromCallQueue is only invoked by submitCallDecision
+// branches that also stamp lastDirectContactAt, so any candidate a coordinator
+// has cleared has hasBeenContacted=true on next load and the gate below
+// excludes them. Running this on every load cannot resurrect a cleared
+// candidate.
+function _backfillCallQueue() {
+  let _added = 0;
+  candidates.forEach(function(c) {
+    if (!c || !c.id) return;
+    if (blacklist[c.id])           return;
+    if (callQueue[c.id])           return; // already queued
+    if (isCandidateHired(c.id))    return;
+    if (saidNotInterested(c.id))   return;
+    if (isCandInactive(c.id))      return;
+    if (hasBeenContacted(c.id))    return; // already called, no first-call needed
+    if (!saidInterested(c.id))     return;
+
+    // Pick a placement that carries the interested signal AND hasn't advanced
+    // past Confirmed Interested. If the candidate is at Called/Verified or
+    // beyond on every placement, there's nothing useful to call about here.
+    const allP = [...placements, ...manualPlacements].filter(function(p) {
+      return p.candidateId === c.id && p.placementId;
+    });
+    const qualifying = allP.filter(function(p) {
+      const ex = getPlacementExtra(p.placementId);
+      const stage = getEffectiveStage(ex, p);
+      if (stage === 'Confirmed Interested') return true;
+      if ((ex.response || p.response) === 'Interested') {
+        return (STAGE_RANK[stage] || 0) <= STAGE_RANK['Confirmed Interested'];
+      }
+      return false;
+    });
+    if (!qualifying.length) return;
+
+    qualifying.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    const t = qualifying[0];
+    addToCallQueue(c.id, t.jobOrderId, t.placementId);
+    _added++;
+  });
+  if (_added > 0) console.log('[backfillCallQueue] recovered ' + _added + ' orphaned interested candidate(s)');
 }
 
 function updateCallsBadge() {
