@@ -9608,7 +9608,7 @@ function buildIsessCard(jo, sess, joPlacements) {
   var candHtml = candIds.length ? candIds.map(function(pid) {
     var p = joPlacements.find(function(x) { return (x.placementId || x.candidateId) === pid; });
     var name = p ? escHtml(p.candidateName || p.candidateId || pid) : escHtml(pid);
-    var era = calcERA(pid);
+    var era = calcERA(p ? p.candidateId : pid);
     var eraStr = (era && typeof era.score === 'number') ? ' <span style="font-size:10px;color:var(--text3)">ERA ' + era.score.toFixed(1) + '</span>' : '';
     return '<div class="isess-cand">' + name + eraStr + '</div>';
   }).join('') : '<div class="isess-cand" style="color:var(--text3);font-style:italic">No candidates yet</div>';
@@ -9778,7 +9778,7 @@ function copyIsessSummary(joId, sessId) {
     var name = p ? (p.candidateName || pid) : pid;
     var c = p ? candidates.find(function(cd) { return cd.id === p.candidateId; }) : null;
     var jt = c ? (c.jobTypeFormatted || c.jobType || '') : '';
-    var era = calcERA(pid);
+    var era = calcERA(p ? p.candidateId : pid);
     var eraStr = (era && typeof era.score === 'number') ? era.score.toFixed(1) : 'N/A';
     return '• ' + name + (jt ? ' — ' + jt : '') + ' — ERA ' + eraStr;
   }).join('\n') || '(none)';
@@ -9940,7 +9940,7 @@ function buildIovSessionBlock(jo, sess, allP) {
     var name = p ? escHtml(p.candidateName || pid) : escHtml(pid);
     var c = p ? candidates.find(function(cd) { return cd.id === p.candidateId; }) : null;
     var jt = c ? (c.jobTypeFormatted || c.jobType || '') : '';
-    var era = calcERA(pid);
+    var era = calcERA(p ? p.candidateId : pid);
     var eraStr = (era && typeof era.score === 'number') ? era.score.toFixed(1) : '—';
     var eraCol = era.score >= 7 ? 'var(--green)' : era.score >= 5 ? 'var(--gold)' : 'var(--red)';
     return '<div class="iov-cand-row"><span style="font-size:10px;color:var(--text3)">•</span>' + name + (jt ? '<span style="color:var(--text3)">— ' + escHtml(jt) + '</span>' : '') + '<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:' + eraCol + ';margin-left:auto">ERA ' + eraStr + '</span></div>';
@@ -10003,7 +10003,7 @@ function schedInterviewJoChange(joId) {
   }
   listEl.innerHTML = eligible.map(function(p) {
     var pid = p.placementId || p.candidateId;
-    var era = calcERA(pid);
+    var era = calcERA(p ? p.candidateId : pid);
     var eraStr = (era && typeof era.score === 'number') ? ' ERA ' + era.score.toFixed(1) : '';
     return '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:12px">' +
       '<input type="checkbox" data-pid="' + escAttr(pid) + '" style="width:15px;height:15px;accent-color:var(--accent)">' +
