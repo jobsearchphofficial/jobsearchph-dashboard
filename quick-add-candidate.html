@@ -327,6 +327,16 @@
           </select>
         </div>
         <div class="field">
+          <label>Civil Status <span style="font-weight:400;text-transform:none;font-size:10px">(optional)</span></label>
+          <select id="f_civil">
+            <option value="">&#x2014; select &#x2014;</option>
+            <option>Single</option>
+            <option>Married</option>
+            <option>Widowed</option>
+            <option>Separated</option>
+          </select>
+        </div>
+        <div class="field">
           <label>Contact Number <span class="req">*</span></label>
           <input type="text" id="f_contact" placeholder="09xxxxxxxxx" />
         </div>
@@ -390,6 +400,14 @@
           </select>
         </div>
         <div class="field">
+          <label>Setup <span class="req">*</span></label>
+          <select id="f_setup">
+            <option value="">&#x2014; select &#x2014;</option>
+            <option>Stay-in</option>
+            <option>Stay-out</option>
+          </select>
+        </div>
+        <div class="field">
           <label>Preferred Location <span class="req">*</span></label>
           <select id="f_location">
             <option value="">&#x2014; select &#x2014;</option>
@@ -406,17 +424,6 @@
         <div class="field">
           <label>Expected Pay / Rate (monthly)</label>
           <input type="number" id="f_salary" placeholder="7000" min="0" />
-        </div>
-        <div class="field">
-          <label>Civil Status</label>
-          <select id="f_civil">
-            <option value="">&#x2014; select &#x2014;</option>
-            <option>Single</option>
-            <option>Married</option>
-            <option>Separated</option>
-            <option>Widowed</option>
-            <option>Single Parent</option>
-          </select>
         </div>
         <div class="field">
           <label>When can you start?</label>
@@ -494,6 +501,7 @@
         <tr><td>Contact Number</td><td>entry.675411365</td></tr>
         <tr><td>Email</td><td>entry.1345355032</td></tr>
         <tr><td>Preferred Job Type</td><td>entry.1296369222</td></tr>
+        <tr><td>Setup</td><td id="setup-entry-td">see SETUP_ENTRY_ID constant</td></tr>
         <tr><td>Skills / Qualifications</td><td>entry.664293303</td></tr>
         <tr><td>Preferred Location</td><td>entry.547447539</td></tr>
         <tr><td>Expected Pay / Rate</td><td>entry.1516079030</td></tr>
@@ -772,21 +780,7 @@ function parseBlock() {
   setSelect('f_gender',    get('gender'));
   setSelect('f_civil',     get('civil status'));
   setSelect('f_location',  get('preferred location'));
-
-  // Setup has no dedicated form field — append it to Notes so the value
-  // isn't lost. If Notes already has content (from "experience summary"),
-  // add the Setup line below it; never overwrite.
-  var setupVal = get('setup');
-  if (setupVal) {
-    var notesEl = document.getElementById('f_notes');
-    if (notesEl) {
-      var existing = notesEl.value.trim();
-      var addition = 'Setup: ' + setupVal;
-      notesEl.value = existing ? existing + '\n' + addition : addition;
-      notesEl.classList.add('filled');
-      notesEl.classList.remove('warn-field');
-    }
-  }
+  setSelect('f_setup',     get('setup'));
 
   // Consent: auto-check if value is "Yes"
   if (get('consent').toLowerCase() === 'yes') {
@@ -804,7 +798,7 @@ function parseBlock() {
 function validate() {
   var ok = true;
 
-  var required = ['f_name', 'f_contact', 'f_jobtype', 'f_location'];
+  var required = ['f_name', 'f_contact', 'f_jobtype', 'f_setup', 'f_location'];
   for (var i = 0; i < required.length; i++) {
     var el = document.getElementById(required[i]);
     if (!el) continue;
@@ -825,7 +819,11 @@ function validate() {
     consentBlock.classList.remove('error-consent');
   }
 
-  if (!ok) showToast('Please fill required fields and check consent', 'red');
+  if (!ok) {
+    var setupEl = document.getElementById('f_setup');
+    if (setupEl && !setupEl.value.trim()) showToast('Please select a setup.', 'red');
+    else showToast('Please fill required fields and check consent', 'red');
+  }
   return ok;
 }
 
@@ -833,6 +831,12 @@ function validate() {
 // Find it by opening the form, right-clicking the Resume field, and inspecting the
 // input name attribute (e.g. entry.1234567890). Leave empty to skip until confirmed.
 var RESUME_ENTRY_ID = '';
+
+// TODO: Paste the Google Form entry ID for the Setup (Stay-in / Stay-out) question.
+// Until set, the Setup field still validates and parses, but its value is NOT sent
+// to the Google Form (so it won't reach the candidate record). Find it the same way
+// as RESUME_ENTRY_ID — inspect the Setup question's input name (e.g. entry.1234567890).
+var SETUP_ENTRY_ID = '';
 
 // ── Build the Google Form prefill URL ──
 function buildPrefilledUrl() {
@@ -858,6 +862,10 @@ function buildPrefilledUrl() {
   // Resume / GDrive Link — added once RESUME_ENTRY_ID is confirmed
   var resumeVal = document.getElementById('f_resume').value.trim();
   if (RESUME_ENTRY_ID && resumeVal) p.append(RESUME_ENTRY_ID, resumeVal);
+
+  // Setup — added once SETUP_ENTRY_ID is confirmed
+  var setupVal = document.getElementById('f_setup').value.trim();
+  if (SETUP_ENTRY_ID && setupVal) p.append(SETUP_ENTRY_ID, setupVal);
 
   return BASE + '?' + p.toString();
 }
@@ -907,7 +915,7 @@ function resetToForm() {
 // ── Clear form ──
 var TEXT_FIELDS    = ['f_name','f_facebook','f_age','f_contact','f_email',
                       'f_salary','f_available','f_skills','f_experience','f_resume','f_notes'];
-var SELECT_FIELDS  = ['f_gender','f_jobtype','f_location','f_civil','f_source'];
+var SELECT_FIELDS  = ['f_gender','f_jobtype','f_setup','f_location','f_civil','f_source'];
 
 function clearForm() {
   TEXT_FIELDS.forEach(function(id) {
