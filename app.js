@@ -7142,6 +7142,9 @@ async function _pollSheets() {
   // an in-progress edit anywhere in the dashboard, not just prow rows.
   const ae = document.activeElement;
   if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
+  // Skip while the Call Modal is open — a re-render mid-call would wipe
+  // in-progress notes / scoring. Poll resumes once the modal closes.
+  if (_isCallModalOpen()) return;
   _pollInFlight = true;
   try {
     const oldCandIds = new Set(candidates.map(c => c.id));
@@ -7557,6 +7560,13 @@ function _isProwBodyFocused() {
   return !!(el && el !== document.body && el.closest && el.closest('.prow-body'));
 }
 
+// True while the Call Assessment modal is open. Used to suppress background
+// sync re-renders that would otherwise wipe in-progress call notes / scoring.
+function _isCallModalOpen() {
+  const m = document.getElementById('modal-call-assess');
+  return !!(m && m.classList.contains('open'));
+}
+
 let _renderDeferred = false;
 let _deferredHandlerAttached = false;
 function _runDeferredRender() {
@@ -7660,6 +7670,13 @@ window._fbOnRemoteData = function(data) {
   _lastSyncError = null;
   if (_isProwBodyFocused()) {
     _deferRenderUntilBlur();
+    _refreshSyncStatus();
+    return;
+  }
+  // Call Modal open: data is already applied to localStorage/memory above;
+  // skip the background tab re-render so the open modal's in-progress input
+  // is never disturbed. Tabs refresh on the next sync/poll after it closes.
+  if (_isCallModalOpen()) {
     _refreshSyncStatus();
     return;
   }
@@ -8654,9 +8671,38 @@ function openCallAssessment(candId, joId, placementId) {
   openModal('modal-call-assess');
 }
 
+// Fields in the Call Modal that hold unsaved, in-progress input. Captured
+// before every _renderCallAssessment rebuild and restored after, so a
+// re-render (attitude/outcome click, or any future trigger) never wipes
+// what the coordinator is typing mid-call.
+var _CALL_MODAL_FIELD_IDS = [
+  'call-notes-input',
+  'cov-skills', 'cov-pastjobs', 'cov-pay', 'cov-start',
+  'cov-civil', 'cov-haskids', 'cov-numkids'
+];
+function _captureCallModalFields() {
+  var snap = {};
+  _CALL_MODAL_FIELD_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) snap[id] = el.value;
+  });
+  return snap;
+}
+function _restoreCallModalFields(snap) {
+  if (!snap) return;
+  _CALL_MODAL_FIELD_IDS.forEach(function(id) {
+    if (snap[id] === undefined) return;
+    var el = document.getElementById(id);
+    if (el) el.value = snap[id];
+  });
+}
+
 function _renderCallAssessment() {
   const inner = document.getElementById('call-assess-inner');
   if (!inner) return;
+  // Capture any in-progress input before the rebuild discards it (restored
+  // after innerHTML is rewritten). First render captures nothing → no-op.
+  const _preserve = _captureCallModalFields();
   const { candId, joId, outcome } = _callAssess;
   const c  = candidates.find(function(x) { return x.id === candId; });
   const jo = jobOrders.find(function(j) { return j.id === joId; });
@@ -8838,6 +8884,10 @@ function _renderCallAssessment() {
     '<div class="call-assess-section"><div class="call-assess-title">Call Outcome</div>' +
     '<div style="display:flex;gap:6px;flex-wrap:wrap">' + outcomeBtns + '</div></div>' +
     assessHTML + decisionHTML + nonAnswerHTML;
+
+  // Restore in-flight values into the freshly-rebuilt fields. Missing fields
+  // (e.g. outcome changed away from Answered) are skipped via the null check.
+  _restoreCallModalFields(_preserve);
 }
 
 function setCallOutcome(val) {
