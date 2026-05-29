@@ -5295,22 +5295,37 @@ function _parseJoSetup(jo) {
 }
 
 function _parseJoLocation(jo) {
-  // Match the JO address to a candidate location bucket so the filter
-  // option actually exists. Uses the same city-keyword logic as candidate
-  // load (kept inline to avoid hoisting the closure).
+  // Match the JO address to candidate location buckets so the filter
+  // options actually exist. Returns ARRAY of cities — when the JO is in
+  // a metro cluster (e.g. Bacolod–Talisay–Silay–Bago), include the whole
+  // cluster so candidates in any of them can match. Domestic workers in
+  // Negros routinely accept jobs anywhere in the four-city metro.
   const addr = (jo.address || '').toLowerCase();
-  if (!addr) return null;
-  const cities = ['Bacolod City','Talisay City','Silay City','Bago City','Sipalay City',
-    'San Carlos City','Kabankalan City','Escalante City','Sagay City','Cadiz City',
-    'Himamaylan City','Dumaguete City','Iloilo City','Cebu City','Metro Manila'];
-  const found = cities.find(c => addr.includes(c.toLowerCase().replace(' city','')));
-  if (found) {
-    // Check that this city actually appears in the candidate set, else the
-    // filter would silently match zero.
-    const validLocs = new Set(candidates.map(c => c.cityFormatted || c.location || '').filter(Boolean));
-    return validLocs.has(found) ? found : null;
+  if (!addr) return [];
+  // Each cluster: any city mentioned in the JO address surfaces ALL the
+  // cities in its cluster as filter values.
+  const clusters = [
+    ['Bacolod City','Talisay City','Silay City','Bago City'], // Negros Occidental metro
+    ['Kabankalan City','Himamaylan City'],                     // South Negros pair
+    ['Cadiz City','Sagay City','Escalante City'],              // North Negros
+    ['San Carlos City'],
+    ['Sipalay City'],
+    ['Dumaguete City'],
+    ['Iloilo City'],
+    ['Cebu City'],
+    ['Metro Manila'],
+  ];
+  const validLocs = new Set(candidates.map(c => c.cityFormatted || c.location || '').filter(Boolean));
+  for (const cluster of clusters) {
+    const hit = cluster.find(c => addr.includes(c.toLowerCase().replace(' city','')));
+    if (hit) {
+      // Return only the cluster cities that actually have candidates in
+      // the current pool. If none do, return [] so the filter stays open.
+      const inPool = cluster.filter(c => validLocs.has(c));
+      return inPool;
+    }
   }
-  return null;
+  return [];
 }
 
 function _parseJoPayRange(jo) {
@@ -5479,9 +5494,11 @@ async function openBroadcastModal(joId) {
     _broadcastFilters.setup = setupHint === 'Either' ? ['Stay-in','Stay-out','Either'] : [setupHint, 'Either'];
     appliedFromJo.push('Setup: ' + (setupHint === 'Either' ? 'Any' : setupHint));
   }
-  if (!_broadcastFilters.location.length && locHint) {
-    _broadcastFilters.location = [locHint];
-    appliedFromJo.push('Location: ' + locHint);
+  if (!_broadcastFilters.location.length && locHint && locHint.length) {
+    // locHint is now an array — metro cluster of cities (e.g. all four
+    // Negros Occidental cities when the JO is in any of them).
+    _broadcastFilters.location = locHint.slice();
+    appliedFromJo.push('Location: ' + locHint.join(', '));
   }
   if (!_broadcastFilters.payRange.length && payHint) {
     _broadcastFilters.payRange = [payHint];
