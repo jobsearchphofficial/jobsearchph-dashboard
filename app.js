@@ -581,23 +581,39 @@ async function fetchCSV(url) {
 // DATA LOAD
 // ═══════════════════════════════════════════════
 function repairShiftedPlacements() {
-  const flag = 'placements_shift_repaired_v2';
-  if (localStorage.getItem(flag)) return;
+  // NOTE: This used to be flag-gated by 'placements_shift_repaired_v2' so it
+  // ran exactly once per browser. That broke as soon as any further row
+  // deletions happened in the source sheet — IDs shifted again, but the
+  // flag prevented a second repair, leaving placements pointing at the
+  // wrong candidate (e.g. Zennia C450 → opens Dona). The repair is
+  // idempotent (only acts when name→id no longer matches), so it's safe
+  // to run on every load.
 
-  // Build name→id lookup from current candidates sheet
+  // Build name→id AND phone→id lookups from current candidates sheet.
+  // Phone is the more reliable key when two candidates share a name;
+  // name is the fallback when phone is missing on the placement.
   const nameToId = {};
+  const phoneToId = {};
+  const normPhone = p => (p || '').replace(/\D/g, '').slice(-10);
   candidates.forEach(c => {
     if (c.name) nameToId[c.name.trim().toLowerCase()] = c.id;
+    const ph = normPhone(c.phone);
+    if (ph.length >= 7) phoneToId[ph] = c.id;
   });
 
   // 1. Fix manual placements
   let placementsChanged = false;
   const idRemapping = {};
   manualPlacements.forEach(p => {
-    if (!p.candidateName) return;
-    const correctId = nameToId[p.candidateName.trim().toLowerCase()];
+    if (!p.candidateName && !p.candidatePhone) return;
+    // Prefer phone match (stable across renames); fall back to name.
+    const ph = normPhone(p.candidatePhone);
+    let correctId = (ph.length >= 7 && phoneToId[ph]) || null;
+    if (!correctId && p.candidateName) {
+      correctId = nameToId[p.candidateName.trim().toLowerCase()] || null;
+    }
     if (correctId && correctId !== p.candidateId) {
-      console.log(`Repairing placement: ${p.candidateName} — ${p.candidateId} → ${correctId}`);
+      console.log(`Repairing placement: ${p.candidateName || '(no name)'} — ${p.candidateId} → ${correctId}`);
       idRemapping[p.candidateId] = correctId;
       p.candidateId = correctId;
       placementsChanged = true;
@@ -656,13 +672,15 @@ function repairShiftedPlacements() {
     fbSync('candidate_ratings', candidateRatings);
     showToast(`Repaired ${Object.keys(idRemapping).length} candidate ID(s) and migrated all data`, 'green');
   }
-
-  localStorage.setItem(flag, '1');
 }
 
 async function loadAll(opts) {
   loadLocal();
-  repairShiftedPlacements();
+  _migrateCallQueue();
+  // NOTE: repairShiftedPlacements() used to be called here, but `candidates` is
+  // empty until fetchCSV completes below, so the repair found no name→id
+  // mappings and silently no-op'd. It's now invoked after candidates parse
+  // (search for "POST-LOAD ID REPAIR" below).
   // Apply role from already-set email (may have been set by onAuthStateChanged before loadAll)
   if (window._currentUserEmail) {
     currentUserEmail = window._currentUserEmail;
@@ -877,6 +895,12 @@ async function loadAll(opts) {
     // re-applied to fresh base data on every fetch. candidateOverrides itself
     // is in its own localStorage / Firebase key and is never touched by the poll.
     candidates = candidates.map(_applyCandOverride);
+
+    // ── POST-LOAD ID REPAIR ──
+    // Runs every load (idempotent). Re-points any placement whose stored
+    // candidateId no longer matches the candidate by name/phone — fixes the
+    // case where rows were deleted from the source sheet and IDs shifted.
+    try { repairShiftedPlacements(); } catch (e) { console.warn('repairShiftedPlacements failed:', e); }
 
     // ── Console report ──
     console.group('%c🔍 Data Quality Filters', 'color:#1755ED;font-weight:700;font-size:13px');
@@ -2302,7 +2326,9 @@ function onStageChanged(pid, newStage) {
   // logged), since hasBeenContacted=true means a first call isn't needed.
   if (newStage === 'Confirmed Interested') {
     const _mpQueue = manualPlacements.find(function(p) { return p.placementId === pid; });
-    if (_mpQueue && !callQueue[_mpQueue.candidateId] && !hasBeenContacted(_mpQueue.candidateId)) {
+    if (_mpQueue && !hasBeenContacted(_mpQueue.candidateId)) {
+      // addToCallQueue dedupes per (candidate, job order), so re-queueing the
+      // same JO is a no-op while a different JO correctly adds its own entry.
       addToCallQueue(_mpQueue.candidateId, _mpQueue.jobOrderId, pid);
     }
   }
@@ -4116,11 +4142,26 @@ function openCandModal(candId) {
 }
 function openCandModalByName(name, fallbackId) {
   const byId = candidates.find(x => x.id === fallbackId);
-  if (byId) { openCandModal(fallbackId); return; }
+  // Only trust the ID lookup if the name also matches. This guards against
+  // the "shifted ID" bug where a stale placement's candidateId now resolves
+  // to a different person (e.g. Zennia's old C450 → Dona after row deletions).
+  if (byId && name && byId.name &&
+      byId.name.trim().toLowerCase() === name.trim().toLowerCase()) {
+    openCandModal(fallbackId);
+    return;
+  }
   const byName = candidates.find(x =>
-    x.name.trim().toLowerCase() === name.trim().toLowerCase()
+    x.name.trim().toLowerCase() === (name || '').trim().toLowerCase()
   );
-  if (byName) { openCandModal(byName.id); return; }
+  if (byName) {
+    if (byId && byId.id !== byName.id) {
+      console.warn(`Stale candidateId for "${name}": ${fallbackId} → ${byName.id}`);
+    }
+    openCandModal(byName.id);
+    return;
+  }
+  // No name match — fall back to whatever the ID resolved to, if anything.
+  if (byId) { openCandModal(fallbackId); return; }
   alert('Candidate not found: ' + name);
 }
 function _openCandModalInner(candId) {
@@ -7762,8 +7803,9 @@ function _applyFbData(data) {
     localStorage.setItem('broadcast_log', JSON.stringify(data.broadcast_log));
   if (data.callQueue && !ownsRoot('callQueue')) {
     const stripped = _stripMeta(data.callQueue);
-    localStorage.setItem('call_queue', JSON.stringify(stripped));
     callQueue = stripped;
+    _migrateCallQueue();
+    localStorage.setItem('call_queue', JSON.stringify(callQueue));
     updateCallsBadge();
   }
   if (data.pending_replacement)
@@ -8092,15 +8134,51 @@ function getCandidateCalls(candId) {
   try { return JSON.parse(localStorage.getItem('candidate_calls_' + candId) || '{}'); } catch(e) { return {}; }
 }
 
+// Call-queue keys are composite (candId|joId) so one candidate can be queued
+// for several job orders at once — each entry keeps its own JO context, so a
+// call always logs against the job order the coordinator is actually working,
+// not whichever JO the candidate happened to be queued under first.
+function _qKey(candId, joId) { return candId + '|' + (joId || ''); }
+
+function _candHasQueueEntry(candId) {
+  return Object.values(callQueue).some(function(e) { return e && e.candId === candId; });
+}
+
+// Normalize legacy entries (keyed by bare candId, no candId field) into the
+// composite-key format. Idempotent — safe to run on every load / sync.
+function _migrateCallQueue() {
+  var changed = false;
+  var out = {};
+  Object.keys(callQueue).forEach(function(k) {
+    var v = callQueue[k] || {};
+    var candId = v.candId || k;
+    if (!v.candId) { v.candId = candId; changed = true; }
+    var nk = _qKey(candId, v.joId || '');
+    if (nk !== k) changed = true;
+    out[nk] = v;
+  });
+  if (changed) callQueue = out;
+  return changed;
+}
+
 function addToCallQueue(candId, joId, placementId) {
-  if (callQueue[candId]) return; // already in queue
-  callQueue[candId] = { joId: joId, placementId: placementId, enteredQueueAt: new Date().toISOString(), status: 'pending' };
+  var key = _qKey(candId, joId);
+  if (callQueue[key]) return; // already queued for this job order
+  callQueue[key] = { candId: candId, joId: joId, placementId: placementId, enteredQueueAt: new Date().toISOString(), status: 'pending' };
   saveCallQueue();
   updateCallsBadge();
 }
 
-function removeFromCallQueue(candId) {
-  delete callQueue[candId];
+function removeFromCallQueue(candId, joId) {
+  // With joId: drop only that candidate's entry for that one job order. Without
+  // it (legacy callers): drop every queue entry for the candidate.
+  if (joId !== undefined && joId !== null) {
+    delete callQueue[_qKey(candId, joId)];
+  } else {
+    Object.keys(callQueue).forEach(function(k) {
+      if ((callQueue[k] && callQueue[k].candId === candId) || k === candId) delete callQueue[k];
+    });
+  }
   saveCallQueue();
   updateCallsBadge();
 }
@@ -8124,7 +8202,7 @@ function _backfillCallQueue() {
   candidates.forEach(function(c) {
     if (!c || !c.id) return;
     if (blacklist[c.id])           return;
-    if (callQueue[c.id])           return; // already queued
+    if (_candHasQueueEntry(c.id))  return; // already queued (any job order)
     if (isCandidateHired(c.id))    return;
     if (saidNotInterested(c.id))   return;
     if (isCandInactive(c.id))      return;
@@ -8491,7 +8569,7 @@ function buildCallQueueHTML() {
   const entries = Object.entries(callQueue)
     .filter(function(e) { return e[1].status === 'pending'; })
     .map(function(e) {
-      const candId = e[0], q = e[1];
+      const q = e[1], candId = q.candId || e[0];
       const c = candidates.find(function(x) { return x.id === candId; });
       const jo = jobOrders.find(function(j) { return j.id === q.joId; });
       const hoursWaiting = Math.round((Date.now() - new Date(q.enteredQueueAt).getTime()) / 3600000);
@@ -8559,7 +8637,7 @@ function buildCallbacksHTML() {
   const entries = Object.entries(callQueue)
     .filter(function(e) { return e[1].status === 'scheduled' && e[1].scheduledFor; })
     .map(function(e) {
-      const candId = e[0], q = e[1];
+      const q = e[1], candId = q.candId || e[0];
       const c = candidates.find(function(x) { return x.id === candId; });
       const jo = jobOrders.find(function(j) { return j.id === q.joId; });
       const scheduledMs = new Date(q.scheduledFor).getTime();
@@ -8624,6 +8702,26 @@ function buildNeedsCallHTML() {
   const rows = decorated.map(function(d) {
     const c = d.c;
     const target = pickCallTarget(c.id);
+    // One Call button per distinct job order the candidate was broadcast to, so
+    // the coordinator picks the JO explicitly instead of pickCallTarget guessing
+    // a single one and logging the call against the wrong job order.
+    const joTargets = d.joIds.map(function(id) {
+      const bp = manualPlacements
+        .filter(function(p) { return p.candidateId === c.id && p.jobOrderId === id && p.source === 'broadcast' && p.placementId; })
+        .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); })[0];
+      return { joId: id, placementId: bp ? bp.placementId : '' };
+    }).filter(function(t) { return t.placementId; });
+    let callBtns;
+    if (joTargets.length > 1) {
+      callBtns = joTargets.map(function(t) {
+        return '<button class="btn btn-gold" style="font-size:11px;padding:5px 10px;width:100%;margin-bottom:4px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(t.joId) + '\',\'' + escAttr(t.placementId) + '\')">Call · ' + escHtml(t.joId) + '</button>';
+      }).join('');
+    } else {
+      const t = joTargets[0] || target;
+      callBtns = (t && t.placementId)
+        ? '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(t.joId) + '\',\'' + escAttr(t.placementId) + '\')">Call</button>'
+        : '<button class="btn btn-ghost" style="font-size:12px;padding:6px 16px;white-space:nowrap" disabled title="No placement to log against — add to a job order first">Call</button>';
+    }
     const joLabels = d.joIds.map(function(id) {
       const jo = jobOrders.find(function(j) { return j.id === id; });
       return jo ? (escHtml(id) + ' — ' + escHtml(jo.company || jo.position || '')) : escHtml(id);
@@ -8650,11 +8748,7 @@ function buildNeedsCallHTML() {
       '<div>' +
         (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
       '</div>' +
-      '<div>' +
-        (target.placementId
-          ? '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(c.id) + '\',\'' + escAttr(target.joId) + '\',\'' + escAttr(target.placementId) + '\')">Call</button>'
-          : '<button class="btn btn-ghost" style="font-size:12px;padding:6px 16px;white-space:nowrap" disabled title="No placement to log against — add to a job order first">Call</button>') +
-      '</div>' +
+      '<div>' + callBtns + '</div>' +
     '</div>';
   }).join('');
 
@@ -9035,15 +9129,17 @@ function submitCallDecision(decision) {
       saveProwExtra(pidToUpdate, 'dispositionStage', decision);
       saveProwExtra(pidToUpdate, 'response', 'Interested');
     }
-    removeFromCallQueue(candId);
+    removeFromCallQueue(candId, joId);
     showToast(c ? c.name : candId + ' → ' + decision, 'green');
   } else if (decision === 'Rejected by Jobseeker') {
     const pidToUpdate = placementId || (joId + '_' + candId + '_bc');
     saveProwExtra(pidToUpdate, 'dispositionStage', 'Rejected by Candidate');
-    removeFromCallQueue(candId);
+    removeFromCallQueue(candId, joId);
     showToast('Logged as Rejected by Jobseeker.', 'orange');
   } else if (decision === 'Scheduled Callback') {
-    callQueue[candId] = Object.assign({}, callQueue[candId] || {}, {
+    const _ckey = _qKey(candId, joId);
+    callQueue[_ckey] = Object.assign({}, callQueue[_ckey] || {}, {
+      candId: candId,
       status: 'scheduled',
       scheduledFor: scheduledFor,
       callbackReason: callbackReason,
