@@ -2461,6 +2461,10 @@ function onStageChanged(pid, newStage) {
   if (newStage === 'Confirmed Interested') {
     const _mpQueue = manualPlacements.find(function(p) { return p.placementId === pid; });
     if (_mpQueue && !hasBeenContacted(_mpQueue.candidateId)) {
+      // User explicitly set this placement to 'Confirmed Interested' — that's
+      // a clear re-engagement signal, so clear any previous Remove dismissal
+      // so the candidate can re-enter the queue.
+      _clearCallQueueDismissal(_mpQueue.candidateId, _mpQueue.jobOrderId);
       // addToCallQueue dedupes per (candidate, job order), so re-queueing the
       // same JO is a no-op while a different JO correctly adds its own entry.
       addToCallQueue(_mpQueue.candidateId, _mpQueue.jobOrderId, pid);
@@ -2840,6 +2844,9 @@ function saveProwField(pid, field, value, el) {
   // do NOT re-trigger them from the legacy status path (Status is derived and
   // no longer user-editable; firing here would double-count).
   if (field === 'response' && value === 'Interested' && mp) {
+    // Fresh "Interested" response is re-engagement — clear any prior dismissal
+    // so this candidate can re-enter the call queue.
+    _clearCallQueueDismissal(mp.candidateId, mp.jobOrderId);
     addToCallQueue(mp.candidateId, mp.jobOrderId, pid);
   }
   // Refresh the dot and pill in header without re-rendering. Header now follows
@@ -3698,8 +3705,25 @@ function confirmBlacklist() {
   const notes = document.getElementById('bl-notes').value;
   blacklist[id] = { reason, notes, date: new Date().toISOString() };
   saveBlacklist();
+  // Purge any pending call-queue entries for this candidate. The backfill
+  // already gates on blacklist on next load, but live entries linger until
+  // reload — drop them now so the change is visible immediately.
+  Object.keys(callQueue).forEach(function(k) {
+    if (callQueue[k] && callQueue[k].candId === id) delete callQueue[k];
+  });
+  if (typeof saveCallQueue === 'function') saveCallQueue();
   closeModal('modal-blacklist');
+  // Re-render every surface that lists candidates: Candidates tab, Job
+  // Orders panels (blacklist filter at line ~1725 hides them), and the
+  // Calls tab (queue / needs-call / callbacks).
   renderCandidates();
+  if (typeof renderJobOrders === 'function') {
+    try { renderJobOrders([...placements, ...manualPlacements]); } catch(_) {}
+  }
+  if (typeof renderCallsTab === 'function') {
+    try { renderCallsTab(); } catch(_) {}
+  }
+  updateCallsBadge();
 }
 
 function removeBlacklist(id) {
@@ -3707,6 +3731,12 @@ function removeBlacklist(id) {
   delete blacklist[id];
   saveBlacklist();
   renderCandidates();
+  if (typeof renderJobOrders === 'function') {
+    try { renderJobOrders([...placements, ...manualPlacements]); } catch(_) {}
+  }
+  if (typeof renderCallsTab === 'function') {
+    try { renderCallsTab(); } catch(_) {}
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -8622,6 +8652,31 @@ function _candHasQueueEntry(candId) {
   return Object.values(callQueue).some(function(e) { return e && e.candId === candId; });
 }
 
+// User-dismissed call queue entries. Keyed by _qKey(candId, joId). Persists
+// in localStorage + Firebase so a manual Remove sticks across reloads and
+// across devices. Without this, _backfillCallQueue silently re-adds the
+// candidate on every page load.
+function _getCallQueueDismissals() {
+  try { return JSON.parse(localStorage.getItem('call_queue_dismissed') || '{}'); } catch (_) { return {}; }
+}
+function _saveCallQueueDismissals(map) {
+  try { localStorage.setItem('call_queue_dismissed', JSON.stringify(map)); } catch (_) {}
+  if (typeof fbSync === 'function') fbSync('call_queue_dismissed', map);
+}
+function _isCallQueueDismissed(candId, joId) {
+  return !!_getCallQueueDismissals()[_qKey(candId, joId)];
+}
+function _markCallQueueDismissed(candId, joId) {
+  const map = _getCallQueueDismissals();
+  map[_qKey(candId, joId)] = { ts: new Date().toISOString(), by: (typeof currentUserEmail !== 'undefined' ? currentUserEmail : '') };
+  _saveCallQueueDismissals(map);
+}
+function _clearCallQueueDismissal(candId, joId) {
+  const map = _getCallQueueDismissals();
+  delete map[_qKey(candId, joId)];
+  _saveCallQueueDismissals(map);
+}
+
 // Normalize legacy entries (keyed by bare candId, no candId field) into the
 // composite-key format. Idempotent — safe to run on every load / sync.
 function _migrateCallQueue() {
@@ -8668,6 +8723,9 @@ function removeFromCallQueue(candId, joId) {
 function dismissCallQueueEntry(candId, joId, candName) {
   const label = candName ? ('Remove ' + candName + ' from the call queue?') : 'Remove this candidate from the call queue?';
   if (!confirm(label + '\n\nThis only removes them from this list. Their pipeline stage and contact history stay intact.')) return;
+  // Mark as dismissed BEFORE removing, so _backfillCallQueue on the next
+  // page load skips this (candId, joId) pair and doesn't silently re-add it.
+  _markCallQueueDismissed(candId, joId);
   removeFromCallQueue(candId, joId);
   // Re-render whatever calls subview is open. _callsView values per the
   // switcher at setCallsView(): 'queue' | 'needs-call' | 'callbacks'.
@@ -8725,6 +8783,9 @@ function _backfillCallQueue() {
 
     qualifying.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
     const t = qualifying[0];
+    // Respect manual dismissals — user clicked × Remove on this (cand, jo)
+    // pair before, so don't silently re-add it on load.
+    if (_isCallQueueDismissed(c.id, t.jobOrderId)) return;
     addToCallQueue(c.id, t.jobOrderId, t.placementId);
     _added++;
   });
@@ -9072,7 +9133,19 @@ function buildCallQueueHTML() {
       const hoursWaiting = Math.round((Date.now() - new Date(q.enteredQueueAt).getTime()) / 3600000);
       return { candId, q, c, jo, hoursWaiting };
     })
-    .filter(function(e) { return e.c; }) // only those still in candidates list
+    // Drop entries we can't or shouldn't show: candidate missing from sheet,
+    // blacklisted, already hired, or removed from pool. These were getting
+    // through previously because confirmBlacklist only re-rendered Candidates,
+    // not the Calls tab. confirmBlacklist now purges + re-renders, but this
+    // filter is the second line of defence (covers stale Firebase entries,
+    // sync races, and other paths into callQueue).
+    .filter(function(e) {
+      if (!e.c) return false;
+      if (blacklist[e.candId]) return false;
+      if (typeof isCandidateHired === 'function' && isCandidateHired(e.candId)) return false;
+      if (candidateRatings[e.candId] && candidateRatings[e.candId].removedFromPool) return false;
+      return true;
+    })
     .sort(function(a, b) { return new Date(a.q.enteredQueueAt) - new Date(b.q.enteredQueueAt); }); // oldest first
 
   const joIds = [...new Set(entries.map(function(e) { return e.q.joId; }))];
