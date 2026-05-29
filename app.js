@@ -5345,31 +5345,76 @@ async function openBroadcastModal(joId) {
   const locHint   = _parseJoLocation(jo);
   const payHint   = _parseJoPayRange(jo);
 
-  // Job-type heuristic — match the JO position against the CANONICAL job
-  // type vocabulary (_candJobTypes), not against candidates' raw multi-job
-  // strings. Previous version mapped each candidate's full comma-joined
-  // jobTypeFormatted ("Yaya / Babysitter, Housekeeper / Household Helper")
-  // into the filter, which produced 16+ junk filter values and matched 0
-  // candidates because none had that exact multi-job concatenation.
+  // Job-type heuristic — JOB FAMILY MAP.
+  //
+  // Old behaviour matched canonical types by keyword substring, which was
+  // too narrow: "Female Household Helper" only pulled canonicals containing
+  // "helper", missing Yaya, Cook, Laundry, Caregiver candidates who would
+  // realistically be considered for a household role. New approach uses a
+  // curated position-keyword → canonical-pattern family map. First family
+  // whose keyword matches the JO position wins; we then return every
+  // canonical job type whose name contains any of that family's patterns.
+  //
+  // To audit: each family's `patterns` must be substrings that appear in
+  // at least one entry in _candJobTypes for the family to do anything.
   let jobTypeHint = [];
   const pos = (jo.position || '').toLowerCase();
   if (pos && _candJobTypes && _candJobTypes.length) {
-    // keyword → matches any canonical job type whose label contains the keyword
-    const keywords = ['yaya','babysitter','nanny','governess','kasambahay','helper',
-      'housekeeper','household','caregiver','cook','kitchen','dishwasher','laundry',
-      'labandera','cleaner','cleaning','janitor','driver','all-around','allaround',
-      'server','waiter','waitress','cashier','retail','packer','sorter','labeler',
-      'carpenter','mason','security','guard','barista','attendant'];
-    // Find which keywords appear in the JO position text
-    const posKeywords = keywords.filter(k => pos.includes(k));
-    if (posKeywords.length) {
+    const families = [
+      // Household first — most JOs for kasambahay-style roles want any
+      // candidate who does any household work.
+      { keywords: ['household','kasambahay','sulod','all-around','allaround','all around','helper'],
+        patterns: ['housekeeper','household','yaya','babysitter','cook','kitchen','dishwasher',
+                   'laundry','cleaning','janitor','cleaner','caregiver','all-around','house helper','store helper'] },
+      { keywords: ['yaya','babysitter','nanny','governess','childcare','bantay bata'],
+        patterns: ['yaya','babysitter','housekeeper','household','caregiver'] },
+      { keywords: ['caregiver','care giver','elderly','tigulang'],
+        patterns: ['caregiver','yaya','housekeeper','household'] },
+      { keywords: ['cook','kitchen','kusinera','chef','dishwasher'],
+        patterns: ['cook','kitchen','dishwasher'] },
+      { keywords: ['server','waiter','waitress','restaurant'],
+        patterns: ['server','waiter','waitress','dishwasher','kitchen'] },
+      { keywords: ['barista','barman','bartender'],
+        patterns: ['barista','barman','server'] },
+      { keywords: ['cashier','retail','sales','saleslady','sales lady','promodiser','salesgirl'],
+        patterns: ['cashier','retail','sales'] },
+      { keywords: ['driver'],
+        patterns: ['driver'] },
+      { keywords: ['delivery','rider','messenger'],
+        patterns: ['delivery','rider','driver'] },
+      { keywords: ['office','admin','secretary','clerk'],
+        patterns: ['office','admin','secretary','encoder','data entry','bookkeeper'] },
+      { keywords: ['encoder','data entry','typist'],
+        patterns: ['encoder','data entry','office','admin'] },
+      { keywords: ['accounting','bookkeeper','accountant'],
+        patterns: ['accounting','bookkeeper','office'] },
+      { keywords: ['warehouse','packer','sorter','labeler','stockman'],
+        patterns: ['warehouse','packer','sorter','labeler'] },
+      { keywords: ['janitor','janitress','utility'],
+        patterns: ['janitor','cleaner','cleaning','laundry'] },
+      { keywords: ['laundry','labandera','laundress'],
+        patterns: ['laundry','cleaning'] },
+      { keywords: ['carpenter','mason','construction','laborer'],
+        patterns: ['carpenter','mason','construction','laborer'] },
+      { keywords: ['technician','electrician','mechanic'],
+        patterns: ['technician','electrician','mechanic'] },
+      { keywords: ['security','guard'],
+        patterns: ['security','guard'] },
+      { keywords: ['production','worker','factory'],
+        patterns: ['production','worker','warehouse'] },
+    ];
+    let matched = null;
+    for (const f of families) {
+      if (f.keywords.some(k => pos.includes(k))) { matched = f; break; }
+    }
+    if (matched) {
       jobTypeHint = _candJobTypes.filter(canonical => {
         const cl = canonical.toLowerCase();
-        return posKeywords.some(k => cl.includes(k));
+        return matched.patterns.some(p => cl.includes(p));
       });
     }
-    // If still nothing matched, try a direct substring fallback (e.g. position
-    // contains the full canonical label or vice versa).
+    // Final fallback: direct substring match either direction (handles
+    // exotic positions not covered by any family).
     if (!jobTypeHint.length) {
       jobTypeHint = _candJobTypes.filter(canonical => {
         const cl = canonical.toLowerCase();
