@@ -5319,9 +5319,25 @@ async function openBroadcastModal(joId) {
     jo.address  ? `<span>${escHtml(jo.address)}</span>` : '',
   ].filter(Boolean).join('');
 
-  // Load saved filters from Firebase; fall back to JO-derived auto-fill for
-  // any filter dimension that is still empty. User's saved choices always win.
+  // Load saved filters from Firebase. NOTE: the saved filters are per-user,
+  // not per-JO, so they can contain stale values left over from a different
+  // job (e.g. Female + ₱5-7k carrying over to a Cook role). To prevent that
+  // bleed-through, we reset the *job-specific* dimensions when switching to
+  // a new JO and let the auto-fill below set fresh values from this JO's
+  // requirements. Preserve the user-preference dimensions (activeStatus,
+  // eraScore, sortBy) since those are personal workflow choices, not job
+  // characteristics.
   await loadBcFilters();
+  if (joChanged) {
+    _broadcastFilters.jobType  = [];
+    _broadcastFilters.gender   = [];
+    _broadcastFilters.location = [];
+    _broadcastFilters.setup    = [];
+    _broadcastFilters.payRange = [];
+    _broadcastFilters.ageMin   = 18;
+    _broadcastFilters.ageMax   = 55;
+    // Keep: activeStatus, eraScore, sortBy
+  }
 
   // Parse JO into structured defaults for every filter dimension we can infer.
   const ageHint   = _parseJoGenderPref(jo.genderPref);
@@ -10696,12 +10712,23 @@ function buildIovSessionBlock(jo, sess, allP) {
     ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="cancelIsess(\'' + jA + '\',\'' + sA + '\');renderJobOrders([...placements,...manualPlacements])">Cancel</button>' : '';
   var copyBtn = '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="copyIsessSummary(\'' + jA + '\',\'' + sA + '\')">Copy Summary</button>';
 
+  // JO context line: "Yaya @ Cristal Misa · JO-10" — so the user can tell
+  // at a glance which job each session is for when scanning the timeline.
+  var joBits = [];
+  if (jo.position) joBits.push(escHtml(jo.position));
+  if (jo.company)  joBits.push('@ ' + escHtml(jo.company));
+  if (jo.id)       joBits.push('<span style="color:var(--text3)">' + escHtml(jo.id) + '</span>');
+  var joLine = joBits.length
+    ? '<div class="iov-session-jo" style="font-size:11px;color:var(--text2);margin-top:2px;font-weight:500">' + joBits.join(' ') + '</div>'
+    : '';
+
   return '<div class="iov-session-block">' +
     '<div class="iov-session-header">' +
       '<span class="iov-session-name">' + escHtml(sess.name) + '</span>' +
       '<span class="isess-badge ' + badgeCls + '">' + badgeLbl + '</span>' +
       (meta ? '<span class="iov-session-meta" style="margin:0">' + meta + '</span>' : '') +
     '</div>' +
+    joLine +
     '<div>' + candHtml + '</div>' +
     '<div class="iov-session-actions">' + editBtn + completeBtn + cancelBtn + copyBtn + '</div>' +
     '</div>';
