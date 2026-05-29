@@ -5224,6 +5224,79 @@ function _initBcAgeSlider() {
   hiH.addEventListener('pointerdown', function(e) { startDrag(e, 'hi'); });
 }
 
+// ─── JO → Broadcast filter auto-fill helpers ───
+// These parse the freeform JO fields (genderPref like "30 - 45, Female",
+// salary like "6000", scattered "stay-in" mentions, etc.) into structured
+// values that can pre-populate _broadcastFilters when the modal opens.
+function _parseJoGenderPref(text) {
+  const out = { gender: [], ageMin: null, ageMax: null };
+  if (!text) return out;
+  const s = String(text).trim();
+  if (/\b(any|all|either|both|male\s*\/\s*female|female\s*\/\s*male|no\s*pref)\b/i.test(s)) {
+    // explicit "any" — don't lock gender, but still try to extract ages below
+  } else if (/\bfemale\b/i.test(s)) out.gender = ['Female'];
+  else if (/\bmale\b/i.test(s))     out.gender = ['Male'];
+  // Age range: "30 - 45", "30-45", "30 to 45", "ages 25 to 40"
+  const rangeM = s.match(/(\d{2})\s*(?:-|to|–|—)\s*(\d{2})/i);
+  if (rangeM) {
+    out.ageMin = Math.min(+rangeM[1], +rangeM[2]);
+    out.ageMax = Math.max(+rangeM[1], +rangeM[2]);
+  } else {
+    // single age cap like "35 yrs old" or "below 40"
+    const belowM = s.match(/\b(?:below|under|max(?:imum)?)\s+(\d{2})/i);
+    const aboveM = s.match(/\b(?:above|over|min(?:imum)?|at\s+least)\s+(\d{2})/i);
+    if (belowM) out.ageMax = +belowM[1];
+    if (aboveM) out.ageMin = +aboveM[1];
+  }
+  return out;
+}
+
+function _parseJoSetup(jo) {
+  // Setup isn't a dedicated JO column, so scan all the freeform fields.
+  const blob = [jo.duties, jo.otherNotes, jo.workSchedule, jo.benefits, jo.skillsNeeded, jo.position]
+    .filter(Boolean).join(' ').toLowerCase();
+  if (!blob) return null;
+  const hasIn  = /\b(stay[\-\s]?in|live[\-\s]?in|sleep[\-\s]?in)\b/.test(blob);
+  const hasOut = /\b(stay[\-\s]?out|live[\-\s]?out)\b/.test(blob);
+  if (hasIn && hasOut) return 'Either';
+  if (hasIn)  return 'Stay-in';
+  if (hasOut) return 'Stay-out';
+  return null;
+}
+
+function _parseJoLocation(jo) {
+  // Match the JO address to a candidate location bucket so the filter
+  // option actually exists. Uses the same city-keyword logic as candidate
+  // load (kept inline to avoid hoisting the closure).
+  const addr = (jo.address || '').toLowerCase();
+  if (!addr) return null;
+  const cities = ['Bacolod City','Talisay City','Silay City','Bago City','Sipalay City',
+    'San Carlos City','Kabankalan City','Escalante City','Sagay City','Cadiz City',
+    'Himamaylan City','Dumaguete City','Iloilo City','Cebu City','Metro Manila'];
+  const found = cities.find(c => addr.includes(c.toLowerCase().replace(' city','')));
+  if (found) {
+    // Check that this city actually appears in the candidate set, else the
+    // filter would silently match zero.
+    const validLocs = new Set(candidates.map(c => c.cityFormatted || c.location || '').filter(Boolean));
+    return validLocs.has(found) ? found : null;
+  }
+  return null;
+}
+
+function _parseJoPayRange(jo) {
+  // Salary like "6000" / "P 6,000" / "6,000-8,000". Pick the bucket the
+  // (max of range, or single value) falls into.
+  const raw = String(jo.salary || '');
+  const nums = (raw.match(/\d[\d,]*/g) || []).map(n => parseInt(n.replace(/,/g, ''), 10)).filter(n => n > 0);
+  if (!nums.length) return null;
+  const v = Math.max(...nums);
+  if (v < 5000)        return 'Below ₱5,000';
+  if (v <= 7000)       return '₱5,000–₱7,000';
+  if (v <= 10000)      return '₱7,001–₱10,000';
+  if (v <= 15000)      return '₱10,001–₱15,000';
+  return 'Above ₱15,000';
+}
+
 async function openBroadcastModal(joId) {
   const joChanged = joId !== _lastBroadcastJoId;
   const prevSelected = new Set(_broadcastSelected); // remember for notice
@@ -5246,15 +5319,22 @@ async function openBroadcastModal(joId) {
     jo.address  ? `<span>${escHtml(jo.address)}</span>` : '',
   ].filter(Boolean).join('');
 
-  // Load saved filters from Firebase; fall back to job-type pre-fill if none saved
+  // Load saved filters from Firebase; fall back to JO-derived auto-fill for
+  // any filter dimension that is still empty. User's saved choices always win.
   await loadBcFilters();
 
-  // If no saved filters exist (all arrays empty, defaults), auto-fill job type from JO
-  const hasCustomFilters = _broadcastFilters.jobType.length || _broadcastFilters.gender.length || _broadcastFilters.location.length;
-  if (!hasCustomFilters) {
-    const pos = (jo.position || '').toLowerCase();
+  // Parse JO into structured defaults for every filter dimension we can infer.
+  const ageHint   = _parseJoGenderPref(jo.genderPref);
+  const setupHint = _parseJoSetup(jo);
+  const locHint   = _parseJoLocation(jo);
+  const payHint   = _parseJoPayRange(jo);
+
+  // Job-type heuristic (existing behavior, kept)
+  let jobTypeHint = [];
+  const pos = (jo.position || '').toLowerCase();
+  if (pos) {
     const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
-    const preJobTypes = [...new Set(candidates
+    jobTypeHint = [...new Set(candidates
       .filter(c => {
         const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
         return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
@@ -5262,12 +5342,67 @@ async function openBroadcastModal(joId) {
       .map(c => c.jobTypeFormatted || c.jobType || '')
       .filter(Boolean)
     )];
-    if (preJobTypes.length) _broadcastFilters.jobType = preJobTypes;
   }
+
+  // Apply hints ONLY where the current filter is empty / default — never
+  // override a user's explicit selection. Track what was applied for the
+  // banner so the user can see which filters came from the job.
+  const appliedFromJo = [];
+  if (!_broadcastFilters.jobType.length && jobTypeHint.length) {
+    _broadcastFilters.jobType = jobTypeHint;
+    appliedFromJo.push('Job Type: ' + jobTypeHint.join(', '));
+  }
+  if (!_broadcastFilters.gender.length && ageHint.gender.length) {
+    _broadcastFilters.gender = ageHint.gender;
+    appliedFromJo.push('Gender: ' + ageHint.gender.join(', '));
+  }
+  // Age range: only override if filter is at the wide default (18-55).
+  const ageIsDefault = _broadcastFilters.ageMin === 18 && _broadcastFilters.ageMax === 55;
+  if (ageIsDefault && (ageHint.ageMin !== null || ageHint.ageMax !== null)) {
+    if (ageHint.ageMin !== null) _broadcastFilters.ageMin = Math.max(18, ageHint.ageMin);
+    if (ageHint.ageMax !== null) _broadcastFilters.ageMax = Math.min(65, ageHint.ageMax);
+    appliedFromJo.push('Age: ' + _broadcastFilters.ageMin + '–' + _broadcastFilters.ageMax);
+  }
+  if (!_broadcastFilters.setup.length && setupHint) {
+    // 'Either' on the JO means candidates with either setup are fine, so
+    // pre-select both Stay-in and Stay-out (not the 'Either' chip, which
+    // only matches candidates who explicitly said Either).
+    _broadcastFilters.setup = setupHint === 'Either' ? ['Stay-in','Stay-out','Either'] : [setupHint, 'Either'];
+    appliedFromJo.push('Setup: ' + (setupHint === 'Either' ? 'Any' : setupHint));
+  }
+  if (!_broadcastFilters.location.length && locHint) {
+    _broadcastFilters.location = [locHint];
+    appliedFromJo.push('Location: ' + locHint);
+  }
+  if (!_broadcastFilters.payRange.length && payHint) {
+    _broadcastFilters.payRange = [payHint];
+    appliedFromJo.push('Pay: ' + payHint);
+  }
+
+  // Surface what got auto-applied so the action isn't invisible. Stash it
+  // on a global the filter-bar builder reads, and render below the search.
+  window._bcLastAutoApplied = appliedFromJo;
 
   document.getElementById('broadcast-search').value = '';
   // Clear verify result when re-opening
   var vrEl = document.getElementById('bc-verify-result'); if (vrEl) vrEl.style.display = 'none';
+
+  // Render the "auto-filled from job" banner, if anything was applied.
+  // Keep it dismissible — once the user hides it they don't see it again
+  // for this JO (per-session, no persistence needed).
+  const bannerEl = document.getElementById('bc-auto-filled');
+  if (bannerEl) {
+    if (appliedFromJo.length && joChanged) {
+      bannerEl.style.display = '';
+      bannerEl.innerHTML =
+        '<span style="color:var(--accent);font-weight:600">✦ Auto-filled from job:</span> ' +
+        appliedFromJo.map(s => '<span style="display:inline-block;background:var(--card2);border:1px solid var(--border2);border-radius:999px;padding:1px 8px;margin:1px 2px;font-size:10px">' + escHtml(s) + '</span>').join('') +
+        ' <button onclick="document.getElementById(\'bc-auto-filled\').style.display=\'none\'" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 4px;float:right;font-size:14px;line-height:1" title="Dismiss">×</button>';
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  }
+
   buildBroadcastFilterBar();
   _updateBcSortBtns();
   renderBroadcastList();
