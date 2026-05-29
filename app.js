@@ -5527,7 +5527,101 @@ function renderBroadcastList() {
   if (countEl) countEl.textContent = 'Showing ' + filtered.length + ' candidates';
 
   if (!filtered.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">No candidates match your filters.</div>';
+    // Don't just say "no matches" — compute the cascade of why each candidate
+    // was excluded, so the user can see at a glance which filter or which
+    // hard exclusion is responsible. Two-pass: (a) hard exclusions in fixed
+    // order, (b) per-filter eliminations on the survivors.
+    const f = _broadcastFilters;
+    const allP = [...placements, ...manualPlacements].filter(p => p.jobOrderId === _broadcastJoId);
+    const alreadyIn = new Set(allP.map(p => p.candidateId));
+    const knownLocs = ['Bacolod City','Talisay','Silay','Bago City'];
+
+    let pool = candidates.slice();
+    const start = pool.length;
+    const exc = {};
+    const _drop = (label, predExcluded) => {
+      const kept = [], dropped = [];
+      pool.forEach(c => (predExcluded(c) ? dropped : kept).push(c));
+      if (dropped.length) exc[label] = dropped.length;
+      pool = kept;
+    };
+
+    // Hard exclusions — order matches _getBroadcastFiltered
+    _drop('Blacklisted',         c => !!blacklist[c.id]);
+    _drop('Already hired',       c => isCandidateHired(c.id));
+    _drop('Removed from pool',   c => candidateRatings[c.id] && candidateRatings[c.id].removedFromPool);
+    _drop('Already in this job', c => alreadyIn.has(c.id));
+    if (f.activeStatus === 'active') {
+      _drop('Inactive', c => isCandInactive(c.id));
+    } else if (f.activeStatus === 'inactive') {
+      _drop('Active', c => !isCandInactive(c.id));
+    }
+
+    // Filter-driven exclusions (only the ones that are actually active)
+    if (f.jobType.length) {
+      _drop('Job Type filter', c => {
+        const ct = Array.isArray(c.jobTypes) && c.jobTypes.length ? c.jobTypes : (c.jobType ? [c.jobType] : []);
+        return !f.jobType.some(t => ct.indexOf(t) >= 0);
+      });
+    }
+    if (f.gender.length) {
+      _drop('Gender filter', c => {
+        const g = c.gender || '';
+        return !f.gender.some(gv => gv === 'Others' ? ['Female','Male'].indexOf(g) < 0 : g === gv);
+      });
+    }
+    if (f.location.length) {
+      _drop('Location filter', c => {
+        const loc = c.cityFormatted || c.location || '';
+        return !f.location.some(l => l === 'Others'
+          ? !knownLocs.some(k => loc.includes(k))
+          : loc.includes(l));
+      });
+    }
+    if (f.setup.length) {
+      _drop('Setup filter', c => {
+        const su = getEffectiveSetup(c);
+        return !f.setup.some(v => su === v);
+      });
+    }
+    if (!(f.ageMin === 18 && f.ageMax === 55)) {
+      _drop('Age filter', c => {
+        const age = parseInt(c.age) || 0;
+        return age > 0 && (age < f.ageMin || age > f.ageMax);
+      });
+    }
+    if (f.payRange.length) {
+      _drop('Pay filter', c => !matchPayRange(c, f.payRange));
+    }
+    if (f.eraScore.length) {
+      _drop('ERA filter', c => !matchEraTier(c.id, f.eraScore));
+    }
+
+    // Render breakdown. The biggest single exclusion is highlighted so the
+    // user knows which filter to relax to get results back.
+    const ordered = Object.entries(exc).sort((a, b) => b[1] - a[1]);
+    const top = ordered[0];
+    const filterLabels = new Set(['Job Type filter','Gender filter','Location filter','Setup filter','Age filter','Pay filter','ERA filter']);
+    const isFilterLabel = top && filterLabels.has(top[0]);
+    const hint = isFilterLabel
+      ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">Try widening the <strong>${escHtml(top[0].replace(' filter',''))}</strong> filter, or click <strong>Reset All</strong> to clear all filters.</div>`
+      : top
+        ? `<div style="font-size:11px;color:var(--text3);margin-top:8px">Most candidates are <strong>${escHtml(top[0].toLowerCase())}</strong>. ${top[0] === 'Already in this job' ? 'They\'ve already been contacted for this JO — broadcast is meant for fresh candidates.' : ''}</div>`
+        : '';
+    list.innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">' +
+        '<div style="font-size:13px;color:var(--text);margin-bottom:6px">No candidates match — 0 of ' + start + ' eligible.</div>' +
+        (ordered.length
+          ? '<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:8px">' +
+            ordered.map(([label, n], i) =>
+              '<span style="background:' + (i === 0 ? 'rgba(234,88,12,.10)' : 'var(--card2)') +
+              ';border:1px solid ' + (i === 0 ? 'rgba(234,88,12,.35)' : 'var(--border2)') +
+              ';border-radius:999px;padding:2px 9px;font-size:11px;color:' + (i === 0 ? 'var(--orange)' : 'var(--text2)') + '">' +
+              '−' + n + ' ' + escHtml(label) + '</span>'
+            ).join('') +
+          '</div>' : '') +
+        hint +
+      '</div>';
     _broadcastSelected = new Set([..._broadcastSelected].filter(id => filtered.some(c => c.id === id)));
     updateBroadcastCount();
     return;
