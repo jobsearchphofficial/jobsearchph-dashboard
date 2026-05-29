@@ -621,58 +621,192 @@ function repairShiftedPlacements() {
   });
   if (placementsChanged) saveManualPlacements();
 
-  // 2. Migrate all localStorage data from wrong IDs to correct IDs
+  // 2. Migrate ALL candidate-keyed data from wrong IDs to correct IDs.
+  //
+  // SAFETY RULES (read before changing this):
+  //  - Move only when target is empty / missing. Never overwrite an existing
+  //    value at the destination, because after an ID shift the OLD slot
+  //    might already be occupied by a DIFFERENT candidate's new data (e.g.
+  //    Zennia was C450, deletions happened, now Dona is C450; if Dona has
+  //    entered any data since the shift it must not be clobbered by
+  //    Zennia's old data being moved over to C449).
+  //  - Track per-store stats so the toast tells the user exactly what moved.
+  //  - This list MUST stay in sync with every candidate-keyed store. Audit
+  //    by grepping: candidateOverrides[, candidateRatings[, blacklist[,
+  //    flaggedCands[, candidateNotes[, eraContactLogs[, callQueue[,
+  //    and any 'foo_' + candId localStorage pattern.
+  const migrationStats = {};
+  const _bump = (label) => { migrationStats[label] = (migrationStats[label] || 0) + 1; };
+
+  // Helper: move obj[wrong] → obj[correct] if correct is empty. Returns true if moved.
+  const _moveObjKey = (obj, wrong, correct, label, saveFn) => {
+    if (!obj[wrong]) return false;
+    const tgt = obj[correct];
+    const tgtEmpty = !tgt || (typeof tgt === 'object' && Object.keys(tgt).length === 0);
+    if (!tgtEmpty) {
+      console.warn(`[id-repair] ${label}: ${wrong} → ${correct} BLOCKED (target already has data; left as-is to avoid clobbering)`);
+      return false;
+    }
+    obj[correct] = obj[wrong];
+    delete obj[wrong];
+    if (saveFn) saveFn();
+    _bump(label);
+    return true;
+  };
+
+  // Helper: move localStorage 'prefix_<wrong>' → 'prefix_<correct>' if dest empty.
+  const _moveLsKey = (prefix, wrong, correct, label, fbPath) => {
+    const srcKey = prefix + wrong;
+    const dstKey = prefix + correct;
+    const src = localStorage.getItem(srcKey);
+    if (src === null) return false;
+    if (localStorage.getItem(dstKey) !== null) {
+      console.warn(`[id-repair] ${label}: ${srcKey} → ${dstKey} BLOCKED (destination already exists)`);
+      return false;
+    }
+    localStorage.setItem(dstKey, src);
+    localStorage.removeItem(srcKey);
+    if (fbPath) { try { fbSync(fbPath + correct, JSON.parse(src)); } catch(_) {} }
+    _bump(label);
+    return true;
+  };
+
   Object.entries(idRemapping).forEach(([wrongId, correctId]) => {
-    console.log(`Migrating data: ${wrongId} → ${correctId}`);
+    console.log(`[id-repair] migrating ${wrongId} → ${correctId}`);
 
-    if (candidateRatings[wrongId]) {
-      candidateRatings[correctId] = candidateRatings[wrongId];
-      delete candidateRatings[wrongId];
-      saveCandidateRatings();
-    }
+    // In-memory objects keyed directly by candidateId
+    _moveObjKey(candidateRatings,   wrongId, correctId, 'candidateRatings',   saveCandidateRatings);
+    _moveObjKey(candidateOverrides, wrongId, correctId, 'candidateOverrides', saveCandidateOverrides);  // ← was missing (caused HAS KIDS data loss)
+    _moveObjKey(blacklist,          wrongId, correctId, 'blacklist',          saveBlacklist);            // ← was missing
+    _moveObjKey(flaggedCands,       wrongId, correctId, 'flaggedCands',       saveFlaggedCands);
+    _moveObjKey(eraContactLogs,     wrongId, correctId, 'eraContactLogs',     saveEraContactLogs);
 
-    const notesKey = `cand_notes_${wrongId}`;
-    const notes = localStorage.getItem(notesKey);
-    if (notes) {
-      localStorage.setItem(`cand_notes_${correctId}`, notes);
-      localStorage.removeItem(notesKey);
-      fbSync('cand_notes/' + correctId, JSON.parse(notes));
-    }
-
-    if (eraContactLogs[wrongId]) {
-      eraContactLogs[correctId] = eraContactLogs[wrongId];
-      delete eraContactLogs[wrongId];
-      saveEraContactLogs();
-    }
-
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('prow_extra_') && key.includes(wrongId)) {
-        const val = localStorage.getItem(key);
-        localStorage.setItem(key.replace(wrongId, correctId), val);
+    // localStorage keys with prefix + candidateId
+    _moveLsKey('cand_notes_', wrongId, correctId, 'cand_notes', 'cand_notes/');
+    // prow_extra_ and hire_data_ use placementId, which is "joId_candId_idx".
+    // We rewrite any key whose embedded candId matches the wrong one.
+    ['prow_extra_', 'hire_data_'].forEach(prefix => {
+      Object.keys(localStorage).forEach(key => {
+        if (!key.startsWith(prefix)) return;
+        // Match _<wrongId> bounded by _ or end-of-string so 'C45' doesn't match 'C459'
+        const re = new RegExp('(^|_)' + wrongId + '(_|$)');
+        if (!re.test(key.slice(prefix.length))) return;
+        const newKey = prefix + key.slice(prefix.length).replace(re, (m, a, b) => a + correctId + b);
+        if (localStorage.getItem(newKey) !== null) {
+          console.warn(`[id-repair] ${prefix}: ${key} → ${newKey} BLOCKED (destination exists)`);
+          return;
+        }
+        localStorage.setItem(newKey, localStorage.getItem(key));
         localStorage.removeItem(key);
-      }
+        _bump(prefix.replace(/_$/, ''));
+      });
     });
 
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('hire_data_') && key.includes(wrongId)) {
-        const val = localStorage.getItem(key);
-        localStorage.setItem(key.replace(wrongId, correctId), val);
-        localStorage.removeItem(key);
+    // Composite-key stores: candidateNotes is keyed "joId_candId"
+    Object.keys(candidateNotes).forEach(k => {
+      const parts = k.split('_');
+      // Last segment is candId in current usage; rebuild if it matches
+      if (parts[parts.length - 1] !== wrongId) return;
+      const newK = parts.slice(0, -1).concat(correctId).join('_');
+      if (candidateNotes[newK] !== undefined) {
+        console.warn(`[id-repair] candidateNotes: ${k} → ${newK} BLOCKED (exists)`);
+        return;
       }
+      candidateNotes[newK] = candidateNotes[k];
+      delete candidateNotes[k];
+      _bump('candidateNotes');
     });
+    if (migrationStats.candidateNotes) saveCandidateNotes();
 
-    if (flaggedCands[wrongId]) {
-      flaggedCands[correctId] = flaggedCands[wrongId];
-      delete flaggedCands[wrongId];
-      saveFlaggedCands();
-    }
+    // Composite-key store: callQueue is keyed "candId|joId" (post-migrate format)
+    Object.keys(callQueue).forEach(k => {
+      const v = callQueue[k];
+      if (!v || v.candId !== wrongId) return;
+      v.candId = correctId;
+      const newK = (typeof _qKey === 'function') ? _qKey(correctId, v.joId || '') : (correctId + '|' + (v.joId || ''));
+      if (newK !== k) {
+        if (callQueue[newK]) {
+          console.warn(`[id-repair] callQueue: ${k} → ${newK} BLOCKED (exists)`);
+          return;
+        }
+        callQueue[newK] = v;
+        delete callQueue[k];
+      }
+      _bump('callQueue');
+    });
+    if (migrationStats.callQueue && typeof saveCallQueue === 'function') saveCallQueue();
   });
 
   if (Object.keys(idRemapping).length > 0) {
     fbSync('candidate_ratings', candidateRatings);
-    showToast(`Repaired ${Object.keys(idRemapping).length} candidate ID(s) and migrated all data`, 'green');
+    const detail = Object.entries(migrationStats).map(([k,v]) => `${k}:${v}`).join(', ') || '(no data moved)';
+    console.log(`[id-repair] summary — ${detail}`);
+    showToast(`Repaired ${Object.keys(idRemapping).length} candidate ID(s) · ${detail}`, 'green');
   }
+
+  // ── ORPHAN SCAN ──
+  // Detect candidate-keyed data attached to IDs that no longer exist in the
+  // candidates array (left over from previous shifts where the old repair
+  // didn't cover that store, e.g. candidateOverrides missing Zennia's HAS KIDS).
+  // We do NOT auto-recover (we can't know who the data SHOULD belong to without
+  // metadata). We log loudly so you can decide.
+  try {
+    const validIds = new Set(candidates.map(c => c.id));
+    const orphans = { candidateOverrides: [], candidateRatings: [], blacklist: [], flaggedCands: [] };
+    Object.keys(candidateOverrides || {}).forEach(k => { if (!validIds.has(k)) orphans.candidateOverrides.push(k); });
+    Object.keys(candidateRatings   || {}).forEach(k => { if (!validIds.has(k)) orphans.candidateRatings.push(k); });
+    Object.keys(blacklist          || {}).forEach(k => { if (!validIds.has(k)) orphans.blacklist.push(k); });
+    Object.keys(flaggedCands       || {}).forEach(k => { if (!validIds.has(k)) orphans.flaggedCands.push(k); });
+    const total = Object.values(orphans).reduce((a, b) => a + b.length, 0);
+    if (total > 0) {
+      console.group(`%c⚠ Orphaned candidate data: ${total} key(s)`, 'color:#d97706;font-weight:700');
+      Object.entries(orphans).forEach(([store, keys]) => {
+        if (!keys.length) return;
+        console.log(`${store}: ${keys.join(', ')}`);
+        if (store === 'candidateOverrides') {
+          keys.forEach(k => console.log(`  ${k} →`, candidateOverrides[k]));
+        }
+      });
+      console.log('Run recoverOrphanOverride("<oldId>", "<newCandidateName>") to re-attach.');
+      console.groupEnd();
+    }
+  } catch (e) { console.warn('[id-repair] orphan scan failed:', e); }
 }
+
+// Expose a console helper for manual orphan recovery. Call from devtools:
+//   recoverOrphanOverride('C450', 'Zennia Anfone')
+// Looks up the candidate by name, then moves candidateOverrides[oldId] → that
+// candidate's current id, only if the destination is empty.
+window.recoverOrphanOverride = function(oldId, candidateName) {
+  const target = candidates.find(c =>
+    c.name && c.name.trim().toLowerCase() === (candidateName || '').trim().toLowerCase()
+  );
+  if (!target) {
+    console.error(`No candidate found with name "${candidateName}"`);
+    return false;
+  }
+  const src = candidateOverrides[oldId];
+  if (!src) {
+    console.error(`No orphan data at candidateOverrides["${oldId}"]`);
+    return false;
+  }
+  const dst = candidateOverrides[target.id];
+  if (dst && Object.keys(dst).length > 0) {
+    console.error(`candidateOverrides["${target.id}"] is not empty — refusing to overwrite. Inspect manually:`, dst);
+    return false;
+  }
+  candidateOverrides[target.id] = src;
+  delete candidateOverrides[oldId];
+  saveCandidateOverrides();
+  // Re-merge into in-memory candidate so the UI picks it up without reload.
+  if (typeof _applyCandOverride === 'function') {
+    const idx = candidates.findIndex(c => c.id === target.id);
+    if (idx >= 0) candidates[idx] = _applyCandOverride(candidates[idx]);
+  }
+  console.log(`✓ Recovered ${Object.keys(src).length} field(s) from ${oldId} → ${target.id} (${candidateName})`, src);
+  if (typeof renderCandidates === 'function') try { renderCandidates(); } catch(_) {}
+  return true;
+};
 
 async function loadAll(opts) {
   loadLocal();
