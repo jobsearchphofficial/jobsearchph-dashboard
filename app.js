@@ -5329,19 +5329,37 @@ async function openBroadcastModal(joId) {
   const locHint   = _parseJoLocation(jo);
   const payHint   = _parseJoPayRange(jo);
 
-  // Job-type heuristic (existing behavior, kept)
+  // Job-type heuristic — match the JO position against the CANONICAL job
+  // type vocabulary (_candJobTypes), not against candidates' raw multi-job
+  // strings. Previous version mapped each candidate's full comma-joined
+  // jobTypeFormatted ("Yaya / Babysitter, Housekeeper / Household Helper")
+  // into the filter, which produced 16+ junk filter values and matched 0
+  // candidates because none had that exact multi-job concatenation.
   let jobTypeHint = [];
   const pos = (jo.position || '').toLowerCase();
-  if (pos) {
-    const jobKeywords = ['yaya','kasambahay','helper','housekeeper','nanny','caregiver','driver','cook','laundry','cleaner','janitor','all-around'];
-    jobTypeHint = [...new Set(candidates
-      .filter(c => {
-        const ct = (c.jobTypeFormatted || c.jobType || '').toLowerCase();
-        return ct && (pos.includes(ct) || ct.includes(pos) || jobKeywords.some(k => pos.includes(k) && ct.includes(k)));
-      })
-      .map(c => c.jobTypeFormatted || c.jobType || '')
-      .filter(Boolean)
-    )];
+  if (pos && _candJobTypes && _candJobTypes.length) {
+    // keyword → matches any canonical job type whose label contains the keyword
+    const keywords = ['yaya','babysitter','nanny','governess','kasambahay','helper',
+      'housekeeper','household','caregiver','cook','kitchen','dishwasher','laundry',
+      'labandera','cleaner','cleaning','janitor','driver','all-around','allaround',
+      'server','waiter','waitress','cashier','retail','packer','sorter','labeler',
+      'carpenter','mason','security','guard','barista','attendant'];
+    // Find which keywords appear in the JO position text
+    const posKeywords = keywords.filter(k => pos.includes(k));
+    if (posKeywords.length) {
+      jobTypeHint = _candJobTypes.filter(canonical => {
+        const cl = canonical.toLowerCase();
+        return posKeywords.some(k => cl.includes(k));
+      });
+    }
+    // If still nothing matched, try a direct substring fallback (e.g. position
+    // contains the full canonical label or vice versa).
+    if (!jobTypeHint.length) {
+      jobTypeHint = _candJobTypes.filter(canonical => {
+        const cl = canonical.toLowerCase();
+        return pos.includes(cl) || cl.includes(pos);
+      });
+    }
   }
 
   // Apply hints ONLY where the current filter is empty / default — never
