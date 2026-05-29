@@ -7409,14 +7409,50 @@ function deleteCandNote(candId, idx) {
   openCandModal(candId);
 }
 
+// Find any other candidates whose notes contain the same text + timestamp as
+// this one. Cross-candidate duplicates almost always mean the note was saved
+// against the wrong candidate while a stale ID was in scope (the C450-style
+// shifted-ID bug), and the data later got migrated to multiple IDs. Cheap
+// scan: O(notes-per-candidate × candidates). Returns array of {candId, name}.
+function findNoteDuplicates(currentCandId, noteText, noteTs) {
+  const dups = [];
+  const keyText = (noteText || '').trim();
+  if (!keyText) return dups;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('cand_notes_')) continue;
+    const otherId = k.slice('cand_notes_'.length);
+    if (otherId === currentCandId) continue;
+    let arr;
+    try { arr = JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) { continue; }
+    if (!Array.isArray(arr)) continue;
+    const hit = arr.some(n => n && (n.text || '').trim() === keyText && (n.ts || '') === (noteTs || ''));
+    if (hit) {
+      const c = candidates.find(x => x.id === otherId);
+      dups.push({ candId: otherId, name: c ? c.name : '(unknown)' });
+    }
+  }
+  return dups;
+}
+
 function buildCandNotesSection(candId) {
   const notes = getCandNotes(candId);
-  const noteItems = notes.map((n, i) => `
+  const noteItems = notes.map((n, i) => {
+    const dups = findNoteDuplicates(candId, n.text, n.ts);
+    const dupBadge = dups.length
+      ? `<div style="font-size:10px;color:var(--orange);background:rgba(234,88,12,.08);border:1px solid rgba(234,88,12,.25);border-radius:6px;padding:3px 7px;margin-top:4px;line-height:1.4">
+           ⚠ Same note also on: <strong>${dups.map(d => escHtml(d.name) + ' (' + escHtml(d.candId) + ')').join(', ')}</strong>
+           — likely a leftover from the shifted-ID bug. Delete from wherever it doesn't belong.
+         </div>`
+      : '';
+    return `
     <div class="cand-note-item">
       <div class="cand-note-ts">${new Date(n.ts).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
       <div class="cand-note-text">${escHtml(n.text)}</div>
+      ${dupBadge}
       <button class="cand-note-del" onclick="deleteCandNote('${escAttr(candId)}',${i})">×</button>
-    </div>`).join('') || '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No notes yet.</div>';
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:12px;font-style:italic;padding:8px 0">No notes yet.</div>';
 
   return `
     <div class="cand-modal-section">
