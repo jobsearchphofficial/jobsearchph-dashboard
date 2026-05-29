@@ -8661,6 +8661,25 @@ function removeFromCallQueue(candId, joId) {
   updateCallsBadge();
 }
 
+// User-facing "× Remove" button on call queue cards. Confirms first because
+// the entry disappears immediately and there's no undo (the underlying
+// placement + pipeline stage are NOT touched — the candidate just stops
+// showing in the call queue until something re-queues them).
+function dismissCallQueueEntry(candId, joId, candName) {
+  const label = candName ? ('Remove ' + candName + ' from the call queue?') : 'Remove this candidate from the call queue?';
+  if (!confirm(label + '\n\nThis only removes them from this list. Their pipeline stage and contact history stay intact.')) return;
+  removeFromCallQueue(candId, joId);
+  // Re-render whatever calls subview is open. _callsView values per the
+  // switcher at setCallsView(): 'queue' | 'needs-call' | 'callbacks'.
+  const inner = document.getElementById('calls-inner');
+  if (inner && typeof _callsView !== 'undefined') {
+    if (_callsView === 'queue')          inner.innerHTML = buildCallQueueHTML();
+    else if (_callsView === 'needs-call' && typeof buildNeedsCallHTML === 'function') inner.innerHTML = buildNeedsCallHTML();
+    else if (_callsView === 'callbacks' && typeof buildCallbacksHTML === 'function') inner.innerHTML = buildCallbacksHTML();
+  }
+  showToast('Removed from call queue.', 'gold');
+}
+
 // One-time-per-load recovery for candidates who reached "interested" through
 // a path that bypassed the Response-dropdown trigger (Stage-dropdown change
 // before the forward fix, cross-device prow_extras sync, legacy data). For
@@ -9100,8 +9119,9 @@ function buildCallQueueHTML() {
       '<div>' +
         (c.phone ? '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;width:100%;margin-bottom:4px" onclick="navigator.clipboard.writeText(\'' + escAttr(c.phone) + '\').then(function(){showToast(\'Number copied!\',\'green\')})">Copy #</button>' : '') +
       '</div>' +
-      '<div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">' +
         '<button class="btn btn-gold" style="font-size:12px;padding:6px 16px;white-space:nowrap" onclick="openCallAssessment(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr(q.placementId||'') + '\')">Start Call</button>' +
+        '<button class="btn btn-ghost" style="font-size:10px;padding:3px 8px;color:var(--text3);border-color:var(--border2)" onclick="dismissCallQueueEntry(\'' + escAttr(candId) + '\',\'' + escAttr(q.joId) + '\',\'' + escAttr((c && c.name) || candId) + '\')" title="Remove from call queue (won\'t blacklist or change pipeline stage)">× Remove</button>' +
       '</div>' +
     '</div>';
   }).join('');
