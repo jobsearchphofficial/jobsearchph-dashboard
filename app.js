@@ -2961,6 +2961,27 @@ function renderBriefingPanel() {
     if (hireData.issueReported) issuesReported++;
   });
 
+  // Fee pending alert — Hired placements (Stage rule, matches badge / auto-fulfill)
+  // whose fee is still uncollected (not Paid, not Waived) and the hire happened
+  // more than 3 days ago. Treats missing feeStatus as 'Pending' (matches the
+  // Hired Tab's 'Unpaid' filter at ~app.js:6940). Skips placements with missing
+  // or malformed hireDate so a bad row can't be miscounted as 0 days old.
+  var feePendingOver3d = 0;
+  allP.forEach(function(p) {
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+    if (getEffectiveStage(ex, p) !== 'Hired ✓') return;
+    var hd = hireData.hireDate;
+    if (!hd) return;
+    var hdMs = parseDateFlex(hd);
+    if (!hdMs || isNaN(hdMs)) return;
+    var fs = hireData.feeStatus || 'Pending';
+    if (fs === 'Paid' || fs === 'Waived') return;
+    var ageDays = Math.floor((today - hdMs.getTime()) / 86400000);
+    if (ageDays > 3) feePendingOver3d++;
+  });
+
   var items = [
     { label: 'Open Job Orders', val: openJOs.length, cls: openJOs.length > 0 ? 'briefing-val-accent' : 'briefing-val-green', tab: 'jobs' },
     { label: 'Avg Days to Fill', val: avgFill > 0 ? avgFill + 'd' : '—', cls: avgFill > 7 ? 'briefing-val-red' : avgFill > 4 ? 'briefing-val-gold' : 'briefing-val-green', tab: '' },
@@ -2970,6 +2991,7 @@ function renderBriefingPanel() {
     { label: 'Active Guarantees', val: activeGuarantees, cls: 'briefing-val-accent', tab: 'hired' },
     { label: 'Guarantees Expiring (7d)', val: guaranteesExpiringSoon, cls: guaranteesExpiringSoon > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
     { label: 'Issues Reported', val: issuesReported, cls: issuesReported > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
+    { label: 'Fee Pending (>3 days)', val: feePendingOver3d, cls: feePendingOver3d > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
   ];
 
   var html = '<div class="briefing-title">Ops Briefing — Today</div>' +
