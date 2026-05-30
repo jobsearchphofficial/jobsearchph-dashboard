@@ -2982,6 +2982,31 @@ function renderBriefingPanel() {
     if (ageDays > 3) feePendingOver3d++;
   });
 
+  // Awaiting Reply — candidates whose only current touchpoint is a broadcast
+  // sent >24h ago with no direct contact (Call / DM) attempted and no response
+  // (Stage rule already captures 'Interested' / 'Not Interested' transitions).
+  // Per-candidate dedup via Sets — matches the pool-health pattern at
+  // app.js:3027-3030. Excludes blacklist / hired / saidNotInterested / inactive
+  // / exit stages via the canonical isInPlayForCalls helper.
+  var staleBroadcastIds = new Set();
+  var contactedIds = new Set();
+  allP.forEach(function(p) {
+    if (!p.candidateId) return;
+    const pid = p.placementId || p.candidateId;
+    var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+    if (ex.lastDirectContactAt) contactedIds.add(p.candidateId);
+    if (getEffectiveStage(ex, p) !== 'Broadcasted') return;
+    var bd = parseDateFlex(p.date || '');
+    if (!bd || isNaN(bd)) return;
+    if ((today - bd.getTime()) / 3600000 > 24) staleBroadcastIds.add(p.candidateId);
+  });
+  var awaitingReply = 0;
+  staleBroadcastIds.forEach(function(id) {
+    if (contactedIds.has(id)) return;
+    if (!isInPlayForCalls(id)) return;
+    awaitingReply++;
+  });
+
   var items = [
     { label: 'Open Job Orders', val: openJOs.length, cls: openJOs.length > 0 ? 'briefing-val-accent' : 'briefing-val-green', tab: 'jobs' },
     { label: 'Avg Days to Fill', val: avgFill > 0 ? avgFill + 'd' : '—', cls: avgFill > 7 ? 'briefing-val-red' : avgFill > 4 ? 'briefing-val-gold' : 'briefing-val-green', tab: '' },
@@ -2992,6 +3017,7 @@ function renderBriefingPanel() {
     { label: 'Guarantees Expiring (7d)', val: guaranteesExpiringSoon, cls: guaranteesExpiringSoon > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
     { label: 'Issues Reported', val: issuesReported, cls: issuesReported > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
     { label: 'Fee Pending (>3 days)', val: feePendingOver3d, cls: feePendingOver3d > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
+    { label: 'Awaiting Reply', val: awaitingReply, cls: awaitingReply > 0 ? 'briefing-val-gold' : 'briefing-val-green', tab: 'calls' },
   ];
 
   var html = '<div class="briefing-title">Ops Briefing — Today</div>' +
