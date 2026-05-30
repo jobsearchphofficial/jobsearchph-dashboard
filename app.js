@@ -9752,7 +9752,13 @@ function submitCallDecision(decision) {
     const pidToUpdate = placementId || (joId + '_' + candId + '_bc');
     const mp = manualPlacements.find(function(p) { return p.placementId === placementId; });
     if (mp) {
-      saveProwExtra(pidToUpdate, 'dispositionStage', decision);
+      // 'Confirmed Interested' is the button label — semantically the call just
+      // *verified* the candidate, so advance to 'Called / Verified' (rank 3)
+      // rather than rewriting the stage they were already in. 'For Employer
+      // Review' is written verbatim — that's an explicit endorsement, not a
+      // call-verification.
+      const destStage = decision === 'Confirmed Interested' ? 'Called / Verified' : 'For Employer Review';
+      saveProwExtra(pidToUpdate, 'dispositionStage', destStage);
       saveProwExtra(pidToUpdate, 'response', 'Interested');
     }
     removeFromCallQueue(candId, joId);
