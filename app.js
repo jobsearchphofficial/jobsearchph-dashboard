@@ -1432,6 +1432,7 @@ function buildJOPanel(jo, joPlacements) {
   const statusBtns = (statusActions[joStatus]||[]).map(([label,newStatus,cls])=> {
     if (newStatus === 'Cancelled') return `<button class="btn ${cls}" onclick="openCancelModal('${escAttr(jo.id)}','${escAttr(jo.position)}')">${label}</button>`;
     if (label === 'Reopen') return `<button class="btn ${cls}" onclick="openReopenModal('${escAttr(jo.id)}')">${label}</button>`;
+    if (newStatus === 'On Hold') return `<button class="btn ${cls}" onclick="confirmHoldJO('${escAttr(jo.id)}')">${label}</button>`;
     return `<button class="btn ${cls}" onclick="changeJOStatus('${escAttr(jo.id)}','${newStatus}')">${label}</button>`;
   }).join('');
 
@@ -4909,6 +4910,11 @@ function changeJOStatus(joId, newStatus) {
   renderJobOrders([...placements, ...manualPlacements]);
   buildReminderBanner();
   showToast('Job Order ' + joId + ' → ' + newStatus, newStatus === 'Active' ? 'green' : 'orange');
+}
+
+function confirmHoldJO(joId) {
+  if (!confirm('Put ' + joId + ' On Hold?\n\nThe job order will pause. Click Reopen any time to bring it back.')) return;
+  changeJOStatus(joId, 'On Hold');
 }
 
 function onCancelReasonChange(sel) {
