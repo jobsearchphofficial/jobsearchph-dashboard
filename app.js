@@ -10721,8 +10721,10 @@ function confirmIsessComplete() {
         if (mp) { mp.status = 'Dropped'; mp.dispositionStage = 'Dropped / Unavailable'; mpChanged = true; }
       }
     } else {
-      saveProwExtra(pid, 'status', 'Interviewed'); saveProwExtra(pid, 'dispositionStage', '');
-      if (mp) { mp.status = 'Interviewed'; mp.dispositionStage = ''; mpChanged = true; }
+      // 'no hire' outcome: send candidates back to the review queue rather than
+      // clearing dispositionStage (empty string drops them out of the funnel).
+      saveProwExtra(pid, 'status', 'Interviewed'); saveProwExtra(pid, 'dispositionStage', 'For Employer Review');
+      if (mp) { mp.status = 'Interviewed'; mp.dispositionStage = 'For Employer Review'; mpChanged = true; }
     }
   });
   if (mpChanged) saveManualPlacements();
