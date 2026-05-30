@@ -513,6 +513,37 @@ function saveCandPersonalField(candId, field, value) {
   const modal = document.getElementById('modal-cand-profile');
   if (modal && modal.classList.contains('open')) openCandModal(candId);
 }
+
+function renameCandidate(candId) {
+  const c = candidates.find(function(x) { return x.id === candId; });
+  if (!c) return;
+  const next = prompt('Edit candidate name:', c.name || '');
+  if (next === null) return; // user cancelled
+  const trimmed = next.trim();
+  if (!trimmed) { showToast('Name cannot be empty.', 'red'); return; }
+  if (trimmed === (c.name || '')) return; // no change
+  // Persist as an override so the next Sheet poll re-applies it (the parse path
+  // at app.js ~1031 calls _applyCandOverride). Existing helper writes the field,
+  // re-merges the in-memory candidate, and re-opens the modal to refresh.
+  saveCandPersonalField(candId, 'name', trimmed);
+  // Fan out the new name to placement snapshots so JO panels / call queue /
+  // shortlists see it immediately (the override on candidates[] doesn't touch
+  // p.candidateName, which is a frozen snapshot from placement creation).
+  let mpChanged = false;
+  manualPlacements.forEach(function(p) {
+    if (p.candidateId === candId && p.candidateName !== trimmed) {
+      p.candidateName = trimmed;
+      mpChanged = true;
+    }
+  });
+  if (mpChanged) {
+    saveManualPlacements();
+    if (typeof renderJobOrders === 'function') {
+      try { renderJobOrders([...placements, ...manualPlacements]); } catch(_) {}
+    }
+  }
+  showToast('Renamed to ' + trimmed, 'green');
+}
 // Merge override-over-base for the five editable fields. Empty-string overrides
 // are persisted deliberately (the coordinator cleared a wrong value). Derived
 // experienceFlag is recomputed from the overridden pastJobs.
@@ -521,6 +552,7 @@ function _applyCandOverride(c) {
   if (!ov) return c;
   const out = Object.assign({}, c);
   const has = function(k) { return ov[k] !== undefined && ov[k] !== null; };
+  if (has('name'))        out.name        = ov.name;
   if (has('skills'))      out.skills      = ov.skills;
   if (has('pastJobs'))    { out.pastJobs  = ov.pastJobs; out.experienceFlag = (ov.pastJobs.length > 10 ? 'yes' : 'no'); }
   if (has('expectedPay')) out.expectedPay = ov.expectedPay;
@@ -4531,7 +4563,7 @@ function _openCandModalInner(candId) {
     <div class="cand-modal-hero">
       <div class="cand-modal-avatar">${genderEmoji(c.gender)}</div>
       <div style="flex:1">
-        <div class="cand-modal-name">${escHtml(c.name)}</div>
+        <div class="cand-modal-name">${escHtml(c.name)} <button onclick="renameCandidate('${escAttr(c.id)}')" title="Rename" style="background:transparent;border:none;cursor:pointer;font-size:12px;padding:2px 6px;color:var(--text3);font-family:var(--sans)">✎</button></div>
         <div class="cand-modal-id">${escHtml(c.id)} · Registered ${escHtml(fmtDate(c.timestamp?.split(' ')[0]||''))}</div>
         <div class="cand-badges">${verifiedBadge}${blBadge}${getAutoTags(c.id).map(t=>`<span class="cand-badge" style="background:${t.color}18;color:${t.color};border-color:${t.color}40">${t.label}</span>`).join('')}</div>
       </div>
