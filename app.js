@@ -6354,6 +6354,29 @@ function saidNotInterested(candId, extrasCache) {
   });
 }
 
+// Single canonical "is this candidate still callable?" predicate. Composed
+// from the existing per-state helpers plus an explicit Stage-rule check for
+// the two exit stages no helper covers ('Rejected by Employer',
+// 'Dropped / Unavailable'). Used by the call-queue render, the backfill
+// re-add, the Needs-Call list, and addToCallQueue itself so all four
+// surfaces agree on who is in play.
+function isInPlayForCalls(candId, extrasCache) {
+  if (!candId) return false;
+  if (blacklist[candId]) return false;
+  if (isCandidateHired(candId, extrasCache)) return false;
+  if (saidNotInterested(candId, extrasCache)) return false;
+  if (isCandInactive(candId, extrasCache)) return false;
+  const allP = [...placements, ...manualPlacements];
+  for (var i = 0; i < allP.length; i++) {
+    const p = allP[i];
+    if (p.candidateId !== candId) continue;
+    const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
+    const stage = getEffectiveStage(ex, p);
+    if (stage === 'Rejected by Employer' || stage === 'Dropped / Unavailable') return false;
+  }
+  return true;
+}
+
 // Pick a placement to launch a call against. For WARM (broadcast-only) the
 // most-recently-dated broadcast placement matches _walkerLogDmSent's heuristic.
 // Only considers placements that HAVE a placementId — submitCallDecision
@@ -8731,6 +8754,9 @@ function _migrateCallQueue() {
 }
 
 function addToCallQueue(candId, joId, placementId) {
+  // Single canonical gate — keeps the ungated Response='Interested' caller
+  // (app.js ~2865) from inserting an excluded candidate.
+  if (!isInPlayForCalls(candId)) return;
   var key = _qKey(candId, joId);
   if (callQueue[key]) return; // already queued for this job order
   callQueue[key] = { candId: candId, joId: joId, placementId: placementId, enteredQueueAt: new Date().toISOString(), status: 'pending' };
@@ -8792,11 +8818,8 @@ function _backfillCallQueue() {
   let _added = 0;
   candidates.forEach(function(c) {
     if (!c || !c.id) return;
-    if (blacklist[c.id])           return;
+    if (!isInPlayForCalls(c.id))   return; // blacklist + hired + saidNotInterested + inactive + exit-stages
     if (_candHasQueueEntry(c.id))  return; // already queued (any job order)
-    if (isCandidateHired(c.id))    return;
-    if (saidNotInterested(c.id))   return;
-    if (isCandInactive(c.id))      return;
     if (hasBeenContacted(c.id))    return; // already called, no first-call needed
     if (!saidInterested(c.id))     return;
 
@@ -9140,10 +9163,7 @@ function _getNeedsCallCandidates() {
     extrasCache.set(_pid, _ex);
   }
   return candidates.filter(function(c) {
-    if (blacklist[c.id]) return false;
-    if (isCandidateHired(c.id, extrasCache)) return false;
-    if (saidNotInterested(c.id, extrasCache)) return false;
-    if (isCandInactive(c.id, extrasCache)) return false;
+    if (!isInPlayForCalls(c.id, extrasCache)) return false;
     if (saidInterested(c.id, extrasCache)) return false;
     if (hasBeenContacted(c.id, extrasCache)) return false;
     return broadcastCount(c.id) >= 1;
@@ -9177,9 +9197,8 @@ function buildCallQueueHTML() {
     // sync races, and other paths into callQueue).
     .filter(function(e) {
       if (!e.c) return false;
-      if (blacklist[e.candId]) return false;
-      if (typeof isCandidateHired === 'function' && isCandidateHired(e.candId)) return false;
       if (candidateRatings[e.candId] && candidateRatings[e.candId].removedFromPool) return false;
+      if (!isInPlayForCalls(e.candId)) return false;
       return true;
     })
     .sort(function(a, b) { return new Date(a.q.enteredQueueAt) - new Date(b.q.enteredQueueAt); }); // oldest first
