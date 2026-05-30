@@ -2374,6 +2374,25 @@ function _applyStageSideEffects(pid, newStage) {
   if (!mp) return;
   if (newStage === 'Hired ✓') {
     computeAndSaveCommission(pid, mp.jobOrderId);
+    // Auto-fulfill: transition the JO once this hire fills the last slot,
+    // independent of which tab is rendered. Uses the Stage-based count rule
+    // so it agrees with the tab badge (app.js:1356), updateStats, and the
+    // replacement-rate denom. Guard on jo.status === 'Active' skips already-
+    // Fulfilled / On Hold / Cancelled and prevents duplicate event+toast.
+    const jo = jobOrders.find(function(j) { return j.id === mp.jobOrderId; });
+    if (jo && jo.status === 'Active') {
+      const slots = parseInt(jo.slots) || 1;
+      const hiredCount = manualPlacements
+        .filter(function(p) { return p.jobOrderId === mp.jobOrderId; })
+        .filter(function(p) {
+          var ex = {};
+          try { ex = JSON.parse(localStorage.getItem('prow_extra_' + (p.placementId || p.candidateId)) || '{}'); } catch(_e) {}
+          return getEffectiveStage(ex, p) === 'Hired ✓';
+        }).length;
+      if (hiredCount >= slots) {
+        changeJOStatus(mp.jobOrderId, 'Fulfilled');
+      }
+    }
   }
   if (newStage === 'Interview Scheduled') {
     addCandidateToInterviewSession(mp.jobOrderId, pid);
