@@ -2073,6 +2073,7 @@ function createPlacementRow(p, idx, joId) {
   const contactSignalDate = extra.lastDirectContactAt || extra.lastContacted || '';
   const lastContacted = contactSignalDate; // kept for downstream local references
   const interviewDate = extra.interviewDate || '';
+  const docs = extra.docsChecklist || {};
 
   // Stage is canonical. ex.status is still WRITTEN by onStageChanged for the
   // Hired-flow filters that read it; we just don't surface it in the row UI.
@@ -2098,6 +2099,9 @@ function createPlacementRow(p, idx, joId) {
 
   // Show interview date field for interview-related stages
   const showInterview = ['Interview Scheduled','Interview Completed'].includes(savedStage);
+  // Document checklist surfaces only at Pending Requirements — the stage where
+  // the candidate is gathering NBI / Barangay / Police / Valid ID before hire.
+  const showDocs = savedStage === 'Pending Requirements';
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
@@ -2244,6 +2248,25 @@ function createPlacementRow(p, idx, joId) {
         </div>
       </div>
 
+      ${showDocs ? `
+      <div class="prow-fields" style="margin-top:8px">
+        <div class="prow-field full">
+          <div class="prow-field-label" style="color:var(--purple)">Documents</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0;font-size:12px">
+            ${[
+              ['nbi','NBI Clearance'],
+              ['barangay','Barangay Clearance'],
+              ['police','Police Clearance'],
+              ['validId','Valid ID'],
+            ].map(function(d) { return `
+              <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" ${docs[d[0]] ? 'checked' : ''} onchange="toggleDocChecklist('${escAttr(pid)}','${d[0]}',this.checked)">
+                <span>${d[1]}</span>
+              </label>`; }).join('')}
+          </div>
+        </div>
+      </div>` : ''}
+
       <div class="prow-fields" style="margin-top:8px">
         ${showInterview ? `
         <div class="prow-field prow-interview-field">
@@ -2304,6 +2327,17 @@ function saveProwExtra(pid, field, value) {
   extra[field] = value;
   _lsSet(key, extra);
   fbSyncDebounced('prow_extras/' + pid, extra);
+}
+
+function toggleDocChecklist(pid, key, checked) {
+  // Single-field merge: read current docsChecklist map, flip the requested
+  // key, write the whole object back via saveProwExtra. Avoids clobbering
+  // sibling checkboxes the same way saveProwExtra avoids clobbering sibling
+  // top-level fields.
+  let ex = {};
+  try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+  const d = Object.assign({}, ex.docsChecklist || {}, { [key]: !!checked });
+  saveProwExtra(pid, 'docsChecklist', d);
 }
 
 function refreshProwBody(pid) {
