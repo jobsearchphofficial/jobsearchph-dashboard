@@ -7243,6 +7243,8 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
          </div>`;
   const hireDate = hireData.hireDate || '';
   const feeAmount = hireData.feeAmount || '';
+  const jobStartDate = hireData.jobStartDate || '';
+  const docs = ex.docsChecklist || {};
   const c = candidates.find(x => x.id === p.candidateId);
 
   const eraResult = calcERA(p.candidateId);
@@ -7283,6 +7285,10 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
         <input type="date" value="${escAttr(hireDate)}" class="hired-inline-input"
           onchange="saveHireData('${escAttr(pid)}','hireDate',this.value);renderHiredTab()">
       </div>
+      <div class="hired-meta-item"><span class="hm-label">Start Date</span>
+        <input type="date" value="${escAttr(jobStartDate)}" class="hired-inline-input"
+          onchange="saveHireData('${escAttr(pid)}','jobStartDate',this.value)">
+      </div>
       <div class="hired-meta-item"><span class="hm-label">Days to Hire</span>
         <span style="font-weight:700;color:${daysToHire !== null && daysToHire <= 14 ? 'var(--green)' : daysToHire !== null && daysToHire <= 30 ? 'var(--accent)' : 'var(--text2)'}">
           ${daysToHire !== null && daysToHire >= 0 ? daysToHire + ' days' : '—'}
@@ -7317,6 +7323,22 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
       <span>Hire date</span>
       <span style="color:${gStatus.color};font-weight:600">${gStatus.label}</span>
       <span>Day 30</span>
+    </div>
+
+    <div class="hired-meta-item" style="margin-bottom:10px">
+      <span class="hm-label">Documents</span>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0;font-size:12px;margin-top:4px">
+        ${[
+          ['nbi','NBI Clearance'],
+          ['barangay','Barangay Clearance'],
+          ['police','Police Clearance'],
+          ['validId','Valid ID'],
+        ].map(function(d) { return `
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" ${docs[d[0]] ? 'checked' : ''} onchange="toggleDocChecklist('${escAttr(pid)}','${d[0]}',this.checked)">
+            <span>${d[1]}</span>
+          </label>`; }).join('')}
+      </div>
     </div>
 
     <div class="hired-meta-item" style="margin-bottom:10px">
