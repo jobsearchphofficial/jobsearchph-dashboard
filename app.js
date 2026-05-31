@@ -2134,6 +2134,11 @@ function createPlacementRow(p, idx, joId) {
   // Document checklist surfaces only at Pending Requirements — the stage where
   // the candidate is gathering NBI / Barangay / Police / Valid ID before hire.
   const showDocs = savedStage === 'Pending Requirements';
+  // Employer Response surfaces once the candidate has been seen by the employer
+  // (For Employer Review onward, plus the employer-rejected exit) so the
+  // feedback record follows the candidate through Interview / Pending / Hired.
+  const showEmpResp = (STAGE_RANK[savedStage] || 0) >= STAGE_RANK['For Employer Review']
+                    || savedStage === 'Rejected by Employer';
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
@@ -2296,6 +2301,17 @@ function createPlacementRow(p, idx, joId) {
                 <span>${d[1]}</span>
               </label>`; }).join('')}
           </div>
+        </div>
+      </div>` : ''}
+
+      ${showEmpResp ? `
+      <div class="prow-fields" style="margin-top:8px">
+        <div class="prow-field full">
+          <div class="prow-field-label" style="color:var(--purple)">Employer Response</div>
+          <textarea
+            placeholder="What the employer said about this candidate (interview interest, rejection reason, hire decision)…"
+            style="min-height:60px;width:100%;font-family:var(--sans);font-size:12px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);resize:vertical"
+            onchange="saveProwExtra('${escAttr(pid)}','employerResponse',this.value)">${escAttr(extra.employerResponse || '')}</textarea>
         </div>
       </div>` : ''}
 
@@ -7339,6 +7355,15 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
             <span>${d[1]}</span>
           </label>`; }).join('')}
       </div>
+    </div>
+
+    <div class="hired-meta-item" style="margin-bottom:10px">
+      <span class="hm-label">Employer Response</span>
+      <textarea
+        placeholder="What the employer said about this candidate…"
+        class="hired-inline-input"
+        style="min-height:60px;resize:vertical"
+        onchange="saveProwExtra('${escAttr(pid)}','employerResponse',this.value)">${escAttr(ex.employerResponse || '')}</textarea>
     </div>
 
     <div class="hired-meta-item" style="margin-bottom:10px">
