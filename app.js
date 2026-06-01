@@ -7375,7 +7375,7 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
     ${(() => {
       const issues = hireData.issues || [];
       if (!issues.length) {
-        return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">Report Issue</button><button class="btn btn-secondary btn-sm" style="flex:1" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">Profile</button></div>`;
+        return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" style="flex:1" onclick="openIssueModal('${escAttr(pid)}')">Report Issue</button><button class="btn btn-red btn-sm" style="flex:1" onclick="markBackedOutPreStart('${escAttr(pid)}','${escAttr(p.jobOrderId)}','${escAttr(p.candidateName)}')">Backed Out / No-Show</button><button class="btn btn-secondary btn-sm" style="flex:1" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">Profile</button></div>`;
       }
       const latest = issues[issues.length - 1];
       const urgIcon  = '';
@@ -7407,6 +7407,7 @@ function buildHiredCard(p, ex, jo, hireData, pid, allPlacements) {
               ${!isReopened
                 ? `<button class="btn btn-warning btn-sm" style="flex:1" onclick="reopenJOForReplacement('${escAttr(p.jobOrderId)}','${escAttr(pid)}','${escAttr(p.candidateName)}','${escAttr(latest.type)}')">Reopen for Replacement</button>`
                 : `<span style="font-size:11px;font-weight:700;color:var(--green);padding:6px 10px;background:var(--green-dim);border-radius:8px;border:1px solid rgba(5,150,105,.3)">✓ JO Reopened</span>`}
+              <button class="btn btn-red btn-sm" style="flex:1" onclick="markBackedOutPreStart('${escAttr(pid)}','${escAttr(p.jobOrderId)}','${escAttr(p.candidateName)}')">Backed Out / No-Show</button>
               <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')">Profile</button>
             </div>
           </div>
@@ -9057,6 +9058,60 @@ function reopenJOForReplacement(joId, pid, candName, issueType) {
   renderHiredTab();
   renderJobOrders([...placements, ...manualPlacements]);
   showToast(joId + ' reopened for replacement — check Job Orders tab', 'orange');
+}
+
+// Post-hire, pre-start abandonment. DISTINCT from reopenJOForReplacement above:
+// that flow keeps the candidate counted as a placement (30-day replacement
+// guarantee); this one REMOVES the placement entirely — she was hired, then
+// backed out before her start date, so per policy: not a placement, no fee, JO
+// reopens. The issues / issueReported trail is left intact so the record still
+// reads "was hired, then backed out" rather than a pre-hire rejection.
+function markBackedOutPreStart(pid, joId, candName) {
+  if (!confirm('Mark ' + candName + ' as backed out before starting? This removes the placement, reopens the job order, and clears the fee. This cannot be easily undone.')) return;
+
+  // (1) Un-count + drop off the Hired tab. Mirror the canonical onStageChanged
+  // write (app.js:2539-2553): write dispositionStage AND the derived legacy
+  // status together, so getEffectiveStage (placement count, app.js:1221) and the
+  // Hired-tab status filter (app.js:7046) both stop seeing her as Hired.
+  const EXIT_STAGE = 'Dropped / Unavailable';
+  saveProwExtra(pid, 'dispositionStage', EXIT_STAGE);
+  const derived = STAGE_TO_STATUS[EXIT_STAGE];
+  if (derived !== undefined) {
+    const statusSel = document.getElementById('status-sel-' + pid);
+    if (statusSel) statusSel.value = derived;
+    const mp = manualPlacements.find(function(p) { return p.placementId === pid; });
+    if (mp && mp.status !== derived) {
+      mp.status = derived;
+      saveManualPlacements();
+    }
+    saveProwExtra(pid, 'status', derived);
+  }
+
+  // (2) No fee. Strip the stale commission record written at hire time
+  // (app.js:272) plus any fee fields, so Commission analytics (app.js:10350) and
+  // My Earnings (app.js:10498) — which read stored hire_data regardless of stage
+  // — stop counting her. This path never enters the 'Hired ✓' side-effect branch
+  // (app.js:2458), so no new commission is computed. Keep the issues trail; add a
+  // backedOut marker for history.
+  let hireData = {};
+  try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
+  delete hireData.commission;
+  delete hireData.feeStatus;
+  delete hireData.feePaidAmount;
+  delete hireData.feePaidDate;
+  hireData.backedOut = true;
+  _lsSet('hire_data_' + pid, hireData);
+  fbSyncDebounced('hire_data/' + pid, hireData);
+
+  // (3) Reopen the JO. Order-safe: auto-fulfill only fires on a transition INTO
+  // 'Hired ✓' (app.js:2466), and she is no longer Hired ✓, so it will not re-fire.
+  changeJOStatus(joId, 'Active');
+
+  // (4) Refresh every surface that counted her. changeJOStatus already re-rendered
+  // Job Orders; refresh the stats and the Hired tab so the placement drops off.
+  updateStats();
+  renderHiredTab();
+  showToast(candName + ' marked backed out — placement removed, ' + joId + ' reopened', 'orange');
 }
 
 function setUrgency(val) {
