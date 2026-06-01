@@ -319,6 +319,8 @@ let _hiddenDuplicates = [];   // candidate IDs skipped as duplicates
 let _hiddenUnderage   = [];   // candidate IDs skipped as underage
 let _dupPairs         = [];   // [{hiddenCand, keptId, matchType}] for cleanup modal
 let _underageCands    = [];   // full candidate objects for cleanup modal
+let _dataQualityWarnings = []; // parse-time integrity warnings (column shift, no-contact, unknown JO status)
+let _idCollisions = [];        // [{id, people:[names]}] — same candidate ID shared by different people (C455-type)
 let candidateNotes = {};
 let joStatusOverrides = {};   // { joId: 'Active'|'On Hold'|'Cancelled'|'Fulfilled' }
 let candidateRatings = {};    // { candId: { rating, docs, notes } }
@@ -609,6 +611,32 @@ async function fetchCSV(url) {
   return parseCSV(await resp.text());
 }
 
+// GATE 10: the candidate parser reads every field by fixed column index
+// (r[0]..r[17]). A column insert / reorder / delete in the Google Sheet silently
+// maps every candidate's data to the wrong field — the root of the recurring
+// ID/field corruption. repairShiftedPlacements() handles ROW deletions but not
+// COLUMN shifts. This validates a handful of anchor headers against their
+// expected positions and records a loud warning if 2+ are off (2+ avoids false
+// positives from a single reworded header). Tolerant matching — only flags a
+// genuine shift, not cosmetic header wording changes.
+function _checkCandidateColumns(rows, dataStart, warnings) {
+  if (!rows || dataStart < 1) return;            // no header row present → nothing to check
+  const hdr = (rows[dataStart - 1] || []).map(function(h) { return (h || '').toString().trim().toLowerCase(); });
+  if (!hdr.length) return;
+  const anchors = [
+    { idx: 4, label: 'Age (col E)',      test: function(h) { return /\bage\b/.test(h); } },
+    { idx: 5, label: 'Contact (col F)',  test: function(h) { return /contact|phone|mobile|number|\bcp\b/.test(h); } },
+    { idx: 6, label: 'Email (col G)',    test: function(h) { return /e-?mail/.test(h); } },
+    { idx: 9, label: 'Location (col J)', test: function(h) { return /location|address|city|barangay/.test(h); } },
+  ];
+  const bad = anchors.filter(function(a) { return !(hdr[a.idx] && a.test(hdr[a.idx])); });
+  if (bad.length >= 2) {
+    const msg = 'Sheet columns may have shifted — candidate fields could be misaligned. Expected: ' + bad.map(function(b){ return b.label; }).join(', ') + '. Stop and check the Job Seekers sheet header row before trusting any data.';
+    console.error('%c⚠ COLUMN INTEGRITY', 'color:#dc2626;font-weight:700;font-size:13px', msg, '\nHeader row seen:', hdr);
+    if (warnings) warnings.push(msg);
+  }
+}
+
 // ═══════════════════════════════════════════════
 // DATA LOAD
 // ═══════════════════════════════════════════════
@@ -879,6 +907,7 @@ async function loadAll(opts) {
   // isAutoVerified when status is anything else, so consent text in this slot
   // is functionally harmless. The "Status" column the old form had no longer
   // exists in the sheet.
+  _dataQualityWarnings = []; // reset per load; populated by the candidate + JO parse below
   if (results[0].status === 'fulfilled') {
     const rows = results[0].value;
     // Find the first row where col A looks like a candidate ID (e.g. C001, C002...)
@@ -886,6 +915,7 @@ async function loadAll(opts) {
     for (let i = 0; i < rows.length; i++) {
       if (rows[i][0] && /^C\d+$/i.test(rows[i][0].trim())) { dataStart = i; break; }
     }
+    _checkCandidateColumns(rows, dataStart, _dataQualityWarnings); // GATE 10: detect column shifts before mapping fields
     // Location normalization map
     const normLoc = loc => {
       if (!loc) return '';
@@ -1068,10 +1098,42 @@ async function loadAll(opts) {
     // case where rows were deleted from the source sheet and IDs shifted.
     try { repairShiftedPlacements(); } catch (e) { console.warn('repairShiftedPlacements failed:', e); }
 
+    // GATE 11: candidates with neither phone nor email can't be reliably
+    // contacted, yet they pass dedup (a blank field is never a duplicate) and
+    // enter the pool as Unverified. The broadcast walker then queues them against
+    // a possibly-wrong Facebook name with no fallback contact — feeding the
+    // "people think we're a scam / we message strangers" problem. Flag them.
+    const _noContact = candidates.filter(function(c) { return !(c.phone || '').trim() && !(c.email || '').trim(); });
+    if (_noContact.length) {
+      _dataQualityWarnings.push(_noContact.length + ' candidate(s) have no phone and no email — they cannot be reliably contacted (' + _noContact.slice(0, 10).map(function(c){ return c.id; }).join(', ') + (_noContact.length > 10 ? ', …' : '') + ').');
+    }
+
+    // GATE 14 / B3: duplicate candidate-ID collision (C455-type). The column-A
+    // formula can renumber rows after a deletion and assign the same ID to two
+    // distinct people. Every candidate-keyed store (notes, call logs, hire data,
+    // ratings) then merges them into one record. Detect IDs held by 2+ people
+    // with differing identity and surface as a visible banner — not console-only.
+    const _idGroups = {};
+    candidates.forEach(function(c) { if (!c.id) return; (_idGroups[c.id] = _idGroups[c.id] || []).push(c); });
+    _idCollisions = Object.keys(_idGroups).filter(function(id) {
+      const g = _idGroups[id];
+      if (g.length < 2) return false;
+      const names  = new Set(g.map(function(c){ return (c.name  || '').trim().toLowerCase(); }).filter(Boolean));
+      const phones = new Set(g.map(function(c){ return (c.phone || '').replace(/\D/g, ''); }).filter(Boolean));
+      return names.size > 1 || phones.size > 1; // distinct people, not a benign exact dup
+    }).map(function(id) {
+      return { id: id, people: _idGroups[id].map(function(c){ return c.name || c.facebook || '(no name)'; }) };
+    });
+    if (_idCollisions.length) {
+      console.error('%c⚠ ID COLLISION', 'color:#dc2626;font-weight:700', _idCollisions);
+      _dataQualityWarnings.push(_idCollisions.length + ' duplicate candidate-ID collision(s) — same ID shared by different people: ' + _idCollisions.map(function(c){ return c.id + ' (' + c.people.join(' & ') + ')'; }).join('; ') + '. Fix in the Google Sheet before trusting these rows.');
+    }
+
     // ── Console report ──
     console.group('%c🔍 Data Quality Filters', 'color:#1755ED;font-weight:700;font-size:13px');
     console.log('🔁 Duplicates hidden:', _hiddenDuplicates.length, _hiddenDuplicates.length ? _hiddenDuplicates : '(none)');
     console.log('🔞 Underage hidden:', _hiddenUnderage.length, _hiddenUnderage.length ? _hiddenUnderage : '(none)');
+    console.log('📵 No contact info (blank phone AND email):', _noContact.length, _noContact.length ? _noContact.map(function(c){ return c.id; }) : '(none)');
     console.groupEnd();
 
     document.getElementById('cand-error').classList.add('hidden');
@@ -1130,11 +1192,21 @@ async function loadAll(opts) {
     // layer still control what shows by default; this just stops the parser
     // from gating the array itself. localStorage override always wins.
     const _CANON_JO_STATUS = { 'active':'Active','on hold':'On Hold','fulfilled':'Fulfilled','cancelled':'Cancelled','canceled':'Cancelled' };
+    const _unknownJOStatuses = [];
     jobOrders = allJobOrders.map(jo => {
       const raw = (jo.sheetStatus || '').trim().toLowerCase();
+      // GATE 12: a typo or new value in Column U silently defaults to Active, so a
+      // closed/paused job re-enters the active list and gets broadcast for a role
+      // that's already filled. Keep the soft-default (so no JO is hidden) but stop
+      // being silent — record the unrecognized value so the typo is visible.
+      if (raw && !_CANON_JO_STATUS[raw]) _unknownJOStatuses.push(jo.id + ': "' + (jo.sheetStatus || '').trim() + '"');
       const canonical = _CANON_JO_STATUS[raw] || 'Active';
       return Object.assign({}, jo, { status: joStatusOverrides[jo.id] || canonical });
     });
+    if (_unknownJOStatuses.length) {
+      console.warn('%c❓ Unrecognized JO statuses (defaulted to Active — may broadcast a filled role):', 'color:#d97706;font-weight:700', _unknownJOStatuses);
+      _dataQualityWarnings.push(_unknownJOStatuses.length + ' job order(s) have an unrecognized status (defaulted to Active — could broadcast a filled role): ' + _unknownJOStatuses.join('; ') + '.');
+    }
     document.getElementById('jo-error').classList.add('hidden');
   } else {
     showError('jo-error', 'Failed to load job orders: ' + results[1].reason?.message);
@@ -1174,6 +1246,14 @@ async function loadAll(opts) {
   }
 
   updateStats();
+  // GATE 10/11/12: surface parse-time integrity warnings. Console always carries
+  // the detail (Data Quality Filters group); a toast nudges attention on real
+  // loads only — this point is past the idle-poll early-return, so quiet 120 s
+  // polls never spam it.
+  if (_dataQualityWarnings.length && typeof showToast === 'function') {
+    showToast('⚠ ' + _dataQualityWarnings.length + ' data-quality warning(s) — open the console (Data Quality Filters) for details.', 'red');
+  }
+  _renderIdCollisionBanner(); // B3: persistent on-screen banner for ID collisions
   migrateJobOrderEvents(); // one-time migration; no-op after first run
   renderJobOrders(allPlacements);
   renderHiredTab();
@@ -1439,8 +1519,8 @@ function buildJOPanel(jo, joPlacements) {
   // Count hires
   const allP = [...placements,...manualPlacements].filter(p=>p.jobOrderId===jo.id);
   const getExtra = pid => { let ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}')}catch(e){}; return ex; };
-  const hiredCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); return (ex.status||p.status||'').trim().toLowerCase()==='hired'; }).length;
-  const activeCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); const s=(ex.status||p.status||'').trim().toLowerCase(); return s!=='dropped'&&s!=='hired'; }).length;
+  const hiredCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); return isPlacementHired(ex,p); }).length;
+  const activeCount = allP.filter(p=>{ const ex=getExtra(p.placementId||p.candidateId); const st=getEffectiveStage(ex,p); return !!st && st!=='Hired \u2713' && st!=='Dropped / Unavailable' && st!=='Rejected by Employer' && st!=='Rejected by Candidate'; }).length;
   const slots = parseInt(jo.slots)||1;
   const isFulfilled = hiredCount >= slots;
   const hiringPct = Math.min(100, Math.round(hiredCount/slots*100));
@@ -1846,6 +1926,18 @@ function getEffectiveStage(ex, p) {
   if (p && p.source === 'broadcast') return 'Broadcasted';
   return '';
 }
+
+// ── CANONICAL "is this placement row hired?" — single source of truth ──
+// Routes through getEffectiveStage so the detailed Stage and the legacy Status
+// can never disagree. Every hired check (stats bar, JO panels, briefing, call
+// eligibility, analytics, Hired tab, matcher) must call this rather than reading
+// (ex.status || p.status) === 'hired' directly. This collapses the old
+// status/stage "split-brain" where dispositionStage='Hired ✓' but status≠'Hired'
+// would count as a placement in stats yet still be re-broadcast and re-called.
+function isPlacementHired(ex, p) {
+  return getEffectiveStage(ex || {}, p) === 'Hired \u2713';
+}
+
 function getStatusDotClass(status, response) {
   if (response === 'Not Interested') return 'dot-notint';
   const m = {
@@ -2087,6 +2179,100 @@ function _removePlacement(idx) {
   renderJobOrders([...placements, ...manualPlacements]);
 }
 
+// ─── DAILY-LOOP HELPERS (A1/A2/A3/A6, C2/C3, D2) ───────────────────────────
+// One source of truth for "what's the next thing to do with this candidate".
+// Drives the collapsed-row next-action label (A1), the one-tap advance button
+// (A2), and the stage-aware Copy Message template (A3).
+function getNextActionMeta(stage) {
+  switch (stage) {
+    case 'Broadcasted':           return { label: 'Call to verify interest',     next: 'Confirmed Interested',  nextLabel: 'Interested',    kind: 'offer'    };
+    case 'Confirmed Interested':  return { label: 'Call to verify',              next: 'Called / Verified',     nextLabel: 'Verified',      kind: 'verify'   };
+    case 'Called / Verified':     return { label: 'Endorse to employer',        next: 'For Employer Review',   nextLabel: 'Endorse',       kind: 'endorse'  };
+    case 'For Employer Review':   return { label: 'Awaiting employer decision', next: 'Interview Scheduled',   nextLabel: 'Set interview', kind: 'interview'};
+    case 'Interview Scheduled':   return { label: 'Record interview outcome',   next: 'Pending Requirements',  nextLabel: 'Passed',        kind: 'interview'};
+    case 'Pending Requirements':  return { label: 'Collect documents → hire',   next: 'Hired \u2713',          nextLabel: 'Mark hired',    kind: 'reqs'     };
+    case 'Hired \u2713':          return { label: 'Placed — collect fee',       next: '',                      nextLabel: '',              kind: ''         };
+    default:                      return { label: '', next: '', nextLabel: '', kind: '' };
+  }
+}
+
+// Stage-aware candidate-facing message (A3). Early stages reuse the broadcast
+// offer; later stages get concise, stage-appropriate templates. Kept short on
+// purpose — long "wall of text" messages tanked broadcast conversion.
+function buildStageMessage(stage, jo, c) {
+  const fullName = ((c && (c.name || c.facebook)) || '').trim();
+  const first = fullName.split(/\s+/)[0] || 'po';
+  const pos   = (jo && jo.position) || 'trabaho';
+  switch (getNextActionMeta(stage).kind) {
+    case 'offer':
+    case 'verify':
+      return buildShortBroadcastMessage(jo || {}, c || {});
+    case 'endorse':
+    case 'interview':
+      return 'Hi ' + first + '! Good news — interested ang employer para sa ' + pos + '. May schedule tayo for interview. Kelan ka available? Reply lang po dito. — Job Search PH';
+    case 'reqs':
+      return 'Hi ' + first + '! Para ma-finalize ang ' + pos + ', ihanda na po natin: NBI/Police clearance, valid ID, at 2x2 photo. Pakisend kapag ready. — Job Search PH';
+    default:
+      return 'Hi ' + first + '! Quick follow-up lang from Job Search PH regarding sa ' + pos + '. Salamat po!';
+  }
+}
+
+// Normalize a PH number to international digits (no +) for wa.me / tel: links.
+function _normPhoneIntl(phone) {
+  let d = (phone || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.slice(0, 2) === '63') return d;
+  if (d[0] === '0') return '63' + d.slice(1);
+  if (d.length === 10 && d[0] === '9') return '63' + d;
+  return d;
+}
+function _waLink(phone) {
+  const d = _normPhoneIntl(phone);
+  return d.length >= 11 ? 'https://wa.me/' + d : '';
+}
+
+// Days the candidate has sat in the current stage (A6). Uses the new
+// stageEnteredAt stamp written by onStageChanged; falls back to the best
+// available date for rows that predate the stamp.
+function _prowDaysIn(extra, p) {
+  const d = (extra && (extra.stageEnteredAt || extra.lastDirectContactAt || extra.lastContacted)) || (p && p.date) || '';
+  if (!d) return 0;
+  const n = daysDiff(d);
+  return (typeof n === 'number' && n >= 0) ? n : 0;
+}
+
+// One-tap advance to the next pipeline stage (A2). Reuses onStageChanged so the
+// call-gate / duplicate-lock guards and all side effects still fire, then
+// re-renders so the row's label / aging / quickbar reflect the new stage.
+function prowAdvanceStage(pid) {
+  let ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+  const p = [...placements, ...manualPlacements].find(function(x) { return (x.placementId || x.candidateId) === pid; });
+  const cur = getEffectiveStage(ex, p || {});
+  const meta = getNextActionMeta(cur);
+  if (!meta.next) { showToast('Already at the final stage.', 'gold'); return; }
+  onStageChanged(pid, meta.next);
+  renderJobOrders([...placements, ...manualPlacements]);
+}
+
+// Copy the stage-appropriate message (A3) and stamp the row with the send time
+// (C3) so the "messaged Xd ago" marker appears without expanding.
+function prowCopyStageMsg(pid, btnId) {
+  const p = [...placements, ...manualPlacements].find(function(x) { return (x.placementId || x.candidateId) === pid; });
+  if (!p) return;
+  let ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
+  const jo = jobOrders.find(function(j) { return j.id === p.jobOrderId; });
+  const c  = candidates.find(function(x) { return x.id === p.candidateId; });
+  const text = buildStageMessage(getEffectiveStage(ex, p), jo, c);
+  const stamp = function() {
+    saveProwExtra(pid, 'lastMsgCopiedAt', new Date().toISOString());
+    const btn = document.getElementById(btnId);
+    if (btn) { const o = btn.textContent; btn.textContent = 'Copied!'; btn.style.color = 'var(--green)'; setTimeout(function(){ btn.textContent = o; btn.style.color=''; }, 1800); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(stamp).catch(function(){ fallbackCopy(text); stamp(); });
+  } else { fallbackCopy(text); stamp(); }
+}
+
 function createPlacementRow(p, idx, joId) {
   const pid = p.placementId || `${joId}_${p.candidateId}_${idx}`;
   const isReplacement = p.isReplacement === true;
@@ -2139,6 +2325,22 @@ function createPlacementRow(p, idx, joId) {
   // feedback record follows the candidate through Interview / Pending / Hired.
   const showEmpResp = (STAGE_RANK[savedStage] || 0) >= STAGE_RANK['For Employer Review']
                     || savedStage === 'Rejected by Employer';
+
+  // ── Daily-loop derived values (A1/A2/A3/A6, B1, C2/C3, D2) ──
+  const _cand = candidates.find(function(x){ return x.id === p.candidateId; }) || {};
+  const _noContactInfo = !((_cand.phone || '').trim()) && !((_cand.facebook || '').trim()) && !((_cand.email || '').trim());
+  const _nextMeta = getNextActionMeta(savedStage);
+  const _daysInStage = _prowDaysIn(extra, p);
+  const _waHref = _waLink(_cand.phone);
+  const _telDigits = _normPhoneIntl(_cand.phone);
+  const _telHref = _telDigits ? ('tel:+' + _telDigits) : '';
+  // D2: 24h first-contact SLA — only for not-yet-contacted candidates in the early funnel.
+  const _slaActive = !extra.lastDirectContactAt && !isInactive && (STAGE_RANK[savedStage] || 0) <= STAGE_RANK['Confirmed Interested'];
+  const _slaEntered = extra.stageEnteredAt || extra.lastContacted || p.date || '';
+  let _slaHours = -1;
+  if (_slaActive && _slaEntered) { const _sd = parseDateFlex(_slaEntered); if (_sd && !isNaN(_sd)) _slaHours = Math.floor((Date.now() - _sd.getTime()) / 3600000); }
+  const _msgCopiedDays = extra.lastMsgCopiedAt ? daysDiff(extra.lastMsgCopiedAt) : -1;
+  const _qid = escAttr(pid);
 
   const row = document.createElement('div');
   row.className = `prow${isInactive ? ' prow-inactive' : ''}`;
@@ -2225,8 +2427,11 @@ function createPlacementRow(p, idx, joId) {
           <button class="prow-profile-btn" onclick="event.stopPropagation();openCandModalByName('${escAttr(p.candidateName)}','${escAttr(p.candidateId)}')" title="View profile">Profile</button>
         </div>
         <div class="prow-id">${escHtml(p.candidateId)}${fmtLastContact ? ' · ' + escHtml(fmtLastContact) : ''}</div>
+        ${(_nextMeta.label && !isInactive) ? `<div style="font-size:10px;color:var(--accent);font-weight:600;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap">→ ${escHtml(_nextMeta.label)}${_daysInStage > 0 ? ` <span style="color:${_daysInStage>=5?'var(--red)':_daysInStage>=3?'var(--gold2)':'var(--text3)'};font-weight:700">${_daysInStage}d in ${escHtml(savedStage)}</span>` : ''}</div>` : ''}
       </div>
       <div class="prow-badges">
+        ${_noContactInfo ? '<span style="font-size:9px;font-weight:800;background:rgba(217,119,6,.14);color:var(--gold2);border:1px solid rgba(217,119,6,.4);border-radius:6px;padding:1px 6px;text-transform:uppercase;letter-spacing:.3px" title="No phone, Facebook, or email on file">no contact</span>' : ''}
+        ${_slaHours >= 0 ? `<span style="font-size:9px;font-weight:800;border-radius:6px;padding:1px 6px;${_slaHours>=24?'background:rgba(220,38,38,.14);color:var(--red);border:1px solid rgba(220,38,38,.4)':'background:rgba(22,163,74,.12);color:var(--green);border:1px solid rgba(22,163,74,.35)'}" title="Hours since entered — 24h first-contact SLA">SLA ${_slaHours}h</span>` : ''}
         ${isBroadcastOnly ? '<span style="font-size:9px;font-weight:800;background:rgba(220,38,38,.12);color:var(--red);border:1px solid rgba(220,38,38,.4);border-radius:6px;padding:1px 6px;text-transform:uppercase;letter-spacing:.4px">broadcast only</span>' : ''}
         ${staleDays >= 14 ? `<span class="prow-stale-badge">${staleDays}d no reply</span>` : ''}
         ${contactVia ? `<span class="prow-via-badge">${escHtml(contactVia)}</span>` : ''}
@@ -2236,6 +2441,14 @@ function createPlacementRow(p, idx, joId) {
         <span class="prow-chevron">▾</span>
       </div>
     </div>
+    ${!isInactive ? `
+    <div class="prow-quickbar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 12px;border-top:1px solid var(--border);background:var(--card2)">
+      ${_nextMeta.next ? `<button onclick="event.stopPropagation();prowAdvanceStage('${_qid}')" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer" title="Advance to ${escAttr(_nextMeta.next)}">→ ${escHtml(_nextMeta.nextLabel)}</button>` : ''}
+      <button id="qmsg-${_qid}" onclick="event.stopPropagation();prowCopyStageMsg('${_qid}','qmsg-${_qid}')" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--card3);color:var(--text);cursor:pointer" title="Copy a message tailored to this candidate's current stage">📋 Msg</button>
+      ${_waHref ? `<a href="${_waHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid rgba(22,163,74,.4);background:rgba(22,163,74,.1);color:var(--green);text-decoration:none" title="Open WhatsApp chat">💬 WhatsApp</a>` : ''}
+      ${_telHref ? `<a href="${_telHref}" onclick="event.stopPropagation()" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--card3);color:var(--text);text-decoration:none" title="Call ${escAttr(_cand.phone || '')}">📞 Call</a>` : ''}
+      ${_msgCopiedDays >= 0 ? `<span style="font-size:10px;color:var(--text3);margin-left:auto" title="Last stage message copied">messaged ${_msgCopiedDays === 0 ? 'today' : _msgCopiedDays + 'd ago'}</span>` : ''}
+    </div>` : ''}
     <div class="prow-body">
       <div class="prow-fields">
         <div class="prow-field" id="resp-field-${escAttr(pid)}"${showResponse ? '' : ' style="display:none"'}>
@@ -2537,6 +2750,7 @@ function onStageChanged(pid, newStage) {
   }
 
   saveProwExtra(pid, 'dispositionStage', newStage);
+  saveProwExtra(pid, 'stageEnteredAt', new Date().toISOString().split('T')[0]); // A6: aging badge baseline
 
   // Derive Status from Stage (Pending Requirements derives 'Confirmed' so it
   // stays below the Hired counting threshold).
@@ -2797,6 +3011,30 @@ function showToast(msg, type='gold') {
   setTimeout(() => { if(toast.parentNode) toast.style.opacity='0'; toast.style.transition='opacity .5s'; setTimeout(()=>toast.remove(),500); }, 6000);
 }
 
+// B3: render a persistent, on-screen banner for duplicate candidate-ID
+// collisions. Injected above the candidate list so it can't be missed (the
+// detail also goes to the console / data-quality toast). Self-removing when
+// the collision is resolved in the Sheet and the data reloads.
+function _renderIdCollisionBanner() {
+  const host = document.getElementById('cand-container');
+  if (!host || !host.parentNode) return;
+  const bid = 'id-collision-banner';
+  let el = document.getElementById(bid);
+  if (!_idCollisions || !_idCollisions.length) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = bid;
+    el.style.cssText = 'margin:0 0 12px;padding:12px 16px;border-radius:10px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.45);color:var(--text)';
+    host.parentNode.insertBefore(el, host);
+  }
+  const rows = _idCollisions.map(function(c) {
+    return '<li style="margin:3px 0"><b style="font-family:var(--mono);color:var(--red)">' + escHtml(c.id) + '</b> — shared by ' + c.people.map(function(n){ return escHtml(n); }).join(' &amp; ') + '</li>';
+  }).join('');
+  el.innerHTML = '<div style="font-weight:800;color:var(--red);margin-bottom:4px">⚠ Duplicate candidate-ID collision (' + _idCollisions.length + ')</div>' +
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">Two different people share the same ID. Their notes, call logs, hire data, and ratings all merge into one record until this is fixed in the Google Sheet — resolve before trusting these rows.</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:12px">' + rows + '</ul>';
+}
+
 function buildReminderBanner() {
   const banner = document.getElementById('reminder-banner');
   if (!banner) return;
@@ -2818,7 +3056,7 @@ function buildReminderBanner() {
 
     const savedResponse = extra.response || p.response || '';
     const savedStatus   = extra.status   || p.status   || '';
-    if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || savedStatus === 'Hired' || savedResponse === 'Not Interested') return;
+    if (savedStatus === 'Dropped / Unavailable' || savedStatus === 'Dropped' || isPlacementHired(extra, p) || savedResponse === 'Not Interested') return;
 
     // Always-on dashboard. Briefing stale alert needs a real contact signal.
     const lastContact = extra.lastDirectContactAt || extra.lastContacted || '';
@@ -2844,10 +3082,32 @@ function buildReminderBanner() {
     if (daysSince >= 3 && (savedResponse === 'No Response' || savedResponse === '') && savedStatus === 'Broadcasted') {
       items.push({ icon:'alert', type:'stale', name: p.candidateName, detail:'No response for ' + daysSince + 'd — ' + joLabel, badge: daysSince + 'd', badgeClass: daysSince >= 14 ? 'rb-red' : 'rb-orange', pid });
     }
+
+    // ── A5: unified "Today" — surface every in-play candidate that needs an
+    // action this stage, sorted by urgency alongside the interview/stale items. ──
+    const _stage = getEffectiveStage(extra, p);
+    const _enteredStr = extra.stageEnteredAt || extra.lastContacted || p.date || '';
+    const _dIn = _enteredStr ? Math.max(0, daysDiff(_enteredStr)) : 0;
+    const _contacted = !!extra.lastDirectContactAt;
+    if (_stage === 'Confirmed Interested' && !_contacted) {
+      let _hrs = 0; const _ed = parseDateFlex(_enteredStr); if (_ed && !isNaN(_ed)) _hrs = Math.floor((Date.now() - _ed.getTime()) / 3600000);
+      if (_hrs >= 24) items.push({ icon:'alert', type:'sla', name:p.candidateName, detail:'No first contact in ' + _hrs + 'h — ' + joLabel, badge:_hrs + 'h', badgeClass:'rb-red', pid });
+      else items.push({ icon:'alert', type:'needs-call', name:p.candidateName, detail:'Call to verify — ' + joLabel, badge:'Call', badgeClass:'rb-orange', pid });
+    }
+    if (_stage === 'For Employer Review' && _dIn >= 2) {
+      items.push({ icon:'alert', type:'employer-wait', name:p.candidateName, detail:'Awaiting employer ' + _dIn + 'd — ' + joLabel, badge:_dIn + 'd', badgeClass:_dIn >= 5 ? 'rb-red' : 'rb-orange', pid });
+    }
+    if (_stage === 'Interview Scheduled' && interviewDate) {
+      const _iD = parseDateFlex(interviewDate);
+      if (_iD && !isNaN(_iD) && _iD.getTime() < today.getTime()) items.push({ icon:'cal', type:'interview-overdue', name:p.candidateName, detail:'Record interview outcome — ' + joLabel, badge:'Outcome', badgeClass:'rb-red', pid });
+    }
+    if (_stage === 'Pending Requirements' && _dIn >= 2) {
+      items.push({ icon:'alert', type:'reqs', name:p.candidateName, detail:'Collect documents ' + _dIn + 'd — ' + joLabel, badge:_dIn + 'd', badgeClass:_dIn >= 7 ? 'rb-red' : 'rb-orange', pid });
+    }
   });
 
-  // Sort: interview today first, then stale by days
-  const typeOrder = {'interview-today':0,'interview-tmr':1,'stale':3};
+  // Sort by urgency: SLA breach → interviews → calls → employer waits → reqs → stale
+  const typeOrder = {'sla':0,'interview-today':1,'interview-overdue':2,'interview-tmr':3,'needs-call':4,'employer-wait':5,'reqs':6,'stale':7};
   items.sort((a,b) => (typeOrder[a.type]??9) - (typeOrder[b.type]??9));
 
   banner.classList.remove('hidden');
@@ -2866,17 +3126,17 @@ function buildReminderBanner() {
     if (!items.length) {
       banner.innerHTML = `
         <div class="reminder-banner-header">
-          <div class="reminder-banner-title">Daily Reminders</div>
+          <div class="reminder-banner-title">Today — Needs Action</div>
           <div class="reminder-banner-sub">${todayStr}</div>
         </div>
-        <div class="reminder-empty">All clear — no follow-ups or alerts today.</div>`;
+        <div class="reminder-empty">All clear — nothing needs action today.</div>`;
       return;
     }
 
     banner.innerHTML = `
       <div class="reminder-banner-header">
         <div style="display:flex;align-items:center;gap:10px;flex:1">
-          <div class="reminder-banner-title">Daily Reminders</div>
+          <div class="reminder-banner-title">Today — Needs Action</div>
           <div class="reminder-checklist-progress">
             <div class="reminder-progress-bar" style="width:${total?Math.round(doneCount/total*100):0}%"></div>
           </div>
@@ -3011,12 +3271,15 @@ function renderBriefingPanel() {
   var nowDate = new Date();
   var monthStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).getTime();
   var placedThisMonth = 0;
+  var _placedSeen = {};
   allP.forEach(function(p) {
     const pid = p.placementId || p.candidateId;
+    if (_placedSeen[pid]) return;            // dedup: same row can appear in both placements + manualPlacements
+    _placedSeen[pid] = true;
     var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
     var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
-    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
-    var hd = hireData.hireDate || ex.lastContacted || '';
+    if (!isPlacementHired(ex, p)) return;    // canonical stage, not legacy status
+    var hd = hireData.hireDate || '';        // lastContacted is NOT a hire date — removed as a fallback
     if (!hd) return;
     var hMs = parseDateFlex(hd);
     if (hMs && !isNaN(hMs) && hMs.getTime() >= monthStart) placedThisMonth++;
@@ -3030,7 +3293,7 @@ function renderBriefingPanel() {
     const pid = p.placementId || p.candidateId;
     var ex = {}; try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
     var hireData = {}; try { hireData = JSON.parse(localStorage.getItem('hire_data_' + pid) || '{}'); } catch(e) {}
-    if ((ex.status || p.status || '').trim().toLowerCase() !== 'hired') return;
+    if (!isPlacementHired(ex, p)) return;
     var hd = hireData.hireDate;
     if (!hd) return;
     var hdMs = parseDateFlex(hd);
@@ -3090,6 +3353,24 @@ function renderBriefingPanel() {
     awaitingReply++;
   });
 
+  // GATE 7: interviews whose outcome was never recorded. A candidate at
+  // 'Interview Scheduled' has no automatic exit — if the session is never opened
+  // and "Mark Complete" clicked, they sit there forever with no alert. Surface
+  // any interview session that is past its date and still not completed/cancelled
+  // so the leak is visible from the daily briefing.
+  var _nowMid = new Date(); _nowMid.setHours(0,0,0,0);
+  var awaitingOutcomeIds = new Set();
+  jobOrders.forEach(function(jo) {
+    (getInterviewSessions(jo.id) || []).forEach(function(s) {
+      if (!s || s.status === 'completed' || s.status === 'cancelled') return;
+      var sd = parseDateFlex(s.date || '');
+      if (!sd || isNaN(sd)) return;
+      if (sd.getTime() >= _nowMid.getTime()) return; // upcoming interview — not yet due
+      (s.candidateIds || []).forEach(function(pid) { awaitingOutcomeIds.add(pid); });
+    });
+  });
+  var interviewsAwaitingOutcome = awaitingOutcomeIds.size;
+
   var items = [
     { label: 'Open Job Orders', val: openJOs.length, cls: openJOs.length > 0 ? 'briefing-val-accent' : 'briefing-val-green', tab: 'jobs' },
     { label: 'Avg Days to Fill', val: avgFill > 0 ? avgFill + 'd' : '—', cls: avgFill > 7 ? 'briefing-val-red' : avgFill > 4 ? 'briefing-val-gold' : 'briefing-val-green', tab: '' },
@@ -3100,6 +3381,7 @@ function renderBriefingPanel() {
     { label: 'Guarantees Expiring (7d)', val: guaranteesExpiringSoon, cls: guaranteesExpiringSoon > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
     { label: 'Issues Reported', val: issuesReported, cls: issuesReported > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
     { label: 'Fee Pending (>3 days)', val: feePendingOver3d, cls: feePendingOver3d > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'hired' },
+    { label: 'Interviews Awaiting Outcome', val: interviewsAwaitingOutcome, cls: interviewsAwaitingOutcome > 0 ? 'briefing-val-red' : 'briefing-val-green', tab: 'jobs' },
     { label: 'Awaiting Reply', val: awaitingReply, cls: awaitingReply > 0 ? 'briefing-val-gold' : 'briefing-val-green', tab: 'calls' },
   ];
 
@@ -4174,9 +4456,11 @@ async function runMatcher() {
   const strictEligible = baseEligible.filter(c => !allP.some(p => {
     if (p.candidateId !== c.id) return false;
     const ex = getPEx(p);
-    const dStage = ex.dispositionStage || '';
-    const legacyStatus = ex.status || p.status || '';
-    return dStage === 'Dropped / Unavailable' || dStage === 'Hired' || legacyStatus === 'Hired';
+    const eff = getEffectiveStage(ex, p);
+    // Canonical: exclude anyone already hired or dropped. The old check compared
+    // dStage to 'Hired' (a value dispositionStage never holds — it's 'Hired ✓'),
+    // so a stage-hired candidate could leak back into the matcher.
+    return eff === 'Dropped / Unavailable' || eff === 'Hired \u2713';
   }));
 
   const eligible = strictEligible.length > 0 ? strictEligible : baseEligible;
@@ -5089,7 +5373,7 @@ function buildShortBroadcastMessage(jo, c) {
   if (jo.salary)       bits.push('₱' + String(jo.salary).replace(/^[₱$]+/, '') + '/month');
   if (jo.workSchedule) bits.push(jo.workSchedule);
   const offer = bits.length ? bits.join(', ') : 'job opening';
-  return 'Hi ' + firstName + '! May opening kami: ' + offer + '.\n\nInterested ka? Reply YES and isend ko ang complete details.';
+  return 'Hi ' + firstName + '! Job Search PH po (licensed placement agency, Bacolod). May opening kami: ' + offer + '. WALANG placement fee — libre po sa applicant.\n\nInterested ka? Reply YES and isend ko ang complete details.';
 }
 
 function copyJobDetails(joId) {
@@ -6324,7 +6608,7 @@ function confirmAddOverride(joId, company, position) {
   const hiredCount = [...placements,...manualPlacements].filter(p=>{
     if(p.jobOrderId!==joId) return false;
     const ex = (() => { let e={}; try{e=JSON.parse(localStorage.getItem('prow_extra_'+(p.placementId||p.candidateId))||'{}')}catch(err){}; return e; })();
-    return (ex.status||p.status)==='Hired';
+    return isPlacementHired(ex, p);
   }).length;
   const msg = jo?.status === 'Fulfilled'
     ? `This job order is marked Fulfilled (${hiredCount}/${slots} hired). Add another candidate anyway?`
@@ -6452,7 +6736,7 @@ function isCandidateHired(candId, extrasCache) {
   return [...placements, ...manualPlacements].some(p => {
     if (p.candidateId !== candId) return false;
     const ex = getPlacementExtra(p.placementId || p.candidateId, extrasCache);
-    return (ex.status || p.status || '').trim().toLowerCase() === 'hired';
+    return isPlacementHired(ex, p);
   });
 }
 
@@ -7043,8 +7327,7 @@ function renderHiredTab() {
     const pid = p.placementId || p.candidateId;
     let ex = {};
     try { ex = JSON.parse(localStorage.getItem('prow_extra_' + pid) || '{}'); } catch(e) {}
-    const status = (ex.status || p.status || '').trim().toLowerCase();
-    if (status !== 'hired') return;
+    if (!isPlacementHired(ex, p)) return;
 
     const jo = jobOrders.find(j => j.id === p.jobOrderId);
     const hireKey = `hire_data_${pid}`;
@@ -8370,12 +8653,65 @@ function _deferRenderUntilBlur() {
   document.addEventListener('focusout', handler, true);
 }
 
+// ── GATE 13: failed-write retry queue ──────────────────────────────────────
+// A failed Firebase write previously only showed a red toast; the data then
+// lived in localStorage on ONE device and was silently lost cross-device (there
+// was no retry). This queue persists every failed write (last-write-wins per
+// path) and reflushes on a timer, on reconnect, and when the tab regains focus,
+// so a transient connection drop no longer strands a stage change / hire / fee
+// record on a single device.
+const _FB_RETRY_KEY = '_fb_retry_queue';
+let _fbRetryQueue = {};
+try { _fbRetryQueue = JSON.parse(localStorage.getItem(_FB_RETRY_KEY) || '{}'); } catch (e) { _fbRetryQueue = {}; }
+let _fbRetryInFlight = false;
+function _persistFbRetryQueue() { try { localStorage.setItem(_FB_RETRY_KEY, JSON.stringify(_fbRetryQueue)); } catch (e) {} }
+function _enqueueFbRetry(path, data) {
+  _fbRetryQueue[path] = { data: data, queuedAt: Date.now() }; // last-write-wins per path
+  _persistFbRetryQueue();
+}
+function fbRetryPendingCount() { return Object.keys(_fbRetryQueue).length; }
+async function _flushFbRetryQueue() {
+  if (_fbRetryInFlight) return;
+  if (typeof window._fbSdkSet !== 'function') return;   // SDK not ready yet — try again next tick
+  const paths = Object.keys(_fbRetryQueue);
+  if (!paths.length) return;
+  _fbRetryInFlight = true;
+  let _cleared = 0;
+  for (const path of paths) {
+    const item = _fbRetryQueue[path];
+    if (!item) continue;
+    let payload = item.data;
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      payload = Object.assign({}, payload, { _writtenBy: _deviceId, _writtenAt: Date.now() });
+    } else if (Array.isArray(payload)) {
+      try { await window._fbSdkSet(path + '_meta', { _writtenBy: _deviceId, _writtenAt: Date.now() }); } catch (e) {}
+    }
+    let ok = false;
+    try { ok = await window._fbSdkSet(path, payload); } catch (e) { ok = false; }
+    if (ok) { delete _fbRetryQueue[path]; _cleared++; }  // still-failing paths stay queued for the next flush
+  }
+  if (_cleared) { _persistFbRetryQueue(); _lastSyncError = null; }
+  _fbRetryInFlight = false;
+  _refreshSyncStatus();
+  if (_cleared && fbRetryPendingCount() === 0 && typeof showToast === 'function') {
+    showToast('Cloud sync recovered — all pending changes saved.', 'green');
+  }
+}
+setInterval(_flushFbRetryQueue, 30000);
+setTimeout(_flushFbRetryQueue, 5000); // attempt any retries persisted from a previous session shortly after boot
+window.addEventListener('online', _flushFbRetryQueue);
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') _flushFbRetryQueue();
+});
+
 async function fbSync(path, data) {
   window._fbLastWrite = Date.now();
   if (typeof window._fbSdkSet !== 'function') {
-    // SDK not loaded yet — data is safe in localStorage; skip silently.
+    // SDK not loaded yet — data is safe in localStorage and now also queued for
+    // retry so it syncs once the SDK is ready (previously this was a silent skip).
     // The REST fallback was removed because it sent unauthenticated PUT requests.
-    console.warn('[fbSync] SDK not ready, write queued locally for path:', path);
+    console.warn('[fbSync] SDK not ready, write queued for retry:', path);
+    _enqueueFbRetry(path, data);
     return;
   }
   _inFlightWrites++;
@@ -8392,11 +8728,15 @@ async function fbSync(path, data) {
   _inFlightWrites = Math.max(0, _inFlightWrites - 1);
   if (!ok) {
     _lastSyncError = 'Write failed: ' + path;
+    _enqueueFbRetry(path, data); // persist + retry on timer / reconnect / refocus
     _refreshSyncStatus();
-    showToast('Cloud sync failed for ' + path.split('/')[0] + ' — data saved locally only. Check your connection.', 'red');
+    showToast('Cloud sync failed for ' + path.split('/')[0] + ' — saved locally, will retry automatically.', 'red');
     return;
   }
+  // This successful write supersedes any queued retry for the same path.
+  if (_fbRetryQueue[path]) { delete _fbRetryQueue[path]; _persistFbRetryQueue(); }
   _refreshSyncStatus();
+  if (fbRetryPendingCount()) _flushFbRetryQueue(); // connectivity is back — drain the rest
 }
 
 const _fbDebounceTimers = {};
@@ -9258,7 +9598,7 @@ function buildTrendsView() {
     var pid=p.placementId||p.candidateId;
     var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
     var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
-    if((ex.status||p.status||'').toLowerCase()!=='hired') return;
+    if(!isPlacementHired(ex,p)) return;
     var k=groupFn(hd.hireDate||(ex.lastContacted||'')); if(k&&data.placements[k]!==undefined) data.placements[k]++;
     var fee=parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
     if(hd.feeStatus==='Paid'&&k&&data.revenue[k]!==undefined) data.revenue[k]+=fee;
@@ -10004,8 +10344,24 @@ function submitCallDecision(decision) {
     updateCallsBadge();
     showToast('Callback scheduled for ' + scheduledFor.replace('T',' '), 'green');
   } else {
-    // Retry Later — stay in queue, just log the attempt
-    showToast('Attempt logged. Candidate stays in queue.', 'gold');
+    // Retry Later / No Answer / Wrong Number — stay in queue, but cap retries so
+    // a genuinely unreachable candidate doesn't sit in the daily list forever.
+    var _rk = _qKey(candId, joId);
+    var _entry = callQueue[_rk] || { candId: candId, joId: joId, placementId: placementId, status: 'pending', enteredQueueAt: now.toISOString() };
+    _entry.attempts = (_entry.attempts || 0) + 1;
+    _entry.lastAttemptAt = now.toISOString();
+    callQueue[_rk] = _entry;
+    var CALL_RETRY_CAP = 4;
+    if (_entry.attempts >= CALL_RETRY_CAP) {
+      removeFromCallQueue(candId, joId);
+      _markCallQueueDismissed(candId, joId); // keep _backfillCallQueue from re-adding an unreachable candidate
+      var _pidU = placementId || (joId + '_' + candId + '_bc');
+      saveProwExtra(_pidU, 'unreachable', _entry.attempts + ' call attempts, last ' + now.toISOString().split('T')[0]);
+      showToast((c ? c.name : candId) + ' removed after ' + _entry.attempts + ' attempts — marked unreachable. Re-add manually if needed.', 'orange');
+    } else {
+      saveCallQueue();
+      showToast('Attempt ' + _entry.attempts + ' of ' + CALL_RETRY_CAP + ' logged. Candidate stays in queue.', 'gold');
+    }
   }
 
   closeModal('modal-call-assess');
@@ -10256,7 +10612,7 @@ function buildTimingDistribution() {
     var pid = p.placementId||p.candidateId;
     var ex = {}; try { ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}'); } catch(e){}
     var hd = {}; try { hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}'); } catch(e){}
-    if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
+    if (!isPlacementHired(ex,p)) return;
     var hireDate = hd.hireDate; if(!hireDate) return;
     var jo = jobOrders.find(function(j){ return j.id===p.jobOrderId; });
     if (!jo) return;
@@ -10303,7 +10659,7 @@ function buildEmployerTable() {
     var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
     var joEntry = employerMap[key].joList.find(function(j){ return j.id===p.jobOrderId; });
     if (joEntry) joEntry.placements++;
-    if ((ex.status||p.status||'').trim().toLowerCase()==='hired') {
+    if (isPlacementHired(ex,p)) {
       employerMap[key].placements++;
       if (joEntry) joEntry.hired++;
       var fee = parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
@@ -10375,7 +10731,7 @@ function buildRevenueTable() {
     var pid=p.placementId||p.candidateId;
     var ex={}; try{ex=JSON.parse(localStorage.getItem('prow_extra_'+pid)||'{}');}catch(e){}
     var hd={}; try{hd=JSON.parse(localStorage.getItem('hire_data_'+pid)||'{}');}catch(e){}
-    if ((ex.status||p.status||'').trim().toLowerCase()!=='hired') return;
+    if (!isPlacementHired(ex,p)) return;
     var mk=getMonthKey(hd.hireDate); if(!mk||!monthMap[mk]) return;
     monthMap[mk].placed++;
     var fee=parseFloat(((hd.feePaidAmount||hd.feeAmount)||'').replace(/[^0-9.]/g,''))||0;
